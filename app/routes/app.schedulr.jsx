@@ -472,7 +472,7 @@ export default function SchedulrPage() {
   const isLoading = navigation.state === "submitting" || fetcher.state === "submitting";
 
   return (
-    <s-page heading="Schedulr entries">
+    <s-page heading="ShopSchedulr | Entries">
       {(loaderError || fetcher.data?.error) && (
         <s-banner tone="critical" title="Error">
           {loaderError || fetcher.data?.error}
