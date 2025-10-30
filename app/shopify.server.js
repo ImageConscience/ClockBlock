@@ -29,22 +29,30 @@ const shopify = shopifyApp({
         console.log(`[afterAuth] Checking for metaobject definition: ${type}`);
 
         // Check if the definition already exists
-        const checkResponse = await admin.graphql(
-        `#graphql
-        query($type: String!) {
-          metaobjectDefinitionByType(type: $type) {
-            id
-            type
-          }
+        let checkResponse;
+        let checkJson;
+        try {
+          checkResponse = await admin.graphql(
+            `#graphql
+            query($type: String!) {
+              metaobjectDefinitionByType(type: $type) {
+                id
+                type
+                name
+              }
+            }
+          `,
+            {
+              variables: { type },
+            },
+          );
+          checkJson = await checkResponse.json();
+          console.log(`[afterAuth] Check response:`, JSON.stringify(checkJson, null, 2));
+        } catch (checkError) {
+          console.error(`[afterAuth] Error checking metaobject definition:`, checkError);
+          // If the query fails, assume it doesn't exist and try to create
+          checkJson = { data: { metaobjectDefinitionByType: null } };
         }
-      `,
-        {
-          variables: { type },
-        },
-      );
-        const checkJson = await checkResponse.json();
-        
-        console.log(`[afterAuth] Check response:`, JSON.stringify(checkJson, null, 2));
         
         const exists = Boolean(checkJson?.data?.metaobjectDefinitionByType?.id);
 
@@ -56,7 +64,9 @@ const shopify = shopifyApp({
         console.log(`[afterAuth] Metaobject definition not found, creating...`);
 
         // Create the metaobject definition with required fields
-        const createResponse = await admin.graphql(
+        let createResponse;
+        try {
+          createResponse = await admin.graphql(
           `#graphql
           mutation CreateSchedulableEntityDefinition($definition: MetaobjectDefinitionCreateInput!) {
             metaobjectDefinitionCreate(definition: $definition) {
@@ -113,6 +123,10 @@ const shopify = shopifyApp({
             },
           },
         );
+        } catch (createError) {
+          console.error(`[afterAuth] Error calling metaobjectDefinitionCreate:`, createError);
+          throw createError;
+        }
         
         const createJson = await createResponse.json();
         console.log(`[afterAuth] Create response:`, JSON.stringify(createJson, null, 2));
