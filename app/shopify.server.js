@@ -120,7 +120,11 @@ const shopify = shopifyApp({
                   },
                 ],
                 access: { storefront: "PUBLIC_READ" },
-                capabilities: ["PUBLISHABLE"],
+                capabilities: {
+                  publishable: {
+                    enabled: true,
+                  },
+                },
               },
             },
           },
