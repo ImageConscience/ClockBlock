@@ -54,8 +54,12 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  const { admin } = await authenticate.admin(request);
-  const formData = await request.formData();
+  console.log("[ACTION] Action called - starting entry creation");
+  try {
+    const { admin } = await authenticate.admin(request);
+    console.log("[ACTION] Admin authenticated successfully");
+    const formData = await request.formData();
+    console.log("[ACTION] Form data received");
 
   const positionId = String(formData.get("position_id") || "").trim();
   const startAt = String(formData.get("start_at") || "").trim();
@@ -198,7 +202,16 @@ export const action = async ({ request }) => {
 
   // For fetcher.Form, we need to return success and let the component handle reload
   // Using redirect with fetcher doesn't work the same way
+  console.log("[ACTION] Entry created successfully, returning success");
   return { success: true, message: "Entry created successfully!" };
+  } catch (error) {
+    console.error("[ACTION] Error in action:", error);
+    console.error("[ACTION] Error stack:", error.stack);
+    return {
+      error: `Failed to create entry: ${error.message}`,
+      success: false,
+    };
+  }
 };
 
 function RichTextEditor({ name, label, defaultValue = "" }) {
@@ -429,27 +442,40 @@ export default function SchedulrPage() {
   const shopify = useAppBridge();
   const navigation = useNavigation();
   const revalidator = useRevalidator();
+  const formRef = useRef(null);
 
   useEffect(() => {
+    console.log("[CLIENT] Fetcher data changed:", fetcher.data);
+    console.log("[CLIENT] Fetcher state:", fetcher.state);
     if (fetcher.data?.error) {
+      console.error("[CLIENT] Error in fetcher data:", fetcher.data.error);
       shopify.toast.show(fetcher.data.error, { isError: true });
     } else if (fetcher.data?.success === false && !fetcher.data?.error) {
+      console.error("[CLIENT] Failed to create entry");
       shopify.toast.show("Failed to create entry", { isError: true });
     } else if (fetcher.data?.success === true) {
+      console.log("[CLIENT] Entry created successfully, reloading entries");
       shopify.toast.show(fetcher.data.message || "Entry created successfully!", { isError: false });
       // Reload the entries list
       revalidator.revalidate();
-      // Reset the form by clearing fetcher data after a short delay
-      setTimeout(() => {
-        // The fetcher state will reset automatically when the form is submitted again
-      }, 1000);
+      // Reset the form
+      if (formRef.current) {
+        formRef.current.reset();
+      }
     }
     if (loaderError) {
+      console.error("[CLIENT] Loader error:", loaderError);
       shopify.toast.show(loaderError, { isError: true });
     }
   }, [fetcher.data, loaderError, shopify, revalidator]);
 
   const isLoading = navigation.state === "submitting" || fetcher.state === "submitting";
+
+  const handleSubmit = (e) => {
+    console.log("[CLIENT] Form submit event triggered");
+    const formData = new FormData(e.target);
+    console.log("[CLIENT] Form data:", Object.fromEntries(formData.entries()));
+  };
 
   return (
     <s-page heading="Schedulr entries">
@@ -459,7 +485,7 @@ export default function SchedulrPage() {
         </s-banner>
       )}
       <s-section heading="Create entry">
-        <fetcher.Form method="post" key={fetcher.data?.success ? Date.now() : undefined}>
+        <fetcher.Form method="post" ref={formRef} onSubmit={handleSubmit}>
           <s-stack direction="block" gap="base">
             <s-text-field
               name="title"
