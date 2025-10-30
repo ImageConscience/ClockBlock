@@ -69,39 +69,67 @@ export const action = async ({ request }) => {
   const content = String(formData.get("content") || "").trim();
   const status = String(formData.get("status") || "active").trim();
 
-  // Determine content field type so we can send the correct format
-  let contentFieldType = "multi_line_text_field";
+  // Query metaobject definition to check content field type
+  let contentFieldType = null;
   try {
     const defResponse = await admin.graphql(
       `#graphql
       query($type: String!) {
         metaobjectDefinitionByType(type: $type) {
-          id
-          fieldDefinitions { key type }
+          fieldDefinitions {
+            key
+            type { name }
+          }
         }
       }
     `,
-      { variables: { type: "schedulable_entity" } },
+      { variables: { type: "schedulable_entity" } }
     );
     const defJson = await defResponse.json();
-    const defs = defJson?.data?.metaobjectDefinitionByType?.fieldDefinitions || [];
-    const contentDef = defs.find((d) => d.key === "content");
-    if (contentDef?.type) contentFieldType = contentDef.type;
+    const contentField = defJson?.data?.metaobjectDefinitionByType?.fieldDefinitions?.find(
+      (f) => f.key === "content"
+    );
+    contentFieldType = contentField?.type?.name || null;
     console.log("[ACTION] Content field type:", contentFieldType);
-  } catch (e) {
-    console.warn("[ACTION] Could not determine content field type, defaulting to multi_line_text_field", e);
+  } catch (defError) {
+    console.error("[ACTION] Could not query metaobject definition:", defError);
   }
 
-  const htmlToPlainText = (html) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-  const ensureRichTextJSON = (value) => {
-    // If already valid JSON, pass through
-    try {
-      JSON.parse(value);
-      return value;
-    } catch (_) {
-      // Wrap raw HTML/text in a minimal JSON shape Shopify accepts
-      return JSON.stringify({ html: value });
-    }
+  // Convert HTML/text to Lexical JSON format for rich_text_field
+  const htmlToLexicalJSON = (html) => {
+    // Extract text from HTML
+    const textContent = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() || "";
+    
+    // Create minimal Lexical JSON structure
+    return JSON.stringify({
+      root: {
+        children: [
+          {
+            children: [
+              {
+                detail: 0,
+                format: 0,
+                mode: "normal",
+                style: "",
+                text: textContent,
+                type: "text",
+                version: 1,
+              },
+            ],
+            direction: "ltr",
+            format: "",
+            indent: 0,
+            type: "paragraph",
+            version: 1,
+          },
+        ],
+        direction: "ltr",
+        format: "",
+        indent: 0,
+        type: "root",
+        version: 1,
+      },
+    });
   };
 
   // Validate required fields
@@ -182,10 +210,17 @@ export const action = async ({ request }) => {
   if (title) fields.push({ key: "title", value: title });
   if (description) fields.push({ key: "description", value: description });
   if (content) {
-    if (/rich_text/i.test(contentFieldType)) {
-      fields.push({ key: "content", value: ensureRichTextJSON(content) });
+    // Format content based on field type
+    if (contentFieldType && contentFieldType.toLowerCase().includes("rich_text")) {
+      // Rich text field requires Lexical JSON format
+      fields.push({ key: "content", value: htmlToLexicalJSON(content) });
     } else {
-      fields.push({ key: "content", value: content });
+      // Multi-line text field or other types - send as plain text
+      // Strip HTML tags for plain text fields
+      const plainText = content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+      if (plainText) {
+        fields.push({ key: "content", value: plainText });
+      }
     }
   }
 

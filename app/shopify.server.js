@@ -134,6 +134,12 @@ const shopify = shopifyApp({
                 name: "Schedulable Entity",
                 fieldDefinitions: [
                   {
+                    name: "Title",
+                    key: "title",
+                    type: "single_line_text_field",
+                    required: false,
+                  },
+                  {
                     name: "Position ID",
                     key: "position_id",
                     type: "single_line_text_field",
@@ -149,12 +155,6 @@ const shopify = shopifyApp({
                     name: "End At",
                     key: "end_at",
                     type: "date_time",
-                    required: false,
-                  },
-                  {
-                    name: "Title",
-                    key: "title",
-                    type: "single_line_text_field",
                     required: false,
                   },
                   {
@@ -174,6 +174,7 @@ const shopify = shopifyApp({
                 capabilities: {
                   publishable: {
                     enabled: true,
+                    publishEntriesAsWebPages: true,
                   },
                 },
               },
