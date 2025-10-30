@@ -22,11 +22,14 @@ const shopify = shopifyApp({
   hooks: {
     // Run after the shop installs or reauthenticates; ensure our metaobject definition exists
     afterAuth: async ({ admin }) => {
-      // Define the metaobject type and fields for ShopSchedulr
-      const type = "schedulable_entity";
+      try {
+        // Define the metaobject type and fields for ShopSchedulr
+        const type = "schedulable_entity";
 
-      // Check if the definition already exists
-      const checkResponse = await admin.graphql(
+        console.log(`[afterAuth] Checking for metaobject definition: ${type}`);
+
+        // Check if the definition already exists
+        const checkResponse = await admin.graphql(
         `#graphql
         query($type: String!) {
           metaobjectDefinitionByType(type: $type) {
@@ -39,12 +42,21 @@ const shopify = shopifyApp({
           variables: { type },
         },
       );
-      const checkJson = await checkResponse.json();
-      const exists = Boolean(checkJson?.data?.metaobjectDefinitionByType?.id);
+        const checkJson = await checkResponse.json();
+        
+        console.log(`[afterAuth] Check response:`, JSON.stringify(checkJson, null, 2));
+        
+        const exists = Boolean(checkJson?.data?.metaobjectDefinitionByType?.id);
 
-      if (!exists) {
+        if (exists) {
+          console.log(`[afterAuth] Metaobject definition already exists: ${checkJson.data.metaobjectDefinitionByType.id}`);
+          return;
+        }
+
+        console.log(`[afterAuth] Metaobject definition not found, creating...`);
+
         // Create the metaobject definition with required fields
-        await admin.graphql(
+        const createResponse = await admin.graphql(
           `#graphql
           mutation CreateSchedulableEntityDefinition($definition: MetaobjectDefinitionCreateInput!) {
             metaobjectDefinitionCreate(definition: $definition) {
@@ -101,6 +113,27 @@ const shopify = shopifyApp({
             },
           },
         );
+        
+        const createJson = await createResponse.json();
+        console.log(`[afterAuth] Create response:`, JSON.stringify(createJson, null, 2));
+
+        if (createJson?.data?.metaobjectDefinitionCreate?.userErrors?.length > 0) {
+          const errors = createJson.data.metaobjectDefinitionCreate.userErrors
+            .map((e) => `${e.field}: ${e.message}`)
+            .join(", ");
+          console.error(`[afterAuth] Failed to create metaobject definition: ${errors}`);
+          throw new Error(`Failed to create metaobject definition: ${errors}`);
+        }
+
+        if (createJson?.data?.metaobjectDefinitionCreate?.metaobjectDefinition?.id) {
+          console.log(`[afterAuth] Successfully created metaobject definition: ${createJson.data.metaobjectDefinitionCreate.metaobjectDefinition.id}`);
+        } else {
+          console.error(`[afterAuth] Unexpected response format:`, createJson);
+        }
+      } catch (error) {
+        console.error(`[afterAuth] Error in afterAuth hook:`, error);
+        // Don't throw - we don't want to block installation
+        // The metaobject can be created manually if needed
       }
     },
   },
