@@ -666,26 +666,93 @@ export default function SchedulrPage() {
         </s-banner>
       )}
       <s-section>
-        <h2 style={{ fontSize: "1.5rem", lineHeight: 1.1, margin: 0 }}>Create Entry</h2>
-        {!showForm && (
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
+        <h2 style={{ fontSize: "1.2rem", lineHeight: 1.1, margin: "0 0 10px 0" }}>Create Entry</h2>
+        <button
+          type="button"
+          onClick={() => setShowForm(true)}
+          style={{
+            marginTop: "0.75rem",
+            padding: "0.5rem 0.75rem",
+            border: "1px solid #c9cccf",
+            borderRadius: "4px",
+            background: "#fff",
+            cursor: "pointer",
+            fontSize: "1rem",
+          }}
+        >
+          New Entry
+        </button>
+      </s-section>
+
+      {/* Modal Overlay */}
+      {showForm && (
+        <div
+          onClick={() => setShowForm(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+            WebkitBackdropFilter: "blur(4px)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "2rem",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
             style={{
-              marginTop: "0.75rem",
-              padding: "0.5rem 0.75rem",
-              border: "1px solid #c9cccf",
-              borderRadius: "4px",
-              background: "#fff",
-              cursor: "pointer",
-              fontSize: "1rem",
+              backgroundColor: "white",
+              borderRadius: "8px",
+              width: "100%",
+              maxWidth: "600px",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+              position: "relative",
             }}
           >
-            New Entry
-          </button>
-        )}
-        {showForm && (
-        <fetcher.Form method="post" ref={formRef}>
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              style={{
+                position: "absolute",
+                top: "1rem",
+                right: "1rem",
+                background: "transparent",
+                border: "none",
+                fontSize: "1.5rem",
+                cursor: "pointer",
+                width: "32px",
+                height: "32px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "4px",
+                color: "#666",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#f0f0f0";
+                e.currentTarget.style.color = "#000";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+                e.currentTarget.style.color = "#666";
+              }}
+            >
+              ×
+            </button>
+
+            {/* Modal Content */}
+            <div style={{ padding: "2rem" }}>
+              <h2 style={{ fontSize: "1.5rem", marginBottom: "1.5rem", marginTop: 0 }}>Create New Entry</h2>
+              <fetcher.Form method="post" ref={formRef}>
           <s-stack direction="block" gap="base">
             <label htmlFor="title" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>Title</label>
             <input
@@ -806,11 +873,13 @@ export default function SchedulrPage() {
             </button>
           </s-stack>
         </fetcher.Form>
-        )}
-      </s-section>
+            </div>
+          </div>
+        </div>
+      )}
 
       <s-section>
-        <h2 style={{ fontSize: "1.5rem", lineHeight: 1.1, margin: 0 }}>Existing Entries</h2>
+        <h2 style={{ fontSize: "1.2rem", lineHeight: 1.1, margin: "0 0 10px 0" }}>Existing Entries</h2>
         {entries.length === 0 ? (
           <s-text>No entries yet. Create your first schedulable entry above.</s-text>
         ) : (
