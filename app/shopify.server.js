@@ -89,6 +89,18 @@ const shopify = shopifyApp({
                     type: "rich_text",
                     required: false,
                   },
+                  {
+                    name: "Description",
+                    key: "description",
+                    type: "single_line_text_field",
+                    required: false,
+                  },
+                  {
+                    name: "Status",
+                    key: "status",
+                    type: "single_line_text_field",
+                    required: false,
+                  },
                 ],
                 access: { storefront: "PUBLIC_READ" },
               },
