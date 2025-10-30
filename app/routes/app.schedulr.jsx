@@ -94,33 +94,13 @@ export const action = async ({ request }) => {
 
   const htmlToPlainText = (html) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
   const ensureRichTextJSON = (value) => {
+    // If already valid JSON, pass through
     try {
       JSON.parse(value);
-      return value; // already JSON
+      return value;
     } catch (_) {
-      const plain = htmlToPlainText(value);
-      const doc = {
-        root: {
-          children: [
-            {
-              children: [
-                { detail: 0, format: 0, mode: "normal", style: "", text: plain, type: "text", version: 1 },
-              ],
-              direction: "ltr",
-              format: "",
-              indent: 0,
-              type: "paragraph",
-              version: 1,
-            },
-          ],
-          direction: "ltr",
-          format: "",
-          indent: 0,
-          type: "root",
-          version: 1,
-        },
-      };
-      return JSON.stringify(doc);
+      // Wrap raw HTML/text in a minimal JSON shape Shopify accepts
+      return JSON.stringify({ html: value });
     }
   };
 
@@ -542,7 +522,7 @@ export default function SchedulrPage() {
         </s-banner>
       )}
       <s-section>
-        <s-heading style={{ fontSize: "3rem" }}>Create Entry</s-heading>
+        <h2 style={{ fontSize: "3rem", lineHeight: 1.1, margin: 0 }}>Create Entry</h2>
         {!showForm && (
           <button
             type="button"
@@ -686,7 +666,7 @@ export default function SchedulrPage() {
       </s-section>
 
       <s-section>
-        <s-heading style={{ fontSize: "3rem" }}>Existing Entries</s-heading>
+        <h2 style={{ fontSize: "3rem", lineHeight: 1.1, margin: 0 }}>Existing Entries</h2>
         {entries.length === 0 ? (
           <s-text>No entries yet. Create your first schedulable entry above.</s-text>
         ) : (
@@ -731,17 +711,26 @@ export default function SchedulrPage() {
                   <s-text style={{ marginTop: "0.5rem" }}>
                     {startDate} → {endDate}
                   </s-text>
-                  {fieldMap.content && (
-                    <div
-                      style={{
-                        marginTop: "0.75rem",
-                        padding: "0.75rem",
-                        borderTop: "1px solid #e1e3e5",
-                        paddingTop: "0.75rem",
-                      }}
-                      dangerouslySetInnerHTML={{ __html: fieldMap.content }}
-                    />
-                  )}
+                  {fieldMap.content && (() => {
+                    let html = fieldMap.content;
+                    try {
+                      const parsed = JSON.parse(fieldMap.content);
+                      if (parsed && typeof parsed === "object" && parsed.html) {
+                        html = parsed.html;
+                      }
+                    } catch (_) {}
+                    return (
+                      <div
+                        style={{
+                          marginTop: "0.75rem",
+                          padding: "0.75rem",
+                          borderTop: "1px solid #e1e3e5",
+                          paddingTop: "0.75rem",
+                        }}
+                        dangerouslySetInnerHTML={{ __html: html }}
+                      />
+                    );
+                  })()}
                 </s-box>
               );
             })}
