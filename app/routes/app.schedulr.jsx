@@ -7,29 +7,51 @@ import { authenticate } from "../shopify.server";
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
 
-  const response = await admin.graphql(
-    `#graphql
-    query ListSchedulableEntities($first: Int!) {
-      metaobjects(type: "schedulable_entity", first: $first) {
-        nodes {
-          id
-          handle
-          fields {
-            key
-            value
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      query ListSchedulableEntities($first: Int!) {
+        metaobjects(type: "schedulable_entity", first: $first) {
+          nodes {
+            id
+            handle
+            fields {
+              key
+              value
+            }
+            status
+            updatedAt
           }
-          status
-          updatedAt
         }
       }
-    }
-  `,
-    { variables: { first: 50 } },
-  );
-  const json = await response.json();
-  const entries = json?.data?.metaobjects?.nodes ?? [];
+    `,
+      { variables: { first: 50 } },
+    );
+    const json = await response.json();
 
-  return { entries };
+    console.log("Loader GraphQL response:", JSON.stringify(json, null, 2));
+
+    // Check for GraphQL errors
+    if (json?.errors) {
+      console.error("GraphQL errors in loader:", JSON.stringify(json.errors, null, 2));
+      // If the error is about the type not existing, return empty array
+      const errorMessages = json.errors.map((e) => e.message).join(", ");
+      if (errorMessages.includes("metaobject definition") || errorMessages.includes("type")) {
+        console.warn("Metaobject definition may not exist yet. Returning empty entries.");
+        return { entries: [], error: "Metaobject definition not found. Please ensure the app has been properly installed." };
+      }
+      throw new Error(`GraphQL error: ${errorMessages}`);
+    }
+
+    const entries = json?.data?.metaobjects?.nodes ?? [];
+    return { entries };
+  } catch (error) {
+    console.error("Error loading schedulable entities:", error);
+    return { 
+      entries: [], 
+      error: `Failed to load entries: ${error.message}` 
+    };
+  }
 };
 
 export const action = async ({ request }) => {
@@ -424,7 +446,7 @@ function RichTextEditor({ name, label, defaultValue = "" }) {
 }
 
 export default function SchedulrPage() {
-  const { entries } = useLoaderData();
+  const { entries, error: loaderError } = useLoaderData();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
   const navigation = useNavigation();
@@ -435,18 +457,21 @@ export default function SchedulrPage() {
     } else if (fetcher.data?.success === false && !fetcher.data?.error) {
       shopify.toast.show("Failed to create entry", { isError: true });
     }
-  }, [fetcher.data, shopify]);
+    if (loaderError) {
+      shopify.toast.show(loaderError, { isError: true });
+    }
+  }, [fetcher.data, loaderError, shopify]);
 
   const isLoading = navigation.state === "submitting" || fetcher.state === "submitting";
 
   return (
     <s-page heading="Schedulr entries">
+      {(loaderError || fetcher.data?.error) && (
+        <s-banner tone="critical" title="Error">
+          {loaderError || fetcher.data?.error}
+        </s-banner>
+      )}
       <s-section heading="Create entry">
-        {fetcher.data?.error && (
-          <s-banner tone="critical" title="Error">
-            {fetcher.data.error}
-          </s-banner>
-        )}
         <fetcher.Form method="post">
           <s-stack direction="block" gap="base">
             <s-text-field
