@@ -69,6 +69,61 @@ export const action = async ({ request }) => {
   const content = String(formData.get("content") || "").trim();
   const status = String(formData.get("status") || "active").trim();
 
+  // Determine content field type so we can send the correct format
+  let contentFieldType = "multi_line_text_field";
+  try {
+    const defResponse = await admin.graphql(
+      `#graphql
+      query($type: String!) {
+        metaobjectDefinitionByType(type: $type) {
+          id
+          fieldDefinitions { key type }
+        }
+      }
+    `,
+      { variables: { type: "schedulable_entity" } },
+    );
+    const defJson = await defResponse.json();
+    const defs = defJson?.data?.metaobjectDefinitionByType?.fieldDefinitions || [];
+    const contentDef = defs.find((d) => d.key === "content");
+    if (contentDef?.type) contentFieldType = contentDef.type;
+    console.log("[ACTION] Content field type:", contentFieldType);
+  } catch (e) {
+    console.warn("[ACTION] Could not determine content field type, defaulting to multi_line_text_field", e);
+  }
+
+  const htmlToPlainText = (html) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const ensureRichTextJSON = (value) => {
+    try {
+      JSON.parse(value);
+      return value; // already JSON
+    } catch (_) {
+      const plain = htmlToPlainText(value);
+      const doc = {
+        root: {
+          children: [
+            {
+              children: [
+                { detail: 0, format: 0, mode: "normal", style: "", text: plain, type: "text", version: 1 },
+              ],
+              direction: "ltr",
+              format: "",
+              indent: 0,
+              type: "paragraph",
+              version: 1,
+            },
+          ],
+          direction: "ltr",
+          format: "",
+          indent: 0,
+          type: "root",
+          version: 1,
+        },
+      };
+      return JSON.stringify(doc);
+    }
+  };
+
   // Validate required fields
   if (!positionId) {
     return {
@@ -146,7 +201,13 @@ export const action = async ({ request }) => {
 
   if (title) fields.push({ key: "title", value: title });
   if (description) fields.push({ key: "description", value: description });
-  if (content) fields.push({ key: "content", value: content });
+  if (content) {
+    if (contentFieldType === "rich_text_field") {
+      fields.push({ key: "content", value: ensureRichTextJSON(content) });
+    } else {
+      fields.push({ key: "content", value: content });
+    }
+  }
 
   // Convert status to Shopify metaobject publish status
   const publishStatus = status === "draft" ? "DRAFT" : "ACTIVE";
