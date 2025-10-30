@@ -131,6 +131,39 @@ When you're ready to set up your app in production, you can follow [our deployme
 When you reach the step for [setting up environment variables](https://shopify.dev/docs/apps/deployment/web#set-env-vars), you also need to set the variable `NODE_ENV=production`.
 
 
+## Production (Railway) setup
+
+1. Service configuration
+
+- Build command: `npm ci && npm run build`
+- Start command: `bash -c "npm run setup && npm run start"`
+
+2. Environment variables
+
+- `SHOPIFY_API_KEY` = your Shopify app Client ID
+- `SHOPIFY_API_SECRET` = your Shopify app Client Secret
+- `SHOPIFY_APP_URL` = your Railway HTTPS URL (e.g., `https://shopschedulr-production.up.railway.app`)
+- `SCOPES` = `read_metaobject_definitions,write_metaobject_definitions,read_metaobjects,write_metaobjects,write_products,unauthenticated_read_metaobjects`
+- `DATABASE_URL` = Railway Postgres connection URL
+- `NODE_ENV` = `production`
+- Optional: `SHOP_CUSTOM_DOMAIN`
+
+3. Shopify Partners app URLs
+
+- App URL: `https://YOUR_DOMAIN`
+- Allowed redirection URLs:
+  - `https://YOUR_DOMAIN/auth`
+  - `https://YOUR_DOMAIN/auth/callback`
+
+4. Theme extension deploy (once per shop/theme)
+
+```
+shopify extension deploy --directory=extensions/shopschedulr-theme-block
+```
+
+Then add the “ShopSchedulr content” app block in the Theme Editor.
+
+
 ## Gotchas / Troubleshooting
 
 ### Database tables don't exist

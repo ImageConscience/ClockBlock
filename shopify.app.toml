@@ -2,7 +2,7 @@
 
 client_id = "722d30d098915b95390d2d2c670c1e6d"
 name = "ShopSchedulr"
-application_url = "https://example.com"
+application_url = "https://shopschedulr-production.up.railway.app"
 embedded = true
 
 [build]
@@ -27,4 +27,7 @@ optional_scopes = [ ]
 use_legacy_install_flow = false
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [
+  "https://shopschedulr-production.up.railway.app/auth",
+  "https://shopschedulr-production.up.railway.app/auth/callback"
+]
