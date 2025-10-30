@@ -19,7 +19,6 @@ export const loader = async ({ request }) => {
               key
               value
             }
-            status
             updatedAt
           }
         }
@@ -602,11 +601,6 @@ export default function SchedulrPage() {
                   )}
                   <s-stack direction="inline" gap="base" style={{ marginTop: "0.75rem" }}>
                     <s-text variant="subdued">Position: {fieldMap.position_id}</s-text>
-                    {e.status && (
-                      <s-badge tone={e.status === "ACTIVE" ? "success" : "info"}>
-                        {e.status === "ACTIVE" ? "Active" : "Draft"}
-                      </s-badge>
-                    )}
                   </s-stack>
                   <s-text style={{ marginTop: "0.5rem" }}>
                     {startDate} → {endDate}
