@@ -522,7 +522,7 @@ export default function SchedulrPage() {
         </s-banner>
       )}
       <s-section>
-        <h2 style={{ fontSize: "3rem", lineHeight: 1.1, margin: 0 }}>Create Entry</h2>
+        <h2 style={{ fontSize: "1.5rem", lineHeight: 1.1, margin: 0 }}>Create Entry</h2>
         {!showForm && (
           <button
             type="button"
@@ -666,7 +666,7 @@ export default function SchedulrPage() {
       </s-section>
 
       <s-section>
-        <h2 style={{ fontSize: "3rem", lineHeight: 1.1, margin: 0 }}>Existing Entries</h2>
+        <h2 style={{ fontSize: "1.5rem", lineHeight: 1.1, margin: 0 }}>Existing Entries</h2>
         {entries.length === 0 ? (
           <s-text>No entries yet. Create your first schedulable entry above.</s-text>
         ) : (
