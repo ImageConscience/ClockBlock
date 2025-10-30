@@ -63,11 +63,23 @@ export const action = async ({ request }) => {
     };
   }
 
-  // Format dates to ISO 8601 - Shopify expects RFC 3339 format
+  // Format dates to ISO 8601 - datetime-local returns YYYY-MM-DDTHH:mm
+  // We need to convert to ISO 8601 format
   const formatDateTime = (dateStr) => {
     if (!dateStr) return null;
     try {
-      const date = new Date(dateStr);
+      // datetime-local format is YYYY-MM-DDTHH:mm (no seconds or timezone)
+      // We need to add seconds and timezone
+      let date;
+      if (dateStr.includes("T") && !dateStr.includes("Z") && !dateStr.includes("+")) {
+        // datetime-local format - add seconds if not present
+        const normalized = dateStr.includes(":") && dateStr.split(":").length === 2
+          ? `${dateStr}:00`
+          : dateStr;
+        date = new Date(normalized);
+      } else {
+        date = new Date(dateStr);
+      }
       if (isNaN(date.getTime())) {
         console.error("Invalid date:", dateStr);
         return null;
@@ -79,8 +91,23 @@ export const action = async ({ request }) => {
     }
   };
 
+  console.log("Raw form data:", {
+    positionId,
+    startAt,
+    endAt,
+    title,
+    description,
+    content,
+    status,
+  });
+
   const formattedStartAt = formatDateTime(startAt);
   const formattedEndAt = formatDateTime(endAt);
+  
+  console.log("Formatted dates:", {
+    formattedStartAt,
+    formattedEndAt,
+  });
 
   if (!formattedStartAt || !formattedEndAt) {
     return {
@@ -409,17 +436,48 @@ export default function SchedulrPage() {
               multiline={3}
               helpText="Short description or summary"
             />
-            <s-date-time-field
+            <label
+              htmlFor="start_at"
+              style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}
+            >
+              Start Date & Time <span style={{ color: "red" }}>*</span>
+            </label>
+            <input
+              type="datetime-local"
+              id="start_at"
               name="start_at"
-              label="Start Date & Time"
               required
-              helpText="When this content should start appearing"
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+                fontSize: "1rem",
+              }}
             />
-            <s-date-time-field
+            <label
+              htmlFor="end_at"
+              style={{
+                display: "block",
+                marginTop: "1rem",
+                marginBottom: "0.5rem",
+                fontWeight: "500",
+              }}
+            >
+              End Date & Time <span style={{ color: "red" }}>*</span>
+            </label>
+            <input
+              type="datetime-local"
+              id="end_at"
               name="end_at"
-              label="End Date & Time"
               required
-              helpText="When this content should stop appearing"
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+                fontSize: "1rem",
+              }}
             />
             <RichTextEditor name="content" label="Content" />
             <label
