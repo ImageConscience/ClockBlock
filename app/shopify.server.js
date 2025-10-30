@@ -174,7 +174,6 @@ const shopify = shopifyApp({
                 capabilities: {
                   publishable: {
                     enabled: true,
-                    publishEntriesAsWebPages: true,
                   },
                 },
               },

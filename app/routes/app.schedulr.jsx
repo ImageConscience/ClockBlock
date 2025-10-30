@@ -164,7 +164,6 @@ export const action = async ({ request }) => {
               capabilities: {
                 publishable: {
                   enabled: true,
-                  publishEntriesAsWebPages: true,
                 },
               },
             },
