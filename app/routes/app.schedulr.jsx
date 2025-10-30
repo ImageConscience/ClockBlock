@@ -44,36 +44,63 @@ export const action = async ({ request }) => {
   const status = String(formData.get("status") || "active").trim();
 
   // Validate required fields
-  if (!positionId || !startAt || !endAt) {
+  if (!positionId) {
     return {
-      error: "Position ID, Start At, and End At are required fields.",
+      error: "Position ID is required.",
+      success: false,
+    };
+  }
+  if (!startAt) {
+    return {
+      error: "Start Date & Time is required.",
+      success: false,
+    };
+  }
+  if (!endAt) {
+    return {
+      error: "End Date & Time is required.",
       success: false,
     };
   }
 
-  // Format dates to ISO 8601
+  // Format dates to ISO 8601 - Shopify expects RFC 3339 format
   const formatDateTime = (dateStr) => {
     if (!dateStr) return null;
-    // If it's already in ISO format, return as-is
-    if (dateStr.includes("T")) return dateStr;
-    // Otherwise try to parse and format
     try {
-      return new Date(dateStr).toISOString();
-    } catch {
-      return dateStr;
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        console.error("Invalid date:", dateStr);
+        return null;
+      }
+      return date.toISOString();
+    } catch (error) {
+      console.error("Date formatting error:", error, dateStr);
+      return null;
     }
   };
 
+  const formattedStartAt = formatDateTime(startAt);
+  const formattedEndAt = formatDateTime(endAt);
+
+  if (!formattedStartAt || !formattedEndAt) {
+    return {
+      error: "Invalid date format. Please ensure Start and End dates are valid.",
+      success: false,
+    };
+  }
+
   const fields = [
     { key: "position_id", value: positionId },
-    { key: "start_at", value: formatDateTime(startAt) },
-    { key: "end_at", value: formatDateTime(endAt) },
+    { key: "start_at", value: formattedStartAt },
+    { key: "end_at", value: formattedEndAt },
   ];
 
   if (title) fields.push({ key: "title", value: title });
   if (description) fields.push({ key: "description", value: description });
   if (content) fields.push({ key: "content", value: content });
   if (status) fields.push({ key: "status", value: status });
+
+  console.log("Creating metaobject with fields:", JSON.stringify(fields, null, 2));
 
   const response = await admin.graphql(
     `#graphql
@@ -95,6 +122,8 @@ export const action = async ({ request }) => {
   );
   const json = await response.json();
 
+  console.log("Metaobject create response:", JSON.stringify(json, null, 2));
+
   if (json?.data?.metaobjectCreate?.userErrors?.length > 0) {
     const errors = json.data.metaobjectCreate.userErrors
       .map((e) => `${e.field}: ${e.message}`)
@@ -110,21 +139,29 @@ export const action = async ({ request }) => {
   }
 
   return {
-    error: "Unknown error occurred while creating entry.",
+    error: `Unknown error occurred while creating entry. Response: ${JSON.stringify(json)}`,
     success: false,
   };
 };
 
 function RichTextEditor({ name, label, defaultValue = "" }) {
   const [html, setHtml] = useState(defaultValue);
+  const [isCodeView, setIsCodeView] = useState(false);
+  const [codeText, setCodeText] = useState(defaultValue);
   const editorRef = useRef(null);
   const hiddenInputRef = useRef(null);
 
   useEffect(() => {
     if (hiddenInputRef.current) {
-      hiddenInputRef.current.value = html;
+      hiddenInputRef.current.value = isCodeView ? codeText : html;
     }
-  }, [html]);
+  }, [html, codeText, isCodeView]);
+
+  useEffect(() => {
+    if (!isCodeView && editorRef.current) {
+      editorRef.current.innerHTML = html;
+    }
+  }, [isCodeView, html]);
 
   const applyFormat = (command, value = null) => {
     document.execCommand(command, false, value);
@@ -136,6 +173,20 @@ function RichTextEditor({ name, label, defaultValue = "" }) {
     if (editorRef.current) {
       setHtml(editorRef.current.innerHTML);
     }
+  };
+
+  const toggleView = () => {
+    if (isCodeView) {
+      // Switching from code to visual - parse HTML
+      setHtml(codeText);
+    } else {
+      // Switching from visual to code - get HTML
+      if (editorRef.current) {
+        const currentHtml = editorRef.current.innerHTML;
+        setCodeText(currentHtml);
+      }
+    }
+    setIsCodeView(!isCodeView);
   };
 
   return (
@@ -208,6 +259,21 @@ function RichTextEditor({ name, label, defaultValue = "" }) {
           <div style={{ width: "1px", backgroundColor: "#c9cccf", margin: "0 0.25rem" }} />
           <button
             type="button"
+            onClick={toggleView}
+            style={{
+              padding: "0.25rem 0.5rem",
+              border: "1px solid #c9cccf",
+              borderRadius: "3px",
+              backgroundColor: isCodeView ? "#e1e3e5" : "white",
+              cursor: "pointer",
+              marginLeft: "auto",
+            }}
+          >
+            {isCodeView ? "Visual" : "Code"}
+          </button>
+          <div style={{ width: "1px", backgroundColor: "#c9cccf", margin: "0 0.25rem" }} />
+          <button
+            type="button"
             onClick={() => applyFormat("formatBlock", "<h2>")}
             style={{
               padding: "0.25rem 0.5rem",
@@ -259,18 +325,41 @@ function RichTextEditor({ name, label, defaultValue = "" }) {
             1.
           </button>
         </div>
-        <div
-          ref={editorRef}
-          contentEditable
-          onInput={updateContent}
-          dangerouslySetInnerHTML={{ __html: html }}
-          style={{
-            minHeight: "150px",
-            padding: "0.75rem",
-            outline: "none",
-            backgroundColor: "white",
-          }}
-        />
+        {isCodeView ? (
+          <textarea
+            value={codeText}
+            onChange={(e) => {
+              setCodeText(e.target.value);
+              if (hiddenInputRef.current) {
+                hiddenInputRef.current.value = e.target.value;
+              }
+            }}
+            style={{
+              width: "100%",
+              minHeight: "150px",
+              padding: "0.75rem",
+              border: "none",
+              outline: "none",
+              backgroundColor: "white",
+              fontFamily: "monospace",
+              fontSize: "0.875rem",
+              resize: "vertical",
+            }}
+          />
+        ) : (
+          <div
+            ref={editorRef}
+            contentEditable
+            onInput={updateContent}
+            dangerouslySetInnerHTML={{ __html: html }}
+            style={{
+              minHeight: "150px",
+              padding: "0.75rem",
+              outline: "none",
+              backgroundColor: "white",
+            }}
+          />
+        )}
       </div>
       <input type="hidden" name={name} ref={hiddenInputRef} value={html} />
     </div>
@@ -333,11 +422,27 @@ export default function SchedulrPage() {
               helpText="When this content should stop appearing"
             />
             <RichTextEditor name="content" label="Content" />
-            <s-select name="status" label="Status">
+            <label
+              htmlFor="status"
+              style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}
+            >
+              Status
+            </label>
+            <select
+              id="status"
+              name="status"
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+                fontSize: "1rem",
+              }}
+              defaultValue="active"
+            >
               <option value="active">Active</option>
               <option value="draft">Draft</option>
-              <option value="archived">Archived</option>
-            </s-select>
+            </select>
             <s-button submit loading={isLoading}>
               Create Entry
             </s-button>
@@ -354,12 +459,28 @@ export default function SchedulrPage() {
               const fieldMap = Object.fromEntries(
                 (e.fields || []).map((f) => [f.key, f.value]),
               );
-              const startDate = fieldMap.start_at
-                ? new Date(fieldMap.start_at).toLocaleString()
-                : "Not set";
-              const endDate = fieldMap.end_at
-                ? new Date(fieldMap.end_at).toLocaleString()
-                : "Not set";
+              let startDate = "Not set";
+              let endDate = "Not set";
+              try {
+                if (fieldMap.start_at) {
+                  const start = new Date(fieldMap.start_at);
+                  if (!isNaN(start.getTime())) {
+                    startDate = start.toLocaleString();
+                  }
+                }
+              } catch (e) {
+                console.error("Error parsing start date:", e);
+              }
+              try {
+                if (fieldMap.end_at) {
+                  const end = new Date(fieldMap.end_at);
+                  if (!isNaN(end.getTime())) {
+                    endDate = end.toLocaleString();
+                  }
+                }
+              } catch (e) {
+                console.error("Error parsing end date:", e);
+              }
               return (
                 <s-box key={e.id} padding="base" borderWidth="base" borderRadius="base">
                   <s-heading>{fieldMap.title || "(untitled)"}</s-heading>
