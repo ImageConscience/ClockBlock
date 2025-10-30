@@ -1,0 +1,76 @@
+{% comment %}
+  ShopSchedulr block: filters selected metaobjects by position_id and current date/time.
+  Requires the merchant to select metaobject entries (list) of type schedulable_entity.
+{% endcomment %}
+
+{% assign now_ts = 'now' | date: '%s' %}
+{% assign position_id = block.settings.position_id | default: '' %}
+
+{% if block.settings.entries != blank %}
+  {% assign matched = false %}
+  <div class="shopschedulr">
+    {% for entry in block.settings.entries %}
+      {% assign fields = entry.fields %}
+      {% assign entry_pos = fields.position_id.value | default: '' %}
+      {% assign start_ts = fields.start_at.value | date: '%s' %}
+      {% assign end_ts = fields.end_at.value | date: '%s' %}
+
+      {% if entry_pos == position_id and now_ts >= start_ts and now_ts <= end_ts %}
+        {% assign matched = true %}
+        <div class="shopschedulr__item" data-handle="{{ entry.handle }}">
+          {% if fields.title.value != blank %}
+            <h3 class="shopschedulr__title">{{ fields.title.value }}</h3>
+          {% endif %}
+          {% if fields.content.value != blank %}
+            <div class="shopschedulr__content">{{ fields.content.value }}</div>
+          {% endif %}
+        </div>
+      {% endif %}
+    {% endfor %}
+    {% unless matched %}
+      {% if block.settings.show_empty_state %}
+        <div class="shopschedulr__empty">{{ block.settings.empty_state_text }}</div>
+      {% endif %}
+    {% endunless %}
+  </div>
+{% else %}
+  {% if block.settings.show_empty_state %}
+    <div class="shopschedulr__empty">{{ block.settings.empty_state_text }}</div>
+  {% endif %}
+{% endif %}
+
+
+{% schema %}
+{
+  "name": "ShopSchedulr content",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "position_id",
+      "label": "Position ID",
+      "default": "homepage_banner"
+    },
+    {
+      "type": "metaobject_list",
+      "id": "entries",
+      "label": "Schedulable entries",
+      "metaobject_type": "schedulable_entity"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_empty_state",
+      "label": "Show empty state when nothing matches",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "empty_state_text",
+      "label": "Empty state text",
+      "default": "Nothing is scheduled for this spot."
+    }
+  ],
+  
+}
+{% endschema %}
+
