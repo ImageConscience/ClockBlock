@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useFetcher, useLoaderData, redirect, useNavigation } from "react-router";
+import { useFetcher, useLoaderData, redirect, useNavigation, useRevalidator } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
@@ -196,7 +196,9 @@ export const action = async ({ request }) => {
     };
   }
 
-  return redirect("/app/schedulr");
+  // For fetcher.Form, we need to return success and let the component handle reload
+  // Using redirect with fetcher doesn't work the same way
+  return { success: true, message: "Entry created successfully!" };
 };
 
 function RichTextEditor({ name, label, defaultValue = "" }) {
@@ -426,17 +428,26 @@ export default function SchedulrPage() {
   const fetcher = useFetcher();
   const shopify = useAppBridge();
   const navigation = useNavigation();
+  const revalidator = useRevalidator();
 
   useEffect(() => {
     if (fetcher.data?.error) {
       shopify.toast.show(fetcher.data.error, { isError: true });
     } else if (fetcher.data?.success === false && !fetcher.data?.error) {
       shopify.toast.show("Failed to create entry", { isError: true });
+    } else if (fetcher.data?.success === true) {
+      shopify.toast.show(fetcher.data.message || "Entry created successfully!", { isError: false });
+      // Reload the entries list
+      revalidator.revalidate();
+      // Reset the form by clearing fetcher data after a short delay
+      setTimeout(() => {
+        // The fetcher state will reset automatically when the form is submitted again
+      }, 1000);
     }
     if (loaderError) {
       shopify.toast.show(loaderError, { isError: true });
     }
-  }, [fetcher.data, loaderError, shopify]);
+  }, [fetcher.data, loaderError, shopify, revalidator]);
 
   const isLoading = navigation.state === "submitting" || fetcher.state === "submitting";
 
@@ -448,7 +459,7 @@ export default function SchedulrPage() {
         </s-banner>
       )}
       <s-section heading="Create entry">
-        <fetcher.Form method="post">
+        <fetcher.Form method="post" key={fetcher.data?.success ? Date.now() : undefined}>
           <s-stack direction="block" gap="base">
             <s-text-field
               name="title"
