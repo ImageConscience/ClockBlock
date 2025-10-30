@@ -1,6 +1,4 @@
-import { redirect, Form, useLoaderData } from "react-router";
-import { login } from "../../shopify.server";
-import styles from "./styles.module.css";
+import { redirect } from "react-router";
 
 export const loader = async ({ request }) => {
   const url = new URL(request.url);
@@ -9,6 +7,5 @@ export const loader = async ({ request }) => {
 };
 
 export default function App() {
-  // This route immediately redirects in the loader; component won't render.
   return null;
 }
