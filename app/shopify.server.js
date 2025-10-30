@@ -42,7 +42,7 @@ const shopify = shopifyApp({
                 name
                 fieldDefinitions {
                   key
-                  type
+                  type { name }
                   name
                   required
                 }
@@ -68,7 +68,8 @@ const shopify = shopifyApp({
           console.log(`[afterAuth] Metaobject definition already exists: ${def.id}`);
           try {
             const contentField = def.fieldDefinitions?.find((f) => f.key === "content");
-            if (contentField?.type === "rich_text_field") {
+            const typeName = String(contentField?.type?.name || "").toLowerCase();
+            if (typeName.includes("rich_text")) {
               console.log(`[afterAuth] Updating 'content' field type from rich_text_field to multi_line_text_field`);
               const updateResponse = await admin.graphql(
                 `#graphql
