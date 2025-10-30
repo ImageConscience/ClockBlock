@@ -109,7 +109,7 @@ const shopify = shopifyApp({
                   {
                     name: "Content",
                     key: "content",
-                    type: "rich_text",
+                    type: "rich_text_field",
                     required: false,
                   },
                   {
