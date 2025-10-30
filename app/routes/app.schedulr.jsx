@@ -144,18 +144,18 @@ export const action = async ({ request }) => {
   if (description) fields.push({ key: "description", value: description });
   if (content) fields.push({ key: "content", value: content });
 
-  // Convert status to Shopify metaobject status enum (ACTIVE or DRAFT)
-  const metaobjectStatus = status === "draft" ? "DRAFT" : "ACTIVE";
+  // Convert status to Shopify metaobject publish status
+  const publishStatus = status === "draft" ? "DRAFT" : "ACTIVE";
 
   console.log("Creating metaobject with fields:", JSON.stringify(fields, null, 2));
-  console.log("Metaobject status:", metaobjectStatus);
+  console.log("Metaobject publish status:", publishStatus);
 
-  // First, create the metaobject (status can't be set during creation)
+  // Create the metaobject with publishable capability
   const createResponse = await admin.graphql(
     `#graphql
     mutation CreateSchedulableEntity($metaobject: MetaobjectCreateInput!) {
       metaobjectCreate(metaobject: $metaobject) {
-        metaobject { id handle status }
+        metaobject { id handle }
         userErrors { field message }
       }
     }
@@ -165,6 +165,11 @@ export const action = async ({ request }) => {
         metaobject: {
           type: "schedulable_entity",
           fields,
+          capabilities: {
+            publishable: {
+              status: status === "draft" ? "DRAFT" : "ACTIVE",
+            },
+          },
         },
       },
     },
@@ -189,34 +194,6 @@ export const action = async ({ request }) => {
       error: `Unknown error occurred while creating entry. Response: ${JSON.stringify(createJson)}`,
       success: false,
     };
-  }
-
-  // If status needs to be set to DRAFT, update it (ACTIVE is default)
-  if (metaobjectStatus === "DRAFT") {
-    const updateResponse = await admin.graphql(
-      `#graphql
-      mutation UpdateSchedulableEntityStatus($metaobject: MetaobjectUpdateInput!) {
-        metaobjectUpdate(metaobject: $metaobject) {
-          metaobject { id handle status }
-          userErrors { field message }
-        }
-      }
-    `,
-      {
-        variables: {
-          metaobject: {
-            id: createdMetaobject.id,
-            status: "DRAFT",
-          },
-        },
-      },
-    );
-    const updateJson = await updateResponse.json();
-    console.log("Metaobject status update response:", JSON.stringify(updateJson, null, 2));
-    
-    if (updateJson?.data?.metaobjectUpdate?.userErrors?.length > 0) {
-      console.error("Failed to update status:", updateJson.data.metaobjectUpdate.userErrors);
-    }
   }
 
   return redirect("/app/schedulr");

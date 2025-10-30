@@ -22,6 +22,7 @@ const shopify = shopifyApp({
   hooks: {
     // Run after the shop installs or reauthenticates; ensure our metaobject definition exists
     afterAuth: async ({ admin }) => {
+      console.log(`[afterAuth] Hook called - starting metaobject definition check/create`);
       try {
         // Define the metaobject type and fields for ShopSchedulr
         const type = "schedulable_entity";
@@ -119,6 +120,7 @@ const shopify = shopifyApp({
                   },
                 ],
                 access: { storefront: "PUBLIC_READ" },
+                capabilities: ["PUBLISHABLE"],
               },
             },
           },
