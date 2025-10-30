@@ -202,7 +202,7 @@ export const action = async ({ request }) => {
   if (title) fields.push({ key: "title", value: title });
   if (description) fields.push({ key: "description", value: description });
   if (content) {
-    if (contentFieldType === "rich_text_field") {
+    if (/rich_text/i.test(contentFieldType)) {
       fields.push({ key: "content", value: ensureRichTextJSON(content) });
     } else {
       fields.push({ key: "content", value: content });
@@ -504,6 +504,7 @@ export default function SchedulrPage() {
   const navigation = useNavigation();
   const revalidator = useRevalidator();
   const formRef = useRef(null);
+  const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     console.log("[CLIENT] Fetcher data changed:", fetcher.data);
@@ -523,6 +524,7 @@ export default function SchedulrPage() {
       if (formRef.current) {
         formRef.current.reset();
       }
+      setShowForm(false);
     }
     if (loaderError) {
       console.error("[CLIENT] Loader error:", loaderError);
@@ -539,7 +541,26 @@ export default function SchedulrPage() {
           {loaderError || fetcher.data?.error}
         </s-banner>
       )}
-      <s-section heading="Create entry">
+      <s-section>
+        <s-heading style={{ fontSize: "3rem" }}>Create Entry</s-heading>
+        {!showForm && (
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            style={{
+              marginTop: "0.75rem",
+              padding: "0.5rem 0.75rem",
+              border: "1px solid #c9cccf",
+              borderRadius: "4px",
+              background: "#fff",
+              cursor: "pointer",
+              fontSize: "1rem",
+            }}
+          >
+            New Entry
+          </button>
+        )}
+        {showForm && (
         <fetcher.Form method="post" ref={formRef}>
           <s-stack direction="block" gap="base">
             <label htmlFor="title" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>Title</label>
@@ -661,9 +682,11 @@ export default function SchedulrPage() {
             </button>
           </s-stack>
         </fetcher.Form>
+        )}
       </s-section>
 
-      <s-section heading="Existing entries">
+      <s-section>
+        <s-heading style={{ fontSize: "3rem" }}>Existing Entries</s-heading>
         {entries.length === 0 ? (
           <s-text>No entries yet. Create your first schedulable entry above.</s-text>
         ) : (
