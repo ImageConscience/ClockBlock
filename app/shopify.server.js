@@ -69,13 +69,13 @@ const shopify = shopifyApp({
                     name: "Start At",
                     key: "start_at",
                     type: "date_time",
-                    required: true,
+                    required: false,
                   },
                   {
                     name: "End At",
                     key: "end_at",
                     type: "date_time",
-                    required: true,
+                    required: false,
                   },
                   {
                     name: "Title",
@@ -92,12 +92,6 @@ const shopify = shopifyApp({
                   {
                     name: "Description",
                     key: "description",
-                    type: "single_line_text_field",
-                    required: false,
-                  },
-                  {
-                    name: "Status",
-                    key: "status",
                     type: "single_line_text_field",
                     required: false,
                   },

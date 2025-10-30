@@ -18,6 +18,7 @@ export const loader = async ({ request }) => {
             key
             value
           }
+          status
           updatedAt
         }
       }
@@ -47,18 +48,6 @@ export const action = async ({ request }) => {
   if (!positionId) {
     return {
       error: "Position ID is required.",
-      success: false,
-    };
-  }
-  if (!startAt) {
-    return {
-      error: "Start Date & Time is required.",
-      success: false,
-    };
-  }
-  if (!endAt) {
-    return {
-      error: "End Date & Time is required.",
       success: false,
     };
   }
@@ -101,39 +90,50 @@ export const action = async ({ request }) => {
     status,
   });
 
-  const formattedStartAt = formatDateTime(startAt);
-  const formattedEndAt = formatDateTime(endAt);
+  const formattedStartAt = startAt ? formatDateTime(startAt) : null;
+  const formattedEndAt = endAt ? formatDateTime(endAt) : null;
   
   console.log("Formatted dates:", {
     formattedStartAt,
     formattedEndAt,
   });
 
-  if (!formattedStartAt || !formattedEndAt) {
+  // Validate date formats only if dates are provided
+  if (startAt && !formattedStartAt) {
     return {
-      error: "Invalid date format. Please ensure Start and End dates are valid.",
+      error: "Invalid Start Date format. Please ensure the date is valid.",
+      success: false,
+    };
+  }
+  if (endAt && !formattedEndAt) {
+    return {
+      error: "Invalid End Date format. Please ensure the date is valid.",
       success: false,
     };
   }
 
   const fields = [
     { key: "position_id", value: positionId },
-    { key: "start_at", value: formattedStartAt },
-    { key: "end_at", value: formattedEndAt },
   ];
+
+  if (formattedStartAt) fields.push({ key: "start_at", value: formattedStartAt });
+  if (formattedEndAt) fields.push({ key: "end_at", value: formattedEndAt });
 
   if (title) fields.push({ key: "title", value: title });
   if (description) fields.push({ key: "description", value: description });
   if (content) fields.push({ key: "content", value: content });
-  if (status) fields.push({ key: "status", value: status });
+
+  // Convert status to Shopify metaobject status enum (ACTIVE or DRAFT)
+  const metaobjectStatus = status === "draft" ? "DRAFT" : "ACTIVE";
 
   console.log("Creating metaobject with fields:", JSON.stringify(fields, null, 2));
+  console.log("Metaobject status:", metaobjectStatus);
 
   const response = await admin.graphql(
     `#graphql
     mutation CreateSchedulableEntity($metaobject: MetaobjectCreateInput!) {
       metaobjectCreate(metaobject: $metaobject) {
-        metaobject { id handle }
+        metaobject { id handle status }
         userErrors { field message }
       }
     }
@@ -142,6 +142,7 @@ export const action = async ({ request }) => {
       variables: {
         metaobject: {
           type: "schedulable_entity",
+          status: metaobjectStatus,
           fields,
         },
       },
@@ -440,13 +441,12 @@ export default function SchedulrPage() {
               htmlFor="start_at"
               style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}
             >
-              Start Date & Time <span style={{ color: "red" }}>*</span>
+              Start Date & Time
             </label>
             <input
               type="datetime-local"
               id="start_at"
               name="start_at"
-              required
               style={{
                 width: "100%",
                 padding: "0.5rem",
@@ -464,13 +464,12 @@ export default function SchedulrPage() {
                 fontWeight: "500",
               }}
             >
-              End Date & Time <span style={{ color: "red" }}>*</span>
+              End Date & Time
             </label>
             <input
               type="datetime-local"
               id="end_at"
               name="end_at"
-              required
               style={{
                 width: "100%",
                 padding: "0.5rem",
@@ -484,7 +483,7 @@ export default function SchedulrPage() {
               htmlFor="status"
               style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}
             >
-              Status
+              Entry Status
             </label>
             <select
               id="status"
@@ -498,8 +497,8 @@ export default function SchedulrPage() {
               }}
               defaultValue="active"
             >
-              <option value="active">Active</option>
-              <option value="draft">Draft</option>
+              <option value="active">Active (published)</option>
+              <option value="draft">Draft (not published)</option>
             </select>
             <s-button submit loading={isLoading}>
               Create Entry
@@ -549,9 +548,9 @@ export default function SchedulrPage() {
                   )}
                   <s-stack direction="inline" gap="base" style={{ marginTop: "0.75rem" }}>
                     <s-text variant="subdued">Position: {fieldMap.position_id}</s-text>
-                    {fieldMap.status && (
-                      <s-badge tone={fieldMap.status === "active" ? "success" : "info"}>
-                        {fieldMap.status}
+                    {e.status && (
+                      <s-badge tone={e.status === "ACTIVE" ? "success" : "info"}>
+                        {e.status === "ACTIVE" ? "Active" : "Draft"}
                       </s-badge>
                     )}
                   </s-stack>
