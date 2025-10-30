@@ -40,6 +40,12 @@ const shopify = shopifyApp({
                 id
                 type
                 name
+                fieldDefinitions {
+                  key
+                  type
+                  name
+                  required
+                }
               }
             }
           `,
@@ -58,7 +64,51 @@ const shopify = shopifyApp({
         const exists = Boolean(checkJson?.data?.metaobjectDefinitionByType?.id);
 
         if (exists) {
-          console.log(`[afterAuth] Metaobject definition already exists: ${checkJson.data.metaobjectDefinitionByType.id}`);
+          const def = checkJson.data.metaobjectDefinitionByType;
+          console.log(`[afterAuth] Metaobject definition already exists: ${def.id}`);
+          try {
+            const contentField = def.fieldDefinitions?.find((f) => f.key === "content");
+            if (contentField?.type === "rich_text_field") {
+              console.log(`[afterAuth] Updating 'content' field type from rich_text_field to multi_line_text_field`);
+              const updateResponse = await admin.graphql(
+                `#graphql
+                mutation UpdateSchedulableEntityDefinition($id: ID!, $definition: MetaobjectDefinitionUpdateInput!) {
+                  metaobjectDefinitionUpdate(id: $id, definition: $definition) {
+                    metaobjectDefinition { id }
+                    userErrors { field message }
+                  }
+                }
+              `,
+                {
+                  variables: {
+                    id: def.id,
+                    definition: {
+                      fieldDefinitions: [
+                        {
+                          key: "content",
+                          name: "Content",
+                          type: "multi_line_text_field",
+                          required: false,
+                        },
+                      ],
+                    },
+                  },
+                },
+              );
+              const updateJson = await updateResponse.json();
+              console.log(`[afterAuth] Update response:`, JSON.stringify(updateJson, null, 2));
+              if (updateJson?.data?.metaobjectDefinitionUpdate?.userErrors?.length) {
+                console.error(
+                  `[afterAuth] Failed to update definition: `,
+                  updateJson.data.metaobjectDefinitionUpdate.userErrors
+                    .map((e) => `${e.field}: ${e.message}`)
+                    .join(", "),
+                );
+              }
+            }
+          } catch (updateError) {
+            console.error(`[afterAuth] Error updating existing definition:`, updateError);
+          }
           return;
         }
 
@@ -109,7 +159,7 @@ const shopify = shopifyApp({
                   {
                     name: "Content",
                     key: "content",
-                    type: "rich_text_field",
+                    type: "multi_line_text_field",
                     required: false,
                   },
                   {
