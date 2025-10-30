@@ -129,7 +129,8 @@ export const action = async ({ request }) => {
   console.log("Creating metaobject with fields:", JSON.stringify(fields, null, 2));
   console.log("Metaobject status:", metaobjectStatus);
 
-  const response = await admin.graphql(
+  // First, create the metaobject (status can't be set during creation)
+  const createResponse = await admin.graphql(
     `#graphql
     mutation CreateSchedulableEntity($metaobject: MetaobjectCreateInput!) {
       metaobjectCreate(metaobject: $metaobject) {
@@ -142,18 +143,17 @@ export const action = async ({ request }) => {
       variables: {
         metaobject: {
           type: "schedulable_entity",
-          status: metaobjectStatus,
           fields,
         },
       },
     },
   );
-  const json = await response.json();
+  const createJson = await createResponse.json();
 
-  console.log("Metaobject create response:", JSON.stringify(json, null, 2));
+  console.log("Metaobject create response:", JSON.stringify(createJson, null, 2));
 
-  if (json?.data?.metaobjectCreate?.userErrors?.length > 0) {
-    const errors = json.data.metaobjectCreate.userErrors
+  if (createJson?.data?.metaobjectCreate?.userErrors?.length > 0) {
+    const errors = createJson.data.metaobjectCreate.userErrors
       .map((e) => `${e.field}: ${e.message}`)
       .join(", ");
     return {
@@ -162,14 +162,43 @@ export const action = async ({ request }) => {
     };
   }
 
-  if (json?.data?.metaobjectCreate?.metaobject?.id) {
-    return redirect("/app/schedulr");
+  const createdMetaobject = createJson?.data?.metaobjectCreate?.metaobject;
+  if (!createdMetaobject?.id) {
+    return {
+      error: `Unknown error occurred while creating entry. Response: ${JSON.stringify(createJson)}`,
+      success: false,
+    };
   }
 
-  return {
-    error: `Unknown error occurred while creating entry. Response: ${JSON.stringify(json)}`,
-    success: false,
-  };
+  // If status needs to be set to DRAFT, update it (ACTIVE is default)
+  if (metaobjectStatus === "DRAFT") {
+    const updateResponse = await admin.graphql(
+      `#graphql
+      mutation UpdateSchedulableEntityStatus($metaobject: MetaobjectUpdateInput!) {
+        metaobjectUpdate(metaobject: $metaobject) {
+          metaobject { id handle status }
+          userErrors { field message }
+        }
+      }
+    `,
+      {
+        variables: {
+          metaobject: {
+            id: createdMetaobject.id,
+            status: "DRAFT",
+          },
+        },
+      },
+    );
+    const updateJson = await updateResponse.json();
+    console.log("Metaobject status update response:", JSON.stringify(updateJson, null, 2));
+    
+    if (updateJson?.data?.metaobjectUpdate?.userErrors?.length > 0) {
+      console.error("Failed to update status:", updateJson.data.metaobjectUpdate.userErrors);
+    }
+  }
+
+  return redirect("/app/schedulr");
 };
 
 function RichTextEditor({ name, label, defaultValue = "" }) {
