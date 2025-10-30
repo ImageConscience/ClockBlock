@@ -69,13 +69,15 @@ export const action = async ({ request }) => {
   const content = String(formData.get("content") || "").trim();
   const status = String(formData.get("status") || "active").trim();
 
-  // Query metaobject definition to check content field type
+  // Query metaobject definition to check if it exists and get content field type
   let contentFieldType = null;
+  let definitionExists = false;
   try {
     const defResponse = await admin.graphql(
       `#graphql
       query($type: String!) {
         metaobjectDefinitionByType(type: $type) {
+          id
           fieldDefinitions {
             key
             type { name }
@@ -86,13 +88,120 @@ export const action = async ({ request }) => {
       { variables: { type: "schedulable_entity" } }
     );
     const defJson = await defResponse.json();
-    const contentField = defJson?.data?.metaobjectDefinitionByType?.fieldDefinitions?.find(
-      (f) => f.key === "content"
-    );
-    contentFieldType = contentField?.type?.name || null;
-    console.log("[ACTION] Content field type:", contentFieldType);
+    definitionExists = Boolean(defJson?.data?.metaobjectDefinitionByType?.id);
+    
+    if (definitionExists) {
+      const contentField = defJson?.data?.metaobjectDefinitionByType?.fieldDefinitions?.find(
+        (f) => f.key === "content"
+      );
+      contentFieldType = contentField?.type?.name || null;
+      console.log("[ACTION] Metaobject definition exists. Content field type:", contentFieldType);
+    } else {
+      console.log("[ACTION] Metaobject definition does not exist. Creating it...");
+    }
   } catch (defError) {
     console.error("[ACTION] Could not query metaobject definition:", defError);
+    definitionExists = false;
+  }
+
+  // If definition doesn't exist, create it
+  if (!definitionExists) {
+    try {
+      console.log("[ACTION] Creating metaobject definition...");
+      const createDefResponse = await admin.graphql(
+        `#graphql
+        mutation CreateSchedulableEntityDefinition($definition: MetaobjectDefinitionCreateInput!) {
+          metaobjectDefinitionCreate(definition: $definition) {
+            metaobjectDefinition { id type name }
+            userErrors { field message }
+          }
+        }
+      `,
+        {
+          variables: {
+            definition: {
+              type: "schedulable_entity",
+              name: "Schedulable Entity",
+              fieldDefinitions: [
+                {
+                  name: "Title",
+                  key: "title",
+                  type: "single_line_text_field",
+                  required: false,
+                },
+                {
+                  name: "Position ID",
+                  key: "position_id",
+                  type: "single_line_text_field",
+                  required: true,
+                },
+                {
+                  name: "Start At",
+                  key: "start_at",
+                  type: "date_time",
+                  required: false,
+                },
+                {
+                  name: "End At",
+                  key: "end_at",
+                  type: "date_time",
+                  required: false,
+                },
+                {
+                  name: "Content",
+                  key: "content",
+                  type: "multi_line_text_field",
+                  required: false,
+                },
+                {
+                  name: "Description",
+                  key: "description",
+                  type: "single_line_text_field",
+                  required: false,
+                },
+              ],
+              access: { storefront: "PUBLIC_READ" },
+              capabilities: {
+                publishable: {
+                  enabled: true,
+                  publishEntriesAsWebPages: true,
+                },
+              },
+            },
+          },
+        }
+      );
+      const createDefJson = await createDefResponse.json();
+      console.log("[ACTION] Create definition response:", JSON.stringify(createDefJson, null, 2));
+
+      if (createDefJson?.data?.metaobjectDefinitionCreate?.userErrors?.length > 0) {
+        const errors = createDefJson.data.metaobjectDefinitionCreate.userErrors
+          .map((e) => `${e.field}: ${e.message}`)
+          .join(", ");
+        return {
+          error: `Failed to create metaobject definition: ${errors}. Please try again or contact support.`,
+          success: false,
+        };
+      }
+
+      if (createDefJson?.data?.metaobjectDefinitionCreate?.metaobjectDefinition?.id) {
+        console.log("[ACTION] Metaobject definition created successfully");
+        definitionExists = true;
+        // Set contentFieldType for multi_line_text_field
+        contentFieldType = "multi_line_text_field";
+      } else {
+        return {
+          error: "Failed to create metaobject definition. Please try again or contact support.",
+          success: false,
+        };
+      }
+    } catch (createDefError) {
+      console.error("[ACTION] Error creating metaobject definition:", createDefError);
+      return {
+        error: `Failed to create metaobject definition: ${createDefError.message}. Please try again or contact support.`,
+        success: false,
+      };
+    }
   }
 
   // Convert HTML/text to Lexical JSON format for rich_text_field
