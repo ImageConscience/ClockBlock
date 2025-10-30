@@ -471,12 +471,6 @@ export default function SchedulrPage() {
 
   const isLoading = navigation.state === "submitting" || fetcher.state === "submitting";
 
-  const handleSubmit = (e) => {
-    console.log("[CLIENT] Form submit event triggered");
-    const formData = new FormData(e.target);
-    console.log("[CLIENT] Form data:", Object.fromEntries(formData.entries()));
-  };
-
   return (
     <s-page heading="Schedulr entries">
       {(loaderError || fetcher.data?.error) && (
@@ -485,7 +479,7 @@ export default function SchedulrPage() {
         </s-banner>
       )}
       <s-section heading="Create entry">
-        <fetcher.Form method="post" ref={formRef} onSubmit={handleSubmit}>
+        <fetcher.Form method="post" ref={formRef}>
           <s-stack direction="block" gap="base">
             <s-text-field
               name="title"
