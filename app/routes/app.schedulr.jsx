@@ -481,22 +481,49 @@ export default function SchedulrPage() {
       <s-section heading="Create entry">
         <fetcher.Form method="post" ref={formRef}>
           <s-stack direction="block" gap="base">
-            <s-text-field
+            <label htmlFor="title" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>Title</label>
+            <input
+              type="text"
+              id="title"
               name="title"
-              label="Title"
-              helpText="Display title for this schedulable entry"
+              placeholder="Display title for this schedulable entry"
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+                fontSize: "1rem",
+              }}
             />
-            <s-text-field
+            <label htmlFor="position_id" style={{ display: "block", marginTop: "1rem", marginBottom: "0.5rem", fontWeight: "500" }}>Position ID</label>
+            <input
+              type="text"
+              id="position_id"
               name="position_id"
-              label="Position ID"
               required
-              helpText="Unique identifier for where this content should appear (e.g., homepage_banner)"
+              placeholder="e.g., homepage_banner"
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+                fontSize: "1rem",
+              }}
             />
-            <s-text-field
+            <label htmlFor="description" style={{ display: "block", marginTop: "1rem", marginBottom: "0.5rem", fontWeight: "500" }}>Description</label>
+            <textarea
+              id="description"
               name="description"
-              label="Description"
-              multiline={3}
-              helpText="Short description or summary"
+              rows={3}
+              placeholder="Short description or summary"
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+                fontSize: "1rem",
+                resize: "vertical",
+              }}
             />
             <label
               htmlFor="start_at"
@@ -561,9 +588,16 @@ export default function SchedulrPage() {
               <option value="active">Active (published)</option>
               <option value="draft">Draft (not published)</option>
             </select>
-            <s-button submit loading={isLoading}>
-              Create Entry
-            </s-button>
+            <button type="submit" disabled={isLoading} style={{
+              padding: "0.5rem 0.75rem",
+              border: "1px solid #c9cccf",
+              borderRadius: "4px",
+              background: isLoading ? "#e1e3e5" : "#fff",
+              cursor: isLoading ? "not-allowed" : "pointer",
+              fontSize: "1rem",
+            }}>
+              {isLoading ? "Creating..." : "Create Entry"}
+            </button>
           </s-stack>
         </fetcher.Form>
       </s-section>
