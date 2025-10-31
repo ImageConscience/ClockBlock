@@ -281,24 +281,37 @@ export const action = async ({ request }) => {
         });
         formDataToUpload.on('end', resolve);
         formDataToUpload.on('error', reject);
+        
+        // Start the stream emitting - this is critical!
+        // form-data streams need to be piped or resumed to start
+        formDataToUpload.resume();
       });
       
       const multipartBuffer = Buffer.concat(chunks);
       
       console.log("[ACTION] Multipart buffer created, size:", multipartBuffer.length, "bytes");
       
-      // Use Node's native fetch with the complete buffer
-      const uploadResponse = await fetch(stagedTarget.url, {
-        method: 'POST',
-        body: multipartBuffer,
-        headers: {
-          'Content-Type': headers['content-type'],
-          'Content-Length': multipartBuffer.length.toString(),
-          // Don't add any other headers - they break signature verification
-        },
-      });
+      // Add timeout for the upload request (60 seconds)
+      const uploadController = new AbortController();
+      const uploadTimeout = setTimeout(() => {
+        uploadController.abort();
+      }, 60000);
       
-      console.log("[ACTION] Staged upload response status:", uploadResponse.status);
+      try {
+        // Use Node's native fetch with the complete buffer
+        const uploadResponse = await fetch(stagedTarget.url, {
+          method: 'POST',
+          body: multipartBuffer,
+          signal: uploadController.signal,
+          headers: {
+            'Content-Type': headers['content-type'],
+            'Content-Length': multipartBuffer.length.toString(),
+            // Don't add any other headers - they break signature verification
+          },
+        });
+        
+        clearTimeout(uploadTimeout);
+        console.log("[ACTION] Staged upload response status:", uploadResponse.status);
       
       if (!uploadResponse.ok && uploadResponse.status !== 200 && uploadResponse.status !== 204) {
         const errorText = await uploadResponse.text();
