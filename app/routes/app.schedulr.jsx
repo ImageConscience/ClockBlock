@@ -277,8 +277,12 @@ export const action = async ({ request }) => {
         success: false,
       });
     }
+    // If we handled the file upload, return early (don't continue to entry creation)
+    return json({ error: "File upload handled", success: false });
   }
   
+  // Entry creation logic (only reached if not a file upload)
+  try {
     console.log("[ACTION] Action called - starting entry creation");
     const { admin } = await authenticate.admin(request);
     console.log("[ACTION] Admin authenticated successfully");
