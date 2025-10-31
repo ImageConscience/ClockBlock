@@ -266,35 +266,21 @@ export const action = async ({ request }) => {
         contentType: fileType,
       });
       
-      // Get headers from form-data
+      // Get headers from form-data (includes Content-Type with boundary)
       const headers = formDataToUpload.getHeaders();
       
-      // Convert form-data to buffer for fetch
-      // form-data needs to be consumed to get the full buffer
-      const chunks = [];
-      formDataToUpload.on('data', (chunk) => chunks.push(chunk));
-      formDataToUpload.on('end', () => {});
-      
-      // Wait for form-data to finish emitting
-      await new Promise((resolve, reject) => {
-        formDataToUpload.on('end', resolve);
-        formDataToUpload.on('error', reject);
-        // Trigger the form-data to start emitting
-        formDataToUpload.resume();
-      });
-      
-      const formDataBuffer = Buffer.concat(chunks);
-      
       console.log("[ACTION] Uploading to staged URL:", stagedTarget.url);
-      console.log("[ACTION] Form data buffer size:", formDataBuffer.length, "bytes");
+      console.log("[ACTION] Form data headers:", JSON.stringify(headers, null, 2));
       
-      // Use Node's native fetch with minimal headers
+      // Use Node's native fetch - pass form-data stream directly
+      // Don't set Content-Length - let fetch calculate it from the stream
+      // Only set Content-Type with boundary from form-data
       const uploadResponse = await fetch(stagedTarget.url, {
         method: 'POST',
-        body: formDataBuffer,
+        body: formDataToUpload, // Pass the stream directly
         headers: {
           'Content-Type': headers['content-type'],
-          'Content-Length': formDataBuffer.length.toString(),
+          // Don't set Content-Length - fetch will handle it
           // Don't add any other headers - they break signature verification
         },
       });
