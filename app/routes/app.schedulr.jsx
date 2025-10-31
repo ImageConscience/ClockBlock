@@ -970,15 +970,14 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
       uploadFormData.append("file", file);
       console.log("[MediaLibraryPicker] FormData created, submitting...");
       
-      // Use fetcher.submit instead of fetch to ensure proper authentication
-      // Note: React Router fetcher automatically handles multipart/form-data
+      // Use fetcher.submit - React Router automatically handles FormData as multipart/form-data
+      // Don't specify encType, let React Router handle it
+      console.log("[MediaLibraryPicker] Submitting FormData with file:", file.name, "Size:", file.size);
       uploadFetcher.submit(uploadFormData, {
         method: "POST",
-        encType: "multipart/form-data",
-        action: "/app/schedulr", // Explicitly specify the action route
+        // Don't set encType - React Router handles it automatically for FormData
       });
-      console.log("[MediaLibraryPicker] Upload request submitted");
-      console.log("[MediaLibraryPicker] Fetcher submitting to:", uploadFetcher.formAction || "/app/schedulr");
+      console.log("[MediaLibraryPicker] Upload request submitted via fetcher");
     } catch (error) {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
