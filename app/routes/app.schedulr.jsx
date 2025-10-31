@@ -243,16 +243,22 @@ export const action = async ({ request }) => {
         
         // Check if it's a permissions error
         if (graphqlError?.message?.includes("Access denied") || graphqlError?.message?.includes("stagedUploadsCreate")) {
-          return json({ 
-            error: "Access denied: The app needs write_files scope and may need to be reinstalled to get the latest permissions.", 
+          console.log("[ACTION] Returning JSON error response for permissions issue");
+          const response = json({ 
+            error: "Access denied: The app needs write_files scope. Please reinstall the app to update permissions.", 
             success: false 
           });
+          console.log("[ACTION] Response created, returning...");
+          return response;
         }
         
-        return json({ 
+        console.log("[ACTION] Returning JSON error response for general error");
+        const response = json({ 
           error: `Failed to create staged upload: ${graphqlError?.message || 'Unknown error'}`, 
           success: false 
         });
+        console.log("[ACTION] Response created, returning...");
+        return response;
       }
       
       // Check if stagedUploadsCreate returned null (permissions issue) BEFORE checking for errors
