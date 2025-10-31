@@ -489,19 +489,23 @@ export const action = async ({ request }) => {
         }
         
         console.error("[ACTION] Returning JSON error response for upload failure");
-        return json({ 
+        const errorResponse = json({ 
           error: `Failed to upload file: ${errorMessage}`, 
           success: false 
         });
+        console.log("[ACTION] JSON response created, returning now");
+        return errorResponse;
       }
     } catch (error) {
-      console.error("[ACTION] Error uploading file:", error);
-      console.error("[ACTION] Error message:", error.message);
-      console.error("[ACTION] Error stack:", error.stack);
-      return json({
+      console.error("[ACTION] Outer catch - Error uploading file:", error);
+      console.error("[ACTION] Outer catch - Error message:", error.message);
+      console.error("[ACTION] Outer catch - Error stack:", error.stack);
+      const errorResponse = json({
         error: `Failed to upload file: ${error.message}`,
         success: false,
       });
+      console.log("[ACTION] Outer catch - JSON response created, returning now");
+      return errorResponse;
     }
     // If we handled the file upload, return early (don't continue to entry creation)
     // This return should never be reached if file upload succeeded or failed (both return above)
