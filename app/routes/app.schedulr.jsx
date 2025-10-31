@@ -324,77 +324,92 @@ export const action = async ({ request }) => {
         }
         
         console.log("[ACTION] File uploaded to staged URL successfully");
-      
-      // Wait a moment for Shopify to process the staged upload
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Step 3: Create file record using resourceUrl
-      console.log("[ACTION] Creating file record using resourceUrl");
-      const fileCreateResponse = await admin.graphql(
-        `#graphql
-        mutation fileCreate($files: [FileCreateInput!]!) {
-          fileCreate(files: $files) {
-            files {
-              id
-              ... on MediaImage {
-                alt
-                image {
-                  url
-                  width
-                  height
+        
+        // Wait a moment for Shopify to process the staged upload
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Step 3: Create file record using resourceUrl
+        console.log("[ACTION] Creating file record using resourceUrl");
+        const fileCreateResponse = await admin.graphql(
+          `#graphql
+          mutation fileCreate($files: [FileCreateInput!]!) {
+            fileCreate(files: $files) {
+              files {
+                id
+                ... on MediaImage {
+                  alt
+                  image {
+                    url
+                    width
+                    height
+                  }
                 }
               }
-            }
-            userErrors {
-              field
-              message
+              userErrors {
+                field
+                message
+              }
             }
           }
+        `,
+          {
+            variables: {
+              files: [
+                {
+                  originalSource: stagedTarget.resourceUrl,
+                  filename: fileName,
+                },
+              ],
+            },
+          }
+        );
+        
+        const fileCreateJson = await fileCreateResponse.json();
+        console.log("[ACTION] File create response received");
+        
+        if (fileCreateJson?.errors) {
+          const errors = fileCreateJson.errors.map((e) => e.message).join(", ");
+          console.error("[ACTION] GraphQL errors creating file:", errors);
+          return json({ error: `Failed to create file: ${errors}`, success: false });
         }
-      `,
-        {
-          variables: {
-            files: [
-              {
-                originalSource: stagedTarget.resourceUrl,
-                filename: fileName,
-              },
-            ],
+        
+        if (fileCreateJson?.data?.fileCreate?.userErrors?.length > 0) {
+          const errors = fileCreateJson.data.fileCreate.userErrors.map((e) => e.message).join(", ");
+          console.error("[ACTION] User errors creating file:", errors);
+          return json({ error: `Failed to create file: ${errors}`, success: false });
+        }
+        
+        const uploadedFile = fileCreateJson?.data?.fileCreate?.files?.[0];
+        if (!uploadedFile?.id) {
+          console.error("[ACTION] No file ID returned in response");
+          return json({ error: "File uploaded but no ID returned", success: false });
+        }
+        
+        console.log("[ACTION] File uploaded successfully, ID:", uploadedFile.id);
+        
+        return json({
+          success: true,
+          file: {
+            id: uploadedFile.id,
+            url: uploadedFile.image?.url || "",
+            alt: uploadedFile.alt || fileName || "Uploaded image",
           },
+        });
+      } catch (uploadError) {
+        clearTimeout(uploadTimeout);
+        if (uploadError.name === 'AbortError') {
+          console.error("[ACTION] Upload request timed out after 60 seconds");
+          return json({ 
+            error: `Upload timed out. The file may be too large or the server is taking too long to process it.`, 
+            success: false 
+          });
         }
-      );
-      
-      const fileCreateJson = await fileCreateResponse.json();
-      console.log("[ACTION] File create response received");
-      
-      if (fileCreateJson?.errors) {
-        const errors = fileCreateJson.errors.map((e) => e.message).join(", ");
-        console.error("[ACTION] GraphQL errors creating file:", errors);
-        return json({ error: `Failed to create file: ${errors}`, success: false });
+        console.error("[ACTION] Upload request error:", uploadError);
+        return json({ 
+          error: `Failed to upload file: ${uploadError.message}`, 
+          success: false 
+        });
       }
-      
-      if (fileCreateJson?.data?.fileCreate?.userErrors?.length > 0) {
-        const errors = fileCreateJson.data.fileCreate.userErrors.map((e) => e.message).join(", ");
-        console.error("[ACTION] User errors creating file:", errors);
-        return json({ error: `Failed to create file: ${errors}`, success: false });
-      }
-      
-      const uploadedFile = fileCreateJson?.data?.fileCreate?.files?.[0];
-      if (!uploadedFile?.id) {
-        console.error("[ACTION] No file ID returned in response");
-        return json({ error: "File uploaded but no ID returned", success: false });
-      }
-      
-      console.log("[ACTION] File uploaded successfully, ID:", uploadedFile.id);
-      
-      return json({
-        success: true,
-        file: {
-          id: uploadedFile.id,
-          url: uploadedFile.image?.url || "",
-          alt: uploadedFile.alt || fileName || "Uploaded image",
-        },
-      });
     } catch (error) {
       console.error("[ACTION] Error uploading file:", error);
       console.error("[ACTION] Error message:", error.message);
