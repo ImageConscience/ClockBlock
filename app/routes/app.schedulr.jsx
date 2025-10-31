@@ -127,7 +127,7 @@ export const action = async ({ request }) => {
                   name: "Title",
                   key: "title",
                   type: "single_line_text_field",
-                  required: false,
+                  required: true,
                 },
                 {
                   name: "Position ID",
@@ -254,6 +254,12 @@ export const action = async ({ request }) => {
   };
 
   // Validate required fields
+  if (!title) {
+    return {
+      error: "Title is required.",
+      success: false,
+    };
+  }
   if (!positionId) {
     return {
       error: "Position ID is required.",
@@ -801,11 +807,12 @@ export default function SchedulrPage() {
               <h2 style={{ fontSize: "1.25rem", marginBottom: "1rem", marginTop: 0, fontWeight: "600" }}>Create New Entry</h2>
               <fetcher.Form method="post" ref={formRef}>
           <s-stack direction="block" gap="base">
-            <label htmlFor="title" style={{ display: "block", marginBottom: "0.375rem", fontWeight: "500", fontSize: "0.875rem" }}>Title</label>
+            <label htmlFor="title" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Title</label>
             <input
               type="text"
               id="title"
               name="title"
+              required
               placeholder="Display title for this schedulable entry"
               style={{
                 width: "100%",
@@ -816,7 +823,7 @@ export default function SchedulrPage() {
                 marginBottom: "0.75rem",
               }}
             />
-            <label htmlFor="position_id" style={{ display: "block", marginBottom: "0.375rem", fontWeight: "500", fontSize: "0.875rem" }}>Position ID</label>
+            <label htmlFor="position_id" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Position ID</label>
             <input
               type="text"
               id="position_id"
@@ -874,7 +881,7 @@ export default function SchedulrPage() {
                 />
               </div>
             </div>
-            <label htmlFor="description" style={{ display: "block", marginBottom: "0.375rem", fontWeight: "500", fontSize: "0.875rem" }}>Description</label>
+            <label htmlFor="description" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Description</label>
             <textarea
               id="description"
               name="description"

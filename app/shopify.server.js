@@ -192,7 +192,7 @@ const shopify = shopifyApp({
                     name: "Title",
                     key: "title",
                     type: "single_line_text_field",
-                    required: false,
+                    required: true,
                   },
                   {
                     name: "Position ID",
