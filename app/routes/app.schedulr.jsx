@@ -444,7 +444,7 @@ export const action = async ({ request }) => {
         method: "POST",
         body: formDataBuffer,
         headers: {
-          ...headers,
+          'Content-Type': `multipart/form-data; boundary=${boundary}`,
           'Content-Length': formDataBuffer.length.toString(),
         },
       });
