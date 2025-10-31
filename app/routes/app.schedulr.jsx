@@ -1114,10 +1114,30 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
       
       console.log("[MediaLibraryPicker] Upload response received after", uploadDuration, "ms, status:", response.status);
       
+      // Check content type to ensure we got JSON, not HTML
+      const contentType = response.headers.get("content-type") || "";
+      console.log("[MediaLibraryPicker] Response content-type:", contentType);
+      
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("[MediaLibraryPicker] Upload failed with status:", response.status, "Error:", errorText);
+        console.error("[MediaLibraryPicker] Upload failed with status:", response.status);
+        console.error("[MediaLibraryPicker] Response content-type:", contentType);
+        console.error("[MediaLibraryPicker] Error response (first 500 chars):", errorText.substring(0, 500));
+        
+        // If we got HTML instead of JSON, it's likely an error page
+        if (contentType.includes("text/html")) {
+          throw new Error(`Server returned HTML error page (${response.status}). The request may not have reached the action handler.`);
+        }
+        
         throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+      }
+      
+      // Verify we got JSON before parsing
+      if (!contentType.includes("application/json")) {
+        const responseText = await response.text();
+        console.error("[MediaLibraryPicker] Expected JSON but got:", contentType);
+        console.error("[MediaLibraryPicker] Response (first 500 chars):", responseText.substring(0, 500));
+        throw new Error(`Server returned ${contentType} instead of JSON. Response may be an error page.`);
       }
       
       const result = await response.json();
