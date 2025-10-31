@@ -89,12 +89,105 @@ export const loader = async ({ request }) => {
   }
 };
 
+// Action to handle file uploads to media library
+export const uploadMediaAction = async ({ request }) => {
+  try {
+    const { admin } = await authenticate.admin(request);
+    const formData = await request.formData();
+    const file = formData.get("file");
+    
+    if (!file || !(file instanceof File)) {
+      return { error: "No file provided", success: false };
+    }
+    
+    // Convert File to base64
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64 = buffer.toString("base64");
+    
+    // Upload file using fileCreate mutation
+    const uploadResponse = await admin.graphql(
+      `#graphql
+      mutation fileCreate($files: [FileCreateInput!]!) {
+        fileCreate(files: $files) {
+          files {
+            id
+            ... on MediaImage {
+              alt
+              image {
+                url
+                width
+                height
+              }
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+      {
+        variables: {
+          files: [
+            {
+              originalSource: `data:${file.type};base64,${base64}`,
+              filename: file.name,
+              contentType: file.type.startsWith("image/") ? "IMAGE" : "GENERIC_FILE",
+            },
+          ],
+        },
+      }
+    );
+    
+    const uploadJson = await uploadResponse.json();
+    
+    if (uploadJson?.data?.fileCreate?.userErrors?.length > 0) {
+      const errors = uploadJson.data.fileCreate.userErrors
+        .map((e) => e.message)
+        .join(", ");
+      return { error: `Failed to upload file: ${errors}`, success: false };
+    }
+    
+    const uploadedFile = uploadJson?.data?.fileCreate?.files?.[0];
+    if (!uploadedFile?.id) {
+      return { error: "File uploaded but no ID returned", success: false };
+    }
+    
+    return {
+      success: true,
+      file: {
+        id: uploadedFile.id,
+        url: uploadedFile.image?.url || "",
+        alt: uploadedFile.alt || file.name,
+      },
+    };
+  } catch (error) {
+    console.error("Error uploading file:", error);
+    return {
+      error: `Failed to upload file: ${error.message}`,
+      success: false,
+    };
+  }
+};
+
 export const action = async ({ request }) => {
+  const formData = await request.formData();
+  
+  // Check if this is a file upload request (has file but no title/position_id)
+  const file = formData.get("file");
+  const hasTitle = formData.get("title");
+  
+  if (file && !hasTitle) {
+    // This is a file upload request
+    return uploadMediaAction({ request });
+  }
+  
   console.log("[ACTION] Action called - starting entry creation");
   try {
     const { admin } = await authenticate.admin(request);
     console.log("[ACTION] Admin authenticated successfully");
-    const formData = await request.formData();
     console.log("[ACTION] Form data received");
 
   const positionId = String(formData.get("position_id") || "").trim();
@@ -534,9 +627,19 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
   const [selectedFileId, setSelectedFileId] = useState(defaultValue);
   const [showPicker, setShowPicker] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [localMediaFiles, setLocalMediaFiles] = useState(mediaFiles);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const hiddenInputRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const revalidator = useRevalidator();
 
-  const selectedFile = mediaFiles.find((f) => f.id === selectedFileId);
+  const selectedFile = localMediaFiles.find((f) => f.id === selectedFileId);
+  
+  // Update local files when mediaFiles prop changes
+  useEffect(() => {
+    setLocalMediaFiles(mediaFiles);
+  }, [mediaFiles]);
 
   const handleSelectFile = (fileId, fileUrl, fileAlt) => {
     setSelectedFileId(fileId);
@@ -547,10 +650,59 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
     }
   };
 
-  const filteredFiles = mediaFiles.filter((file) =>
+  const filteredFiles = localMediaFiles.filter((file) =>
     (file.alt || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
     (file.url || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Please upload an image file");
+      return;
+    }
+    
+    setIsUploading(true);
+    setUploadError("");
+    
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", file);
+      
+      const response = await fetch("/app/schedulr", {
+        method: "POST",
+        body: uploadFormData,
+      });
+      
+      const result = await response.json();
+      
+      if (result.success && result.file) {
+        // Add the new file to the local list
+        setLocalMediaFiles([result.file, ...localMediaFiles]);
+        // Automatically select the newly uploaded file
+        setSelectedFileId(result.file.id);
+        if (hiddenInputRef.current) {
+          hiddenInputRef.current.value = result.file.id;
+        }
+        setUploadError("");
+        // Reload media files from server
+        revalidator.revalidate();
+      } else {
+        setUploadError(result.error || "Failed to upload file");
+      }
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      setUploadError("Failed to upload file. Please try again.");
+    } finally {
+      setIsUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
 
   // Sync hidden input when selectedFileId changes
   useEffect(() => {
@@ -678,19 +830,62 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
                   ×
                 </button>
               </div>
-              <input
-                type="text"
-                placeholder="Search images..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  border: "1px solid #c9cccf",
-                  borderRadius: "4px",
-                  fontSize: "0.875rem",
-                }}
-              />
+              <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+                <input
+                  type="text"
+                  placeholder="Search images..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: "0.5rem",
+                    border: "1px solid #c9cccf",
+                    borderRadius: "4px",
+                    fontSize: "0.875rem",
+                  }}
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  style={{ display: "none" }}
+                  disabled={isUploading}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    border: "1px solid #008060",
+                    borderRadius: "4px",
+                    fontSize: "0.875rem",
+                    backgroundColor: "#008060",
+                    color: "white",
+                    cursor: isUploading ? "not-allowed" : "pointer",
+                    opacity: isUploading ? 0.6 : 1,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {isUploading ? "Uploading..." : "Upload Image"}
+                </button>
+              </div>
+              {uploadError && (
+                <div
+                  style={{
+                    padding: "0.5rem",
+                    backgroundColor: "#fee",
+                    border: "1px solid #fcc",
+                    borderRadius: "4px",
+                    color: "#c00",
+                    fontSize: "0.875rem",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  {uploadError}
+                </div>
+              )}
             </div>
             <div
               style={{
@@ -703,7 +898,7 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
             >
               {filteredFiles.length === 0 ? (
                 <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "2rem", color: "#666" }}>
-                  {mediaFiles.length === 0 ? "No images found in media library" : "No images match your search"}
+                  {localMediaFiles.length === 0 ? "No images found in media library" : "No images match your search"}
                 </div>
               ) : (
                 filteredFiles.map((file) => (
