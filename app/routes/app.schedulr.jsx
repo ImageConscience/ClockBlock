@@ -99,7 +99,9 @@ export const action = async ({ request }) => {
   if (file && !hasTitle) {
     // This is a file upload request - handle it here
     try {
+      console.log("[ACTION] File upload request received");
       const { admin } = await authenticate.admin(request);
+      console.log("[ACTION] Admin authenticated successfully for file upload");
       
       if (!file || !(file instanceof File)) {
         return { error: "No file provided", success: false };
@@ -667,9 +669,18 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
       const response = await fetch("/app/schedulr", {
         method: "POST",
         body: uploadFormData,
+        credentials: "include",
       });
       
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Upload response not OK:", response.status, errorText);
+        setUploadError(`Failed to upload file: ${response.status} ${errorText}`);
+        return;
+      }
+      
       const result = await response.json();
+      console.log("Upload result:", result);
       
       if (result.success && result.file) {
         // Add the new file to the local list
