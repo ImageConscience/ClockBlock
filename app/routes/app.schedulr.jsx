@@ -310,22 +310,19 @@ export const action = async ({ request }) => {
       
       console.log("[ACTION] Staged upload target created, uploading file...");
       
-      // Step 2: Upload file to staged URL using axios with form-data
-      // Axios handles form-data streams correctly and preserves the multipart format
+      // Step 2: Upload file to staged URL using Node's native fetch with form-data
+      // Node's fetch preserves form-data streams better for signature verification
       let FormDataClass;
-      let axios;
       
       try {
-        console.log("[ACTION] Importing form-data and axios...");
+        console.log("[ACTION] Importing form-data...");
         const formDataModule = await import("form-data");
         FormDataClass = formDataModule.default;
-        const axiosModule = await import("axios");
-        axios = axiosModule.default;
-        console.log("[ACTION] Successfully imported form-data and axios");
+        console.log("[ACTION] Successfully imported form-data");
       } catch (importError) {
-        console.error("[ACTION] Failed to import form-data or axios:", importError);
+        console.error("[ACTION] Failed to import form-data:", importError);
         return json({ 
-          error: `Failed to load upload libraries: ${importError.message}`, 
+          error: `Failed to load upload library: ${importError.message}`, 
           success: false 
         });
       }
@@ -396,9 +393,10 @@ export const action = async ({ request }) => {
         
         console.log("[ACTION] Staged upload response status:", uploadResponse.status);
         
-        if (uploadResponse.status !== 200 && uploadResponse.status !== 204) {
+        if (!uploadResponse.ok && uploadResponse.status !== 200 && uploadResponse.status !== 204) {
+          const errorText = await uploadResponse.text();
           console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.status);
-          console.error("[ACTION] Error response:", uploadResponse.data);
+          console.error("[ACTION] Error response:", errorText);
           return json({ 
             error: `Failed to upload file: HTTP ${uploadResponse.status}`, 
             success: false 
