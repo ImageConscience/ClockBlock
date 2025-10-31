@@ -165,6 +165,9 @@ export const action = async ({ request }) => {
                 publishable: {
                   enabled: true,
                 },
+                onlineStore: {
+                  enabled: true,
+                },
               },
             },
           },

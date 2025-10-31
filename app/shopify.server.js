@@ -10,7 +10,7 @@ import prisma from "./db.server";
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-  apiVersion: ApiVersion.October25,
+  apiVersion: ApiVersion.January26,
   scopes: process.env.SCOPES?.split(","),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
@@ -67,11 +67,55 @@ const shopify = shopifyApp({
           const def = checkJson.data.metaobjectDefinitionByType;
           console.log(`[afterAuth] Metaobject definition already exists: ${def.id}`);
           try {
+            // Check if we need to update capabilities (onlineStore)
+            console.log(`[afterAuth] Attempting to enable onlineStore capability if not already enabled`);
+            const updateResponse = await admin.graphql(
+              `#graphql
+              mutation UpdateSchedulableEntityDefinition($id: ID!, $definition: MetaobjectDefinitionUpdateInput!) {
+                metaobjectDefinitionUpdate(id: $id, definition: $definition) {
+                  metaobjectDefinition { 
+                    id 
+                    capabilities {
+                      publishable { enabled }
+                      onlineStore { enabled }
+                    }
+                  }
+                  userErrors { field message }
+                }
+              }
+            `,
+              {
+                variables: {
+                  id: def.id,
+                  definition: {
+                    capabilities: {
+                      onlineStore: {
+                        enabled: true,
+                      },
+                    },
+                  },
+                },
+              },
+            );
+            const updateJson = await updateResponse.json();
+            console.log(`[afterAuth] Update capabilities response:`, JSON.stringify(updateJson, null, 2));
+            if (updateJson?.data?.metaobjectDefinitionUpdate?.userErrors?.length) {
+              console.warn(
+                `[afterAuth] Could not update onlineStore capability: `,
+                updateJson.data.metaobjectDefinitionUpdate.userErrors
+                  .map((e) => `${e.field}: ${e.message}`)
+                  .join(", "),
+              );
+            } else {
+              console.log(`[afterAuth] Successfully updated onlineStore capability`);
+            }
+            
+            // Also update content field if it's rich_text
             const contentField = def.fieldDefinitions?.find((f) => f.key === "content");
             const typeName = String(contentField?.type?.name || "").toLowerCase();
             if (typeName.includes("rich_text")) {
               console.log(`[afterAuth] Updating 'content' field type from rich_text_field to multi_line_text_field`);
-              const updateResponse = await admin.graphql(
+              const fieldUpdateResponse = await admin.graphql(
                 `#graphql
                 mutation UpdateSchedulableEntityDefinition($id: ID!, $definition: MetaobjectDefinitionUpdateInput!) {
                   metaobjectDefinitionUpdate(id: $id, definition: $definition) {
@@ -96,12 +140,12 @@ const shopify = shopifyApp({
                   },
                 },
               );
-              const updateJson = await updateResponse.json();
-              console.log(`[afterAuth] Update response:`, JSON.stringify(updateJson, null, 2));
-              if (updateJson?.data?.metaobjectDefinitionUpdate?.userErrors?.length) {
+              const fieldUpdateJson = await fieldUpdateResponse.json();
+              console.log(`[afterAuth] Update field response:`, JSON.stringify(fieldUpdateJson, null, 2));
+              if (fieldUpdateJson?.data?.metaobjectDefinitionUpdate?.userErrors?.length) {
                 console.error(
                   `[afterAuth] Failed to update definition: `,
-                  updateJson.data.metaobjectDefinitionUpdate.userErrors
+                  fieldUpdateJson.data.metaobjectDefinitionUpdate.userErrors
                     .map((e) => `${e.field}: ${e.message}`)
                     .join(", "),
                 );
@@ -175,6 +219,9 @@ const shopify = shopifyApp({
                   publishable: {
                     enabled: true,
                   },
+                  onlineStore: {
+                    enabled: true,
+                  },
                 },
               },
             },
@@ -213,7 +260,7 @@ const shopify = shopifyApp({
 });
 
 export default shopify;
-export const apiVersion = ApiVersion.October25;
+export const apiVersion = ApiVersion.January26;
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;
