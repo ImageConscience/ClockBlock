@@ -463,6 +463,130 @@ export const action = async ({ request }) => {
   }
 };
 
+function UrlPicker({ name, label, defaultValue = "" }) {
+  const [urlType, setUrlType] = useState(() => {
+    if (!defaultValue) return "custom";
+    if (defaultValue.startsWith("/products/")) return "product";
+    if (defaultValue.startsWith("/collections/")) return "collection";
+    if (defaultValue.startsWith("/pages/")) return "page";
+    if (defaultValue === "/" || defaultValue === "") return "home";
+    return "custom";
+  });
+  const [customUrl, setCustomUrl] = useState(() => {
+    if (defaultValue && !defaultValue.startsWith("/products/") && !defaultValue.startsWith("/collections/") && !defaultValue.startsWith("/pages/") && defaultValue !== "/") {
+      return defaultValue;
+    }
+    return "";
+  });
+  const [productHandle, setProductHandle] = useState("");
+  const [collectionHandle, setCollectionHandle] = useState("");
+  const [pageHandle, setPageHandle] = useState("");
+  const hiddenInputRef = useRef(null);
+
+  useEffect(() => {
+    if (hiddenInputRef.current) {
+      let finalUrl = "";
+      if (urlType === "home") {
+        finalUrl = "/";
+      } else if (urlType === "product" && productHandle) {
+        finalUrl = `/products/${productHandle}`;
+      } else if (urlType === "collection" && collectionHandle) {
+        finalUrl = `/collections/${collectionHandle}`;
+      } else if (urlType === "page" && pageHandle) {
+        finalUrl = `/pages/${pageHandle}`;
+      } else if (urlType === "custom") {
+        finalUrl = customUrl;
+      }
+      hiddenInputRef.current.value = finalUrl;
+    }
+  }, [urlType, customUrl, productHandle, collectionHandle, pageHandle]);
+
+  return (
+    <div style={{ marginBottom: "0.5rem" }}>
+      <label style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>{label}</label>
+      <select
+        value={urlType}
+        onChange={(e) => setUrlType(e.target.value)}
+        style={{
+          width: "100%",
+          padding: "0.5rem",
+          border: "1px solid #c9cccf",
+          borderRadius: "4px",
+          fontSize: "0.875rem",
+          marginBottom: "0.5rem",
+        }}
+      >
+        <option value="home">Home</option>
+        <option value="product">Product</option>
+        <option value="collection">Collection</option>
+        <option value="page">Page</option>
+        <option value="custom">Custom URL</option>
+      </select>
+      {urlType === "product" && (
+        <input
+          type="text"
+          placeholder="Product handle (e.g., my-product)"
+          value={productHandle}
+          onChange={(e) => setProductHandle(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "0.5rem",
+            border: "1px solid #c9cccf",
+            borderRadius: "4px",
+            fontSize: "0.875rem",
+          }}
+        />
+      )}
+      {urlType === "collection" && (
+        <input
+          type="text"
+          placeholder="Collection handle (e.g., my-collection)"
+          value={collectionHandle}
+          onChange={(e) => setCollectionHandle(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "0.5rem",
+            border: "1px solid #c9cccf",
+            borderRadius: "4px",
+            fontSize: "0.875rem",
+          }}
+        />
+      )}
+      {urlType === "page" && (
+        <input
+          type="text"
+          placeholder="Page handle (e.g., about-us)"
+          value={pageHandle}
+          onChange={(e) => setPageHandle(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "0.5rem",
+            border: "1px solid #c9cccf",
+            borderRadius: "4px",
+            fontSize: "0.875rem",
+          }}
+        />
+      )}
+      {urlType === "custom" && (
+        <input
+          type="url"
+          placeholder="https://example.com or /path"
+          value={customUrl}
+          onChange={(e) => setCustomUrl(e.target.value)}
+          style={{
+            width: "100%",
+            padding: "0.5rem",
+            border: "1px solid #c9cccf",
+            borderRadius: "4px",
+            fontSize: "0.875rem",
+          }}
+        />
+      )}
+      <input type="hidden" name={name} ref={hiddenInputRef} />
+    </div>
+  );
+}
+
 // RichTextEditor removed - content field no longer used
 /*function RichTextEditor({ name, label, defaultValue = "" }) {
   const [html, setHtml] = useState(defaultValue);
@@ -850,8 +974,8 @@ export default function SchedulrPage() {
             </button>
 
             {/* Modal Content */}
-            <div style={{ padding: "1.5rem" }}>
-              <h2 style={{ fontSize: "1.25rem", marginBottom: "1rem", marginTop: 0, fontWeight: "600" }}>Create New Entry</h2>
+            <div style={{ padding: "1.25rem" }}>
+              <h2 style={{ fontSize: "1.25rem", marginBottom: "0.75rem", marginTop: 0, fontWeight: "600" }}>Create New Entry</h2>
               <fetcher.Form method="post" ref={formRef}>
           <s-stack direction="block" gap="base">
             <label htmlFor="title" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Title</label>
@@ -867,7 +991,7 @@ export default function SchedulrPage() {
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
                 fontSize: "0.875rem",
-                marginBottom: "0.75rem",
+                marginBottom: "0.5rem",
               }}
             />
             <label htmlFor="position_id" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Position ID</label>
@@ -883,10 +1007,10 @@ export default function SchedulrPage() {
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
                 fontSize: "0.875rem",
-                marginBottom: "0.75rem",
+                marginBottom: "0.5rem",
               }}
             />
-             <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.75rem" }}>
+             <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.5rem" }}>
               <div style={{ flex: "1" }}>
                 <label
                   htmlFor="start_at"
@@ -910,7 +1034,7 @@ export default function SchedulrPage() {
               <div style={{ flex: "1" }}>
                 <label
                   htmlFor="end_at"
-                  style={{ display: "block", marginBottom: "0.375rem", fontWeight: "500", fontSize: "0.875rem" }}
+                  style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}
                 >
                   End Date & Time
                 </label>
@@ -941,7 +1065,7 @@ export default function SchedulrPage() {
                 borderRadius: "4px",
                 fontSize: "0.875rem",
                 resize: "vertical",
-                marginBottom: "0.75rem",
+                marginBottom: "0.5rem",
               }}
             />
             <label htmlFor="desktop_banner" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Desktop Banner</label>
@@ -956,7 +1080,7 @@ export default function SchedulrPage() {
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
                 fontSize: "0.875rem",
-                marginBottom: "0.75rem",
+                marginBottom: "0.5rem",
               }}
             />
             <label htmlFor="mobile_banner" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Mobile Banner</label>
@@ -971,24 +1095,10 @@ export default function SchedulrPage() {
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
                 fontSize: "0.875rem",
-                marginBottom: "0.75rem",
+                marginBottom: "0.5rem",
               }}
             />
-            <label htmlFor="target_url" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Target URL</label>
-            <input
-              type="url"
-              id="target_url"
-              name="target_url"
-              placeholder="https://example.com"
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                border: "1px solid #c9cccf",
-                borderRadius: "4px",
-                fontSize: "0.875rem",
-                marginBottom: "0.75rem",
-              }}
-            />
+            <UrlPicker name="target_url" label="Target URL" />
             <label htmlFor="headline" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Headline</label>
             <input
               type="text"
@@ -1001,7 +1111,7 @@ export default function SchedulrPage() {
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
                 fontSize: "0.875rem",
-                marginBottom: "0.75rem",
+                marginBottom: "0.5rem",
               }}
             />
             <label htmlFor="button_text" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Button Text</label>
@@ -1021,7 +1131,7 @@ export default function SchedulrPage() {
             />
             <label
               htmlFor="status"
-              style={{ display: "block", marginBottom: "0.375rem", fontWeight: "500", fontSize: "0.875rem" }}
+              style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}
             >
               Entry Status
             </label>
@@ -1034,7 +1144,7 @@ export default function SchedulrPage() {
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
                 fontSize: "0.875rem",
-                marginBottom: "0.75rem",
+                marginBottom: "0.5rem",
               }}
               defaultValue="active"
             >
