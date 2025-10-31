@@ -43,7 +43,43 @@ export const loader = async ({ request }) => {
     }
 
     const entries = json?.data?.metaobjects?.nodes ?? [];
-    return { entries };
+    
+    // Fetch media files for picker
+    let mediaFiles = [];
+    try {
+      const filesResponse = await admin.graphql(
+        `#graphql
+        query GetMediaFiles($first: Int!) {
+          files(first: $first, query: "media_type:image") {
+            edges {
+              node {
+                id
+                ... on MediaImage {
+                  alt
+                  image {
+                    url
+                    width
+                    height
+                  }
+                }
+              }
+            }
+          }
+        }
+      `,
+        { variables: { first: 250 } },
+      );
+      const filesJson = await filesResponse.json();
+      mediaFiles = filesJson?.data?.files?.edges?.map((edge) => ({
+        id: edge.node.id,
+        url: edge.node.image?.url || "",
+        alt: edge.node.alt || "",
+      })) || [];
+    } catch (error) {
+      console.error("Error loading media files:", error);
+    }
+    
+    return { entries, mediaFiles };
   } catch (error) {
     console.error("Error loading schedulable entities:", error);
     return { 
@@ -570,6 +606,55 @@ export const action = async ({ request }) => {
   }
 };
 
+function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" }) {
+  const [selectedFileId, setSelectedFileId] = useState(defaultValue);
+  const selectedFile = mediaFiles.find((f) => f.id === selectedFileId);
+
+  return (
+    <div style={{ marginBottom: "0.5rem" }}>
+      <label htmlFor={name} style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+        {label}
+      </label>
+      <select
+        id={name}
+        name={name}
+        value={selectedFileId}
+        onChange={(e) => setSelectedFileId(e.target.value)}
+        style={{
+          width: "100%",
+          padding: "0.5rem",
+          border: "1px solid #c9cccf",
+          borderRadius: "4px",
+          fontSize: "0.875rem",
+        }}
+      >
+        <option value="">{label} - Select from media library</option>
+        {mediaFiles.map((file) => (
+          <option key={file.id} value={file.id}>
+            {file.alt || file.url.split("/").pop() || "Untitled"}
+          </option>
+        ))}
+      </select>
+      {selectedFile && selectedFile.url && (
+        <div style={{ marginTop: "0.5rem" }}>
+          <img
+            src={selectedFile.url}
+            alt={selectedFile.alt || ""}
+            style={{
+              maxWidth: "200px",
+              maxHeight: "150px",
+              objectFit: "contain",
+              border: "1px solid #c9cccf",
+              borderRadius: "4px",
+              padding: "0.25rem",
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UrlPicker({ name, label, defaultValue = "" }) {
   const [urlType, setUrlType] = useState(() => {
     if (!defaultValue) return "custom";
@@ -929,7 +1014,7 @@ function UrlPicker({ name, label, defaultValue = "" }) {
 }*/
 
 export default function SchedulrPage() {
-  const { entries, error: loaderError } = useLoaderData();
+  const { entries, mediaFiles, error: loaderError } = useLoaderData();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
   const navigation = useNavigation();
@@ -1094,7 +1179,7 @@ export default function SchedulrPage() {
             {/* Modal Content */}
             <div style={{ padding: "1.25rem" }}>
               <s-heading size="large" style={{ marginBottom: "1rem", marginTop: 0 }}>Create New Entry</s-heading>
-              <fetcher.Form method="post" ref={formRef} encType="multipart/form-data">
+              <fetcher.Form method="post" ref={formRef}>
           <s-stack direction="block" gap="base">
             <s-text-field
               label="Title"
@@ -1108,16 +1193,16 @@ export default function SchedulrPage() {
               required
               placeholder="e.g., homepage_banner"
             />
-                  <s-stack direction="inline" gap="base">
+                  <s-stack direction="inline" gap="tight" style={{ gap: "15px" }}>
                     <s-text-field
-                      label="Start Date & Time"
+                      label="Start Date"
                       name="start_at"
-                      type="datetime-local"
+                      type="date"
                     />
                     <s-text-field
-                      label="End Date & Time"
+                      label="End Date"
                       name="end_at"
-                      type="datetime-local"
+                      type="date"
                     />
                   </s-stack>
                   <s-text-field
@@ -1131,42 +1216,16 @@ export default function SchedulrPage() {
                     name="target_url"
                     placeholder="https://example.com"
                   />
-                  <div>
-                    <label htmlFor="desktop_banner" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
-                      Desktop Banner
-                    </label>
-                    <input
-                      type="file"
-                      id="desktop_banner"
-                      name="desktop_banner"
-                      accept="image/*"
-                      style={{
-                        width: "100%",
-                        padding: "0.5rem",
-                        border: "1px solid #c9cccf",
-                        borderRadius: "4px",
-                        fontSize: "0.875rem",
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="mobile_banner" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
-                      Mobile Banner
-                    </label>
-                    <input
-                      type="file"
-                      id="mobile_banner"
-                      name="mobile_banner"
-                      accept="image/*"
-                      style={{
-                        width: "100%",
-                        padding: "0.5rem",
-                        border: "1px solid #c9cccf",
-                        borderRadius: "4px",
-                        fontSize: "0.875rem",
-                      }}
-                    />
-                  </div>
+                  <MediaLibraryPicker
+                    name="desktop_banner"
+                    label="Desktop Banner"
+                    mediaFiles={mediaFiles || []}
+                  />
+                  <MediaLibraryPicker
+                    name="mobile_banner"
+                    label="Mobile Banner"
+                    mediaFiles={mediaFiles || []}
+                  />
                   <s-text-field
                     label="Headline"
                     name="headline"
