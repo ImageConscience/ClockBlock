@@ -383,15 +383,15 @@ export const action = async ({ request }) => {
       console.log("[ACTION] Form data headers:", JSON.stringify(headers, null, 2));
       
       try {
-        // Use axios with form-data for Google Cloud Storage upload
-        // Critical: DO NOT set Content-Type manually - axios will use form-data's headers
-        // which includes the correct multipart boundary
-        // The signature verification depends on the exact multipart format
-        const uploadResponse = await axios.post(uploadUrl, formDataToUpload, {
+        // Use Node's native fetch instead of axios for better form-data stream handling
+        // The signature verification is very sensitive to the exact multipart format
+        // Node's fetch preserves the form-data stream format better than axios
+        // Critical: Use form-data's headers which include the correct multipart boundary
+        const uploadResponse = await fetch(uploadUrl, {
+          method: 'POST',
+          body: formDataToUpload,
           headers: headers, // form-data provides correct Content-Type with boundary
-          maxContentLength: Infinity,
-          maxBodyLength: Infinity,
-          timeout: 60000, // 60 second timeout
+          // Don't set timeout in fetch options - use AbortController if needed
         });
         
         console.log("[ACTION] Staged upload response status:", uploadResponse.status);
