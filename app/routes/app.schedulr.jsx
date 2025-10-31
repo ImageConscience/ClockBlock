@@ -487,15 +487,21 @@ export const action = async ({ request }) => {
     status,
   });
 
-  const formattedStartAt = startAt ? formatDateTime(startAt) : null;
-  const formattedEndAt = endAt ? formatDateTime(endAt) : null;
+  // Set default dates if not provided
+  // Default start: Jan 1, 2000 at 12:00 AM
+  // Default end: Dec 31, 2100 at 11:59 PM
+  const defaultStartDate = new Date("2000-01-01T00:00:00Z");
+  const defaultEndDate = new Date("2100-12-31T23:59:59Z");
+  
+  const formattedStartAt = startAt ? formatDateTime(startAt) : defaultStartDate.toISOString();
+  const formattedEndAt = endAt ? formatDateTime(endAt) : defaultEndDate.toISOString();
   
   console.log("Formatted dates:", {
     formattedStartAt,
     formattedEndAt,
   });
 
-  // Validate date formats only if dates are provided
+  // Validate date formats
   if (startAt && !formattedStartAt) {
     return {
       error: "Invalid Start Date format. Please ensure the date is valid.",
@@ -513,8 +519,9 @@ export const action = async ({ request }) => {
     { key: "position_id", value: positionId },
   ];
 
-  if (formattedStartAt) fields.push({ key: "start_at", value: formattedStartAt });
-  if (formattedEndAt) fields.push({ key: "end_at", value: formattedEndAt });
+  // Always include start_at and end_at (using defaults if not provided)
+  fields.push({ key: "start_at", value: formattedStartAt });
+  fields.push({ key: "end_at", value: formattedEndAt });
 
   if (title) fields.push({ key: "title", value: title });
   if (description) fields.push({ key: "description", value: description });
@@ -628,6 +635,7 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
   const hiddenInputRef = useRef(null);
   const fileInputRef = useRef(null);
   const revalidator = useRevalidator();
+  const uploadFetcher = useFetcher();
 
   const selectedFile = localMediaFiles.find((f) => f.id === selectedFileId);
   
@@ -666,21 +674,26 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
       const uploadFormData = new FormData();
       uploadFormData.append("file", file);
       
-      const response = await fetch("/app/schedulr", {
+      // Use fetcher.submit instead of fetch to ensure proper authentication
+      uploadFetcher.submit(uploadFormData, {
         method: "POST",
-        body: uploadFormData,
-        credentials: "include",
+        encType: "multipart/form-data",
       });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Upload response not OK:", response.status, errorText);
-        setUploadError(`Failed to upload file: ${response.status} ${errorText}`);
-        return;
+    } catch (error) {
+      console.error("Error initiating file upload:", error);
+      setUploadError("Failed to upload file. Please try again.");
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
       }
-      
-      const result = await response.json();
-      console.log("Upload result:", result);
+    }
+  };
+
+  // Handle upload fetcher response
+  useEffect(() => {
+    if (uploadFetcher.state === "idle" && uploadFetcher.data) {
+      setIsUploading(false);
+      const result = uploadFetcher.data;
       
       if (result.success && result.file) {
         // Add the new file to the local list
@@ -696,17 +709,13 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
       } else {
         setUploadError(result.error || "Failed to upload file");
       }
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      setUploadError("Failed to upload file. Please try again.");
-    } finally {
-      setIsUploading(false);
+      
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
     }
-  };
+  }, [uploadFetcher.state, uploadFetcher.data, localMediaFiles, revalidator]);
 
   // Sync hidden input when selectedFileId changes
   useEffect(() => {
@@ -1490,36 +1499,36 @@ export default function SchedulrPage() {
             />
                   <div style={{ display: "flex", gap: "15px", marginBottom: "0.5rem" }}>
                     <div style={{ flex: 1 }}>
-                      <label htmlFor="start_at" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", fontSize: "0.875rem" }}>
-                        Start Date
+                      <label htmlFor="start_at" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>
+                        Start Date & Time
                       </label>
                       <input
-                        type="date"
+                        type="datetime-local"
                         id="start_at"
                         name="start_at"
                         style={{
                           width: "100%",
-                          padding: "0.5rem",
+                          padding: "0.375rem 0.5rem",
                           border: "1px solid #c9cccf",
                           borderRadius: "4px",
-                          fontSize: "0.875rem",
+                          fontSize: "0.8125rem",
                         }}
                       />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <label htmlFor="end_at" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", fontSize: "0.875rem" }}>
-                        End Date
+                      <label htmlFor="end_at" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>
+                        End Date & Time
                       </label>
                       <input
-                        type="date"
+                        type="datetime-local"
                         id="end_at"
                         name="end_at"
                         style={{
                           width: "100%",
-                          padding: "0.5rem",
+                          padding: "0.375rem 0.5rem",
                           border: "1px solid #c9cccf",
                           borderRadius: "4px",
-                          fontSize: "0.875rem",
+                          fontSize: "0.8125rem",
                         }}
                       />
                     </div>
