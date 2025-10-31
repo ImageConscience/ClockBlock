@@ -460,6 +460,13 @@ export const action = async ({ request }) => {
         console.error("[ACTION] Upload error message:", uploadError?.message);
         console.error("[ACTION] Upload error stack:", uploadError?.stack);
         
+        // Log axios error response details if available
+        if (uploadError.response) {
+          console.error("[ACTION] Upload error response status:", uploadError.response.status);
+          console.error("[ACTION] Upload error response data:", uploadError.response.data);
+          console.error("[ACTION] Upload error response headers:", uploadError.response.headers);
+        }
+        
         if (uploadError.name === 'AbortError' || uploadError.message?.includes('timeout')) {
           console.error("[ACTION] Upload request timed out");
           return json({ 
@@ -468,8 +475,20 @@ export const action = async ({ request }) => {
           });
         }
         
+        // Extract more specific error message from axios error
+        let errorMessage = uploadError.message || 'Unknown error';
+        if (uploadError.response?.data) {
+          const errorData = uploadError.response.data;
+          if (typeof errorData === 'string') {
+            errorMessage = errorData;
+          } else if (errorData.error || errorData.message) {
+            errorMessage = errorData.error || errorData.message;
+          }
+        }
+        
+        console.error("[ACTION] Returning JSON error response for upload failure");
         return json({ 
-          error: `Failed to upload file: ${uploadError.message || 'Unknown error'}`, 
+          error: `Failed to upload file: ${errorMessage}`, 
           success: false 
         });
       }
