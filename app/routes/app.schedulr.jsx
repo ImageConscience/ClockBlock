@@ -3,6 +3,7 @@ import { useFetcher, useLoaderData, redirect, useNavigation, useRevalidator } fr
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
+import { createRequire } from "module";
 
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
@@ -99,8 +100,9 @@ export const action = async ({ request }) => {
   if (file && !hasTitle) {
     // This is a file upload request - handle it here using staged uploads
     // Import server-only modules here (not at top level to avoid client bundle issues)
-    const FormDataModule = await import("form-data");
-    const FormData = FormDataModule.default || FormDataModule;
+    // form-data is CommonJS, so we use createRequire to import it
+    const require = createRequire(import.meta.url);
+    const FormData = require("form-data");
     const { request } = await import("undici");
     
     try {
