@@ -1150,97 +1150,74 @@ export default function SchedulrPage() {
                 />
               </div>
             </div>
-            <label htmlFor="description" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>Description</label>
-            <textarea
-              id="description"
-              name="description"
-              rows={3}
-              placeholder="Short description or summary"
-              style={{
-                width: "100%",
-                padding: "0.375rem 0.5rem",
-                  border: "1px solid #c9cccf",
-                borderRadius: "4px",
-                fontSize: "0.8125rem",
-                resize: "vertical",
-                marginBottom: "0.375rem",
-              }}
-            />
-            <s-file-picker
-              label="Desktop Banner"
-              name="desktop_banner"
-              accept="image/*"
-            />
-            <s-file-picker
-              label="Mobile Banner"
-              name="mobile_banner"
-              accept="image/*"
-            />
-            <UrlPicker name="target_url" label="Target URL" />
-            <label htmlFor="headline" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>Headline</label>
-            <input
-              type="text"
-              id="headline"
-              name="headline"
-              placeholder="Headline text"
-              style={{
-                width: "100%",
-                padding: "0.375rem 0.5rem",
-                border: "1px solid #c9cccf",
-                borderRadius: "4px",
-                fontSize: "0.8125rem",
-                marginBottom: "0.375rem",
-              }}
-            />
-            <label htmlFor="button_text" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>Button Text</label>
-            <input
-              type="text"
-              id="button_text"
-              name="button_text"
-              placeholder="Button text"
-              style={{
-                width: "100%",
-                padding: "0.375rem 0.5rem",
-                border: "1px solid #c9cccf",
-                borderRadius: "4px",
-                fontSize: "0.8125rem",
-                marginBottom: "0.375rem",
-              }}
-            />
-            <label
-              htmlFor="status"
-              style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}
-            >
-              Entry Status
-            </label>
-            <select
-              id="status"
-              name="status"
-              style={{
-                width: "100%",
-                padding: "0.375rem 0.5rem",
-                border: "1px solid #c9cccf",
-                borderRadius: "4px",
-                fontSize: "0.8125rem",
-                marginBottom: "0.375rem",
-              }}
-              defaultValue="active"
-            >
-              <option value="active">Active (published)</option>
-              <option value="draft">Draft (not published)</option>
-            </select>
-            <button type="submit" disabled={isLoading} style={{
-              padding: "0.5rem 0.75rem",
-              border: "none",
-              borderRadius: "4px",
-              background: isLoading ? "#e1e3e5" : "#008060",
-              color: isLoading ? "#666" : "#fff",
-              cursor: isLoading ? "not-allowed" : "pointer",
-              fontSize: "0.875rem",
-              fontWeight: "600",
-            }}>
-              {isLoading ? "Creating..." : "Create Entry"}
-            </button>
+                  <s-text-field
+                    label="Description"
+                    name="description"
+                    multiline={3}
+                    placeholder="Short description or summary"
+                  />
+                  <s-url-field
+                    label="Target URL"
+                    name="target_url"
+                    placeholder="https://example.com"
+                  />
+                  <div>
+                    <label htmlFor="desktop_banner" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+                      Desktop Banner
+                    </label>
+                    <input
+                      type="file"
+                      id="desktop_banner"
+                      name="desktop_banner"
+                      accept="image/*"
+                      style={{
+                        width: "100%",
+                        padding: "0.5rem",
+                        border: "1px solid #c9cccf",
+                        borderRadius: "4px",
+                        fontSize: "0.875rem",
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="mobile_banner" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+                      Mobile Banner
+                    </label>
+                    <input
+                      type="file"
+                      id="mobile_banner"
+                      name="mobile_banner"
+                      accept="image/*"
+                      style={{
+                        width: "100%",
+                        padding: "0.5rem",
+                        border: "1px solid #c9cccf",
+                        borderRadius: "4px",
+                        fontSize: "0.875rem",
+                      }}
+                    />
+                  </div>
+                  <s-text-field
+                    label="Headline"
+                    name="headline"
+                    placeholder="Headline text"
+                  />
+                  <s-text-field
+                    label="Button Text"
+                    name="button_text"
+                    placeholder="Button text"
+                  />
+                  <s-select
+                    label="Entry Status"
+                    name="status"
+                    defaultValue="active"
+                  >
+                    <option value="active">Active (published)</option>
+                    <option value="draft">Draft (not published)</option>
+                  </s-select>
+                  <s-button type="submit" disabled={isLoading} variant="primary">
+                    {isLoading ? "Creating..." : "Create Entry"}
+                  </s-button>
           </s-stack>
         </fetcher.Form>
             </div>
