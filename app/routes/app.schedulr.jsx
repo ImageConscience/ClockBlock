@@ -336,12 +336,23 @@ export const action = async ({ request }) => {
       // DO NOT modify parameter names or values - they're signed
       // Log parameters for debugging
       console.log("[ACTION] Staged upload parameters:", JSON.stringify(stagedTarget.parameters, null, 2));
+      console.log("[ACTION] Parameter names:", stagedTarget.parameters.map(p => p.name).join(", "));
       
       // According to Shopify docs, parameters must be added EXACTLY as provided
-      // Some parameters (like 'key') may need quotes preserved
+      // For FILE resource type, parameters should include authentication details
+      // Check if we have the required parameters
+      if (stagedTarget.parameters.length === 0) {
+        console.error("[ACTION] ERROR: No parameters returned from staged upload!");
+        return json({ 
+          error: "No upload parameters received from Shopify. Please try again.", 
+          success: false 
+        });
+      }
+      
       for (const param of stagedTarget.parameters) {
         // Keep parameter values exactly as provided - don't modify quotes
         // The signature depends on the exact value format
+        console.log(`[ACTION] Adding parameter: ${param.name} = ${param.value.substring(0, 50)}...`);
         formDataToUpload.append(param.name, param.value);
       }
       
@@ -353,19 +364,26 @@ export const action = async ({ request }) => {
       
       const headers = formDataToUpload.getHeaders();
       
-      // Use the base URL without query parameters - all auth params must be in form data
-      // The URL from Shopify may have query params, but GCS requires form data params
-      const uploadUrl = stagedTarget.url.split('?')[0];
+      // For FILE resource type, Google Cloud Storage authentication may be in the URL query string
+      // OR in form data parameters. We need to check which one Shopify provides.
+      // If URL has query params with X-Goog-* headers, those are the authentication
+      // If parameters array has x-goog-* fields, those go in form data
+      // Let's use the full URL as provided by Shopify to preserve all authentication
+      const uploadUrl = stagedTarget.url;
       
-      console.log("[ACTION] Uploading to staged URL (base):", uploadUrl);
-      console.log("[ACTION] Full staged URL from Shopify:", stagedTarget.url);
+      console.log("[ACTION] Uploading to staged URL (full):", uploadUrl);
+      console.log("[ACTION] Number of parameters in array:", stagedTarget.parameters.length);
       console.log("[ACTION] Form data headers:", JSON.stringify(headers, null, 2));
-      console.log("[ACTION] Number of parameters:", stagedTarget.parameters.length);
+      
+      // Check if URL has query parameters (these are part of the GCS signature)
+      const urlHasQueryParams = uploadUrl.includes('?');
+      console.log("[ACTION] URL has query parameters:", urlHasQueryParams);
       
       try {
         // Use axios with form-data - axios handles the stream correctly
         // and preserves the exact multipart format for signature verification
-        // All authentication parameters MUST be in the form data, not the URL
+        // For FILE type, authentication can be in URL query params OR form data
+        // Using the full URL preserves query param authentication if present
         const uploadResponse = await axios.post(uploadUrl, formDataToUpload, {
           headers: headers, // Use form-data's headers (includes boundary)
           maxContentLength: Infinity,
