@@ -159,8 +159,6 @@ export const action = async ({ request }) => {
     try {
       console.log("[ACTION] File upload request received");
       console.log("[ACTION] File type:", typeof file, "Is File:", file instanceof File, "Is Blob:", file instanceof Blob);
-      console.log("[ACTION] File constructor:", file?.constructor?.name);
-      console.log("[ACTION] File properties:", Object.keys(file || {}));
       
       const { admin } = await authenticate.admin(request); // request is the HTTP request parameter
       console.log("[ACTION] Admin authenticated successfully for file upload");
@@ -170,8 +168,15 @@ export const action = async ({ request }) => {
         return json({ error: "No file provided", success: false });
       }
       
-      // Get filename from File object or use a default (do this early)
-      const fileName = (file.name || `upload-${Date.now()}.jpg`);
+      // Check if file is a string (filename only) vs a File object
+      if (typeof file === "string") {
+        console.error("[ACTION] File is a string (filename only), not a File object. FormData may not be parsing correctly.");
+        console.error("[ACTION] Received filename:", file);
+        return json({ 
+          error: "File upload failed: File object not received. Please try again or check your browser compatibility.", 
+          success: false 
+        });
+      }
       
       // Check if it's a File-like object (File, Blob, or has stream() method)
       const isFileLike = file instanceof File || 
@@ -182,16 +187,30 @@ export const action = async ({ request }) => {
                           typeof file.arrayBuffer === "function" ||
                           typeof file.stream === "function"));
       
-      console.log("[ACTION] File has name:", "name" in file, "File name:", fileName);
-      console.log("[ACTION] File has type:", "type" in file, "File type:", file?.type || "N/A");
-      console.log("[ACTION] File has size:", "size" in file, "File size:", file?.size || "N/A");
-      console.log("[ACTION] File has arrayBuffer:", typeof file?.arrayBuffer === "function");
-      
       if (!isFileLike) {
-        console.error("[ACTION] File is not a File/Blob-like object, type:", typeof file, "constructor:", file?.constructor?.name);
-        console.error("[ACTION] File object:", file);
+        console.error("[ACTION] File is not a File/Blob-like object, type:", typeof file);
+        if (typeof file === "object" && file !== null) {
+          console.error("[ACTION] File constructor:", file.constructor?.name);
+          console.error("[ACTION] File properties:", Object.keys(file));
+        }
+        console.error("[ACTION] File value:", file);
         return json({ error: `Invalid file format. Received: ${typeof file}, expected File or Blob`, success: false });
       }
+      
+      // Safe property access (only check 'in' operator on objects)
+      const hasName = typeof file === "object" && file !== null && "name" in file;
+      const hasType = typeof file === "object" && file !== null && "type" in file;
+      const hasSize = typeof file === "object" && file !== null && "size" in file;
+      const hasArrayBuffer = typeof file?.arrayBuffer === "function";
+      
+      // Get filename from File object or use a default
+      const fileName = (hasName ? file.name : null) || `upload-${Date.now()}.jpg`;
+      
+      console.log("[ACTION] File constructor:", file?.constructor?.name);
+      console.log("[ACTION] File has name:", hasName, "File name:", fileName);
+      console.log("[ACTION] File has type:", hasType, "File type:", file?.type || "N/A");
+      console.log("[ACTION] File has size:", hasSize, "File size:", file?.size || "N/A");
+      console.log("[ACTION] File has arrayBuffer:", hasArrayBuffer);
       
       // Get file type - File objects have .type, Blobs might not
       const fileType = (file.type || 
