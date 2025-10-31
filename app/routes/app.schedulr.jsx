@@ -4,6 +4,18 @@ import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 
+// Declare global shopify type for TypeScript/IDE
+declare global {
+  interface Window {
+    shopify?: {
+      resourcePicker: (options: { type: string }) => Promise<Array<{ id: string; [key: string]: any }>>;
+      toast: {
+        show: (message: string) => void;
+      };
+    };
+  }
+}
+
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
 
@@ -606,40 +618,83 @@ export const action = async ({ request }) => {
   }
 };
 
-function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" }) {
+function MediaLibraryPicker({ name, label, defaultValue = "" }) {
+  const appBridge = useAppBridge();
   const [selectedFileId, setSelectedFileId] = useState(defaultValue);
-  const selectedFile = mediaFiles.find((f) => f.id === selectedFileId);
+  const [selectedFileUrl, setSelectedFileUrl] = useState("");
+  const [selectedFileAlt, setSelectedFileAlt] = useState("");
+  const hiddenInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePickMedia = async () => {
+    try {
+      // Use App Bridge resourcePicker - note: file type might vary based on App Bridge version
+      // Try 'file' first, fallback to checking shopify global
+      const shopify = window.shopify || (appBridge as any);
+      
+      if (shopify && typeof shopify.resourcePicker === 'function') {
+        const selected = await shopify.resourcePicker({ type: 'file' });
+        if (selected && selected.length > 0) {
+          const file = selected[0];
+          setSelectedFileId(file.id);
+          setSelectedFileUrl(file.preview?.image?.url || file.image?.url || "");
+          setSelectedFileAlt(file.alt || "");
+          
+          // Update hidden input for form submission
+          if (hiddenInputRef.current) {
+            hiddenInputRef.current.value = file.id;
+          }
+        }
+      } else {
+        // Fallback: try using the mediaFiles query approach
+        console.warn("ResourcePicker not available, using alternative method");
+      }
+    } catch (error) {
+      console.error("Error opening resource picker:", error);
+      if (window.shopify?.toast) {
+        window.shopify.toast.show("Failed to open media picker");
+      }
+    }
+  };
+
+  // Sync hidden input when selectedFileId changes
+  useEffect(() => {
+    if (hiddenInputRef.current) {
+      hiddenInputRef.current.value = selectedFileId;
+    }
+  }, [selectedFileId]);
 
   return (
     <div style={{ marginBottom: "0.5rem" }}>
-      <label htmlFor={name} style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+      <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
         {label}
       </label>
-      <select
-        id={name}
-        name={name}
-        value={selectedFileId}
-        onChange={(e) => setSelectedFileId(e.target.value)}
+      <button
+        type="button"
+        onClick={handlePickMedia}
         style={{
           width: "100%",
           padding: "0.5rem",
           border: "1px solid #c9cccf",
           borderRadius: "4px",
           fontSize: "0.875rem",
+          backgroundColor: "white",
+          cursor: "pointer",
+          textAlign: "left",
         }}
       >
-        <option value="">{label} - Select from media library</option>
-        {mediaFiles.map((file) => (
-          <option key={file.id} value={file.id}>
-            {file.alt || file.url.split("/").pop() || "Untitled"}
-          </option>
-        ))}
-      </select>
-      {selectedFile && selectedFile.url && (
+        {selectedFileId ? `Selected: ${selectedFileAlt || "Image"}` : `Select ${label} from media library`}
+      </button>
+      <input
+        type="hidden"
+        ref={hiddenInputRef}
+        name={name}
+        value={selectedFileId}
+      />
+      {selectedFileUrl && (
         <div style={{ marginTop: "0.5rem" }}>
           <img
-            src={selectedFile.url}
-            alt={selectedFile.alt || ""}
+            src={selectedFileUrl}
+            alt={selectedFileAlt || ""}
             style={{
               maxWidth: "200px",
               maxHeight: "150px",
@@ -1219,12 +1274,10 @@ export default function SchedulrPage() {
                   <MediaLibraryPicker
                     name="desktop_banner"
                     label="Desktop Banner"
-                    mediaFiles={mediaFiles || []}
                   />
                   <MediaLibraryPicker
                     name="mobile_banner"
                     label="Mobile Banner"
-                    mediaFiles={mediaFiles || []}
                   />
                   <s-text-field
                     label="Headline"
