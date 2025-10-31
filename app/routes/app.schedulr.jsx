@@ -988,6 +988,12 @@ export const action = async ({ request }) => {
     console.error("[ACTION] Error name:", error.name);
     console.error("[ACTION] Error stack:", error.stack);
     console.error("[ACTION] Full error:", error);
+    
+    // Always return JSON, never throw
+    return json({
+      error: error.message || "An unexpected error occurred",
+      success: false,
+    });
     return json({
       error: `Failed to process request: ${error.message || "Unknown error"}`,
       success: false,
