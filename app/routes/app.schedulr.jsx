@@ -3,6 +3,7 @@ import { useFetcher, useLoaderData, redirect, useNavigation, useRevalidator } fr
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
+import FormData from "form-data";
 
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
@@ -190,17 +191,26 @@ export const action = async ({ request }) => {
       console.log("[ACTION] Uploading file...");
       
       // Step 2: Upload file to staged URL
+      // Convert File to Buffer for form-data package
+      const arrayBuffer = await file.arrayBuffer();
+      const fileBuffer = Buffer.from(arrayBuffer);
+      
+      // Use form-data package for proper multipart/form-data handling in Node.js
       const formDataToUpload = new FormData();
       stagedTarget.parameters.forEach((param) => {
         formDataToUpload.append(param.name, param.value);
       });
-      formDataToUpload.append("file", file);
+      formDataToUpload.append("file", fileBuffer, {
+        filename: file.name,
+        contentType: fileType,
+      });
       
-      console.log("[ACTION] Uploading to staged URL with FormData containing", formDataToUpload.getAll("file").length, "file(s)");
+      console.log("[ACTION] Uploading to staged URL with FormData containing file:", file.name);
       
       const uploadResponse = await fetch(stagedTarget.url, {
         method: "POST",
         body: formDataToUpload,
+        headers: formDataToUpload.getHeaders(),
       });
       
       console.log("[ACTION] Staged upload HTTP response status:", uploadResponse.status, uploadResponse.statusText);
