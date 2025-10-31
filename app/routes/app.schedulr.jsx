@@ -355,7 +355,11 @@ export const action = async ({ request }) => {
     endAt,
     title,
     description,
-    content,
+    desktopBanner,
+    mobileBanner,
+    targetUrl,
+    headline,
+    buttonText,
     status,
   });
 
@@ -502,18 +506,18 @@ function UrlPicker({ name, label, defaultValue = "" }) {
   }, [urlType, customUrl, productHandle, collectionHandle, pageHandle]);
 
   return (
-    <div style={{ marginBottom: "0.5rem" }}>
-      <label style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>{label}</label>
+    <div style={{ marginBottom: "0.375rem" }}>
+      <label style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>{label}</label>
       <select
         value={urlType}
         onChange={(e) => setUrlType(e.target.value)}
         style={{
           width: "100%",
-          padding: "0.5rem",
+          padding: "0.375rem 0.5rem",
           border: "1px solid #c9cccf",
           borderRadius: "4px",
-          fontSize: "0.875rem",
-          marginBottom: "0.5rem",
+          fontSize: "0.8125rem",
+          marginBottom: "0.375rem",
         }}
       >
         <option value="home">Home</option>
@@ -530,10 +534,10 @@ function UrlPicker({ name, label, defaultValue = "" }) {
           onChange={(e) => setProductHandle(e.target.value)}
           style={{
             width: "100%",
-            padding: "0.5rem",
+            padding: "0.375rem 0.5rem",
             border: "1px solid #c9cccf",
             borderRadius: "4px",
-            fontSize: "0.875rem",
+            fontSize: "0.8125rem",
           }}
         />
       )}
@@ -545,10 +549,10 @@ function UrlPicker({ name, label, defaultValue = "" }) {
           onChange={(e) => setCollectionHandle(e.target.value)}
           style={{
             width: "100%",
-            padding: "0.5rem",
+            padding: "0.375rem 0.5rem",
             border: "1px solid #c9cccf",
             borderRadius: "4px",
-            fontSize: "0.875rem",
+            fontSize: "0.8125rem",
           }}
         />
       )}
@@ -560,10 +564,10 @@ function UrlPicker({ name, label, defaultValue = "" }) {
           onChange={(e) => setPageHandle(e.target.value)}
           style={{
             width: "100%",
-            padding: "0.5rem",
+            padding: "0.375rem 0.5rem",
             border: "1px solid #c9cccf",
             borderRadius: "4px",
-            fontSize: "0.875rem",
+            fontSize: "0.8125rem",
           }}
         />
       )}
@@ -575,10 +579,10 @@ function UrlPicker({ name, label, defaultValue = "" }) {
           onChange={(e) => setCustomUrl(e.target.value)}
           style={{
             width: "100%",
-            padding: "0.5rem",
+            padding: "0.375rem 0.5rem",
             border: "1px solid #c9cccf",
             borderRadius: "4px",
-            fontSize: "0.875rem",
+            fontSize: "0.8125rem",
           }}
         />
       )}
@@ -978,7 +982,7 @@ export default function SchedulrPage() {
               <h2 style={{ fontSize: "1.25rem", marginBottom: "0.75rem", marginTop: 0, fontWeight: "600" }}>Create New Entry</h2>
               <fetcher.Form method="post" ref={formRef}>
           <s-stack direction="block" gap="base">
-            <label htmlFor="title" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Title</label>
+            <label htmlFor="title" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>Title</label>
             <input
               type="text"
               id="title"
@@ -987,14 +991,14 @@ export default function SchedulrPage() {
               placeholder="Display title for this schedulable entry"
               style={{
                 width: "100%",
-                padding: "0.5rem",
+                padding: "0.375rem 0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
-                fontSize: "0.875rem",
-                marginBottom: "0.5rem",
+                fontSize: "0.8125rem",
+                marginBottom: "0.375rem",
               }}
             />
-            <label htmlFor="position_id" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Position ID</label>
+            <label htmlFor="position_id" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>Position ID</label>
             <input
               type="text"
               id="position_id"
@@ -1003,18 +1007,18 @@ export default function SchedulrPage() {
               placeholder="e.g., homepage_banner"
               style={{
                 width: "100%",
-                padding: "0.5rem",
+                padding: "0.375rem 0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
-                fontSize: "0.875rem",
-                marginBottom: "0.5rem",
+                fontSize: "0.8125rem",
+                marginBottom: "0.375rem",
               }}
             />
-             <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.5rem" }}>
+             <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.375rem" }}>
               <div style={{ flex: "1" }}>
                 <label
                   htmlFor="start_at"
-                  style={{ display: "block", marginBottom: "0.375rem", fontWeight: "500", fontSize: "0.875rem" }}
+                  style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}
                 >
                   Start Date & Time
                 </label>
@@ -1024,17 +1028,17 @@ export default function SchedulrPage() {
                   name="start_at"
                   style={{
                     width: "100%",
-                    padding: "0.5rem",
+                    padding: "0.375rem 0.5rem",
                     border: "1px solid #c9cccf",
                     borderRadius: "4px",
-                    fontSize: "0.875rem",
+                    fontSize: "0.8125rem",
                   }}
                 />
               </div>
               <div style={{ flex: "1" }}>
                 <label
                   htmlFor="end_at"
-                  style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}
+                  style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}
                 >
                   End Date & Time
                 </label>
@@ -1044,15 +1048,15 @@ export default function SchedulrPage() {
                   name="end_at"
                   style={{
                     width: "100%",
-                    padding: "0.5rem",
+                    padding: "0.375rem 0.5rem",
                     border: "1px solid #c9cccf",
                     borderRadius: "4px",
-                    fontSize: "0.875rem",
+                    fontSize: "0.8125rem",
                   }}
                 />
               </div>
             </div>
-            <label htmlFor="description" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Description</label>
+            <label htmlFor="description" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>Description</label>
             <textarea
               id="description"
               name="description"
@@ -1060,15 +1064,15 @@ export default function SchedulrPage() {
               placeholder="Short description or summary"
               style={{
                 width: "100%",
-                padding: "0.5rem",
-                border: "1px solid #c9cccf",
+                padding: "0.375rem 0.5rem",
+                  border: "1px solid #c9cccf",
                 borderRadius: "4px",
-                fontSize: "0.875rem",
+                fontSize: "0.8125rem",
                 resize: "vertical",
-                marginBottom: "0.5rem",
+                marginBottom: "0.375rem",
               }}
             />
-            <label htmlFor="desktop_banner" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Desktop Banner</label>
+            <label htmlFor="desktop_banner" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>Desktop Banner</label>
             <input
               type="file"
               id="desktop_banner"
@@ -1076,14 +1080,14 @@ export default function SchedulrPage() {
               accept="image/*"
               style={{
                 width: "100%",
-                padding: "0.5rem",
+                padding: "0.375rem 0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
-                fontSize: "0.875rem",
-                marginBottom: "0.5rem",
+                fontSize: "0.8125rem",
+                marginBottom: "0.375rem",
               }}
             />
-            <label htmlFor="mobile_banner" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Mobile Banner</label>
+            <label htmlFor="mobile_banner" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>Mobile Banner</label>
             <input
               type="file"
               id="mobile_banner"
@@ -1091,15 +1095,15 @@ export default function SchedulrPage() {
               accept="image/*"
               style={{
                 width: "100%",
-                padding: "0.5rem",
+                padding: "0.375rem 0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
-                fontSize: "0.875rem",
-                marginBottom: "0.5rem",
+                fontSize: "0.8125rem",
+                marginBottom: "0.375rem",
               }}
             />
             <UrlPicker name="target_url" label="Target URL" />
-            <label htmlFor="headline" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Headline</label>
+            <label htmlFor="headline" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>Headline</label>
             <input
               type="text"
               id="headline"
@@ -1107,14 +1111,14 @@ export default function SchedulrPage() {
               placeholder="Headline text"
               style={{
                 width: "100%",
-                padding: "0.5rem",
+                padding: "0.375rem 0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
-                fontSize: "0.875rem",
-                marginBottom: "0.5rem",
+                fontSize: "0.8125rem",
+                marginBottom: "0.375rem",
               }}
             />
-            <label htmlFor="button_text" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Button Text</label>
+            <label htmlFor="button_text" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>Button Text</label>
             <input
               type="text"
               id="button_text"
@@ -1122,16 +1126,16 @@ export default function SchedulrPage() {
               placeholder="Button text"
               style={{
                 width: "100%",
-                padding: "0.5rem",
+                padding: "0.375rem 0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
-                fontSize: "0.875rem",
-                marginBottom: "0.5rem",
+                fontSize: "0.8125rem",
+                marginBottom: "0.375rem",
               }}
             />
             <label
               htmlFor="status"
-              style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}
+              style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}
             >
               Entry Status
             </label>
@@ -1140,11 +1144,11 @@ export default function SchedulrPage() {
               name="status"
               style={{
                 width: "100%",
-                padding: "0.5rem",
+                padding: "0.375rem 0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
-                fontSize: "0.875rem",
-                marginBottom: "0.5rem",
+                fontSize: "0.8125rem",
+                marginBottom: "0.375rem",
               }}
               defaultValue="active"
             >
