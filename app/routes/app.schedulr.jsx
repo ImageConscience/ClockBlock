@@ -974,7 +974,7 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
   const fileInputRef = useRef(null);
   const progressIntervalRef = useRef(null);
   const revalidator = useRevalidator();
-  const uploadFetcher = useFetcher();
+  // Removed uploadFetcher - now using direct fetch() for file uploads
 
   const selectedFile = localMediaFiles.find((f) => f.id === selectedFileId);
   
@@ -1035,22 +1035,84 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
       const uploadFormData = new FormData();
       uploadFormData.append("file", file);
       console.log("[MediaLibraryPicker] FormData created, submitting...");
+      console.log("[MediaLibraryPicker] Submitting FormData with file:", file.name, "Size:", file.size, "Type:", file.type);
       
-      // Use fetcher.submit - React Router automatically handles FormData as multipart/form-data
-      // Don't specify encType, let React Router handle it
-      console.log("[MediaLibraryPicker] Submitting FormData with file:", file.name, "Size:", file.size);
-      uploadFetcher.submit(uploadFormData, {
+      // Use direct fetch() instead of fetcher.submit() because React Router's fetcher
+      // doesn't properly serialize File objects in FormData - it converts them to strings
+      const response = await fetch(window.location.pathname, {
         method: "POST",
-        // Don't set encType - React Router handles it automatically for FormData
+        body: uploadFormData,
+        credentials: "include", // Include session cookies for authentication
+        // Don't set Content-Type header - browser will set it with boundary for multipart/form-data
       });
-      console.log("[MediaLibraryPicker] Upload request submitted via fetcher");
+      
+      console.log("[MediaLibraryPicker] Upload response received, status:", response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[MediaLibraryPicker] Upload failed with status:", response.status, "Error:", errorText);
+        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      console.log("[MediaLibraryPicker] Upload response data:", result);
+      
+      // Clean up progress interval
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      
+      setUploadProgress(100);
+      setIsUploading(false);
+      
+      // Small delay to show 100% progress
+      setTimeout(() => {
+        if (result && typeof result === "object" && result.success && result.file) {
+          // Add the new file to the local list
+          const newFile = {
+            id: result.file.id,
+            url: result.file.url,
+            alt: result.file.alt || "Uploaded image",
+          };
+          console.log("[MediaLibraryPicker] Upload successful, file:", newFile);
+          setLocalMediaFiles((prev) => [newFile, ...prev]);
+          // Automatically select the newly uploaded file
+          setSelectedFileId(newFile.id);
+          if (hiddenInputRef.current) {
+            hiddenInputRef.current.value = newFile.id;
+          }
+          setUploadError("");
+          setUploadSuccess(true);
+          // Reload media files from server
+          revalidator.revalidate();
+          
+          // Close picker after successful upload
+          setTimeout(() => {
+            setShowPicker(false);
+            setUploadSuccess(false);
+            setUploadProgress(0);
+          }, 1500);
+        } else {
+          const errorMessage = result?.error || result?.message || "Failed to upload file";
+          console.error("[MediaLibraryPicker] Upload error:", errorMessage);
+          console.error("[MediaLibraryPicker] Full result:", JSON.stringify(result, null, 2));
+          setUploadError(errorMessage);
+          setUploadProgress(0);
+        }
+        
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }, 300);
     } catch (error) {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
         progressIntervalRef.current = null;
       }
-      console.error("[MediaLibraryPicker] Error initiating file upload:", error);
-      setUploadError("Failed to upload file. Please try again.");
+      console.error("[MediaLibraryPicker] Error uploading file:", error);
+      setUploadError(error.message || "Failed to upload file. Please try again.");
       setIsUploading(false);
       setUploadProgress(0);
       if (fileInputRef.current) {
@@ -1059,98 +1121,8 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
     }
   };
 
-  // Handle upload fetcher response
-  useEffect(() => {
-    console.log("[MediaLibraryPicker] Fetcher state:", uploadFetcher.state, "Data:", uploadFetcher.data, "FormAction:", uploadFetcher.formAction);
-    
-    // Clean up progress interval when upload completes
-    if (uploadFetcher.state === "idle") {
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-        progressIntervalRef.current = null;
-      }
-    }
-    
-    // Check if we have data and the fetcher is idle (completed)
-    if (uploadFetcher.state === "idle") {
-      // Clean up progress interval
-      if (progressIntervalRef.current) {
-        clearInterval(progressIntervalRef.current);
-        progressIntervalRef.current = null;
-      }
-      
-      if (uploadFetcher.data !== undefined) {
-        setUploadProgress(100);
-        setIsUploading(false);
-        
-        // Small delay to show 100% progress
-        setTimeout(() => {
-          const result = uploadFetcher.data;
-          console.log("[MediaLibraryPicker] Upload response data:", result);
-          console.log("[MediaLibraryPicker] Upload response type:", typeof result);
-          if (result) {
-            console.log("[MediaLibraryPicker] Upload response keys:", Object.keys(result));
-            console.log("[MediaLibraryPicker] Upload response success:", result.success);
-            console.log("[MediaLibraryPicker] Upload response error:", result.error);
-            console.log("[MediaLibraryPicker] Upload response file:", result.file);
-            console.log("[MediaLibraryPicker] Full response JSON:", JSON.stringify(result, null, 2));
-          }
-          
-          // React Router's fetcher automatically parses JSON, so result should be an object
-          if (result && typeof result === "object" && result.success && result.file) {
-            // Add the new file to the local list
-            const newFile = {
-              id: result.file.id,
-              url: result.file.url,
-              alt: result.file.alt || "Uploaded image",
-            };
-            console.log("[MediaLibraryPicker] Upload successful, file:", newFile);
-            setLocalMediaFiles((prev) => [newFile, ...prev]);
-            // Automatically select the newly uploaded file
-            setSelectedFileId(newFile.id);
-            if (hiddenInputRef.current) {
-              hiddenInputRef.current.value = newFile.id;
-            }
-            setUploadError("");
-            setUploadSuccess(true);
-            // Reload media files from server
-            revalidator.revalidate();
-            
-            // Close picker after successful upload
-            setTimeout(() => {
-              setShowPicker(false);
-              setUploadSuccess(false);
-              setUploadProgress(0);
-            }, 1500);
-          } else {
-            const errorMessage = result?.error || result?.message || "Failed to upload file";
-            console.error("[MediaLibraryPicker] Upload error:", errorMessage);
-            console.error("[MediaLibraryPicker] Full result:", JSON.stringify(result, null, 2));
-            setUploadError(errorMessage);
-            setUploadProgress(0);
-          }
-          
-          // Reset file input
-          if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-          }
-        }, 300);
-      } else if (uploadFetcher.state === "idle") {
-        // Fetcher is idle but no data - might have errored
-        console.error("[MediaLibraryPicker] Fetcher is idle but no data received");
-        setIsUploading(false);
-        setUploadProgress(0);
-        setUploadError("Upload failed - no response from server");
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-      }
-    } else if (uploadFetcher.state === "submitting") {
-      setIsUploading(true);
-      setUploadError("");
-      setUploadSuccess(false);
-    }
-  }, [uploadFetcher.state, uploadFetcher.data, revalidator]);
+  // Note: File upload now uses direct fetch() instead of fetcher, so this useEffect is no longer needed
+  // Keeping it for now in case we want to revert, but it won't be triggered
 
   // Sync hidden input when selectedFileId changes
   useEffect(() => {
