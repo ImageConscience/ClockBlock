@@ -143,7 +143,7 @@ When you reach the step for [setting up environment variables](https://shopify.d
 - `SHOPIFY_API_KEY` = your Shopify app Client ID
 - `SHOPIFY_API_SECRET` = your Shopify app Client Secret
 - `SHOPIFY_APP_URL` = your Railway HTTPS URL (e.g., `https://shopschedulr-production.up.railway.app`)
-- `SCOPES` = `read_metaobject_definitions,write_metaobject_definitions,read_metaobjects,write_metaobjects,write_products,unauthenticated_read_metaobjects`
+- `SCOPES` = `read_metaobject_definitions,write_metaobject_definitions,read_metaobjects,write_metaobjects,write_products,unauthenticated_read_metaobjects,read_files,write_files,read_content,write_content`
 - `DATABASE_URL` = Railway Postgres connection URL
 - `NODE_ENV` = `production`
 - Optional: `SHOP_CUSTOM_DOMAIN`
