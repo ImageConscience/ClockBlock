@@ -104,6 +104,7 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
+  // Wrap everything in try-catch to ensure we always return JSON
   try {
     console.log("[ACTION] ========== ACTION CALLED ==========");
     console.log("[ACTION] Request URL:", request.url);
