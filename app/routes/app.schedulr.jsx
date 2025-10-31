@@ -349,17 +349,51 @@ export const action = async ({ request }) => {
       console.log("[ACTION] Parameters count:", stagedTarget.parameters.length);
       
       // Convert form-data stream to buffer for undici
-      const formDataBuffer = await new Promise((resolve, reject) => {
+      console.log("[ACTION] Converting form-data to buffer...");
+      const formDataBufferPromise = new Promise((resolve, reject) => {
         const chunks = [];
-        formDataToUpload.on('data', (chunk) => chunks.push(chunk));
-        formDataToUpload.on('end', () => resolve(Buffer.concat(chunks)));
-        formDataToUpload.on('error', reject);
+        let hasEnded = false;
+        
+        // Add timeout for stream conversion (30 seconds)
+        const timeout = setTimeout(() => {
+          if (!hasEnded) {
+            reject(new Error("FormData stream conversion timeout after 30 seconds"));
+          }
+        }, 30000);
+        
+        formDataToUpload.on('data', (chunk) => {
+          console.log("[ACTION] Received form-data chunk, size:", chunk.length);
+          chunks.push(chunk);
+        });
+        
+        formDataToUpload.on('end', () => {
+          hasEnded = true;
+          clearTimeout(timeout);
+          console.log("[ACTION] Form-data stream ended, total chunks:", chunks.length);
+          resolve(Buffer.concat(chunks));
+        });
+        
+        formDataToUpload.on('error', (err) => {
+          hasEnded = true;
+          clearTimeout(timeout);
+          console.error("[ACTION] Form-data stream error:", err);
+          reject(err);
+        });
       });
       
+      const formDataBuffer = await formDataBufferPromise;
       console.log("[ACTION] FormData buffer size:", formDataBuffer.length, "bytes");
       
       // Use undici's request method with the buffer
-      const uploadResponse = await undiciRequest(stagedTarget.url, {
+      console.log("[ACTION] Starting upload to staged URL:", stagedTarget.url);
+      const uploadStartTime = Date.now();
+      
+      // Add timeout for the upload request (45 seconds)
+      const uploadTimeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Upload to staged URL timeout after 45 seconds")), 45000);
+      });
+      
+      const uploadRequestPromise = undiciRequest(stagedTarget.url, {
         method: "POST",
         body: formDataBuffer,
         headers: {
@@ -368,18 +402,38 @@ export const action = async ({ request }) => {
         },
       });
       
+      const uploadResponse = await Promise.race([uploadRequestPromise, uploadTimeoutPromise]);
+      const uploadDuration = Date.now() - uploadStartTime;
+      
+      console.log("[ACTION] Staged upload HTTP response received after", uploadDuration, "ms");
       console.log("[ACTION] Staged upload HTTP response status:", uploadResponse.statusCode, uploadResponse.statusMessage);
       
       if (uploadResponse.statusCode !== 200 && uploadResponse.statusCode !== 204) {
-        const responseText = await uploadResponse.body.text();
         console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.statusCode);
-        console.error("[ACTION] Response body:", responseText);
+        try {
+          const responseText = await Promise.race([
+            uploadResponse.body.text(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Response body read timeout")), 5000))
+          ]);
+          console.error("[ACTION] Response body:", responseText);
+        } catch (err) {
+          console.error("[ACTION] Could not read response body:", err.message);
+        }
         return json({ error: `Failed to upload file: HTTP ${uploadResponse.statusCode}`, success: false });
       }
       
       // Read and log the response body (may be empty, but we should consume it)
-      const uploadResponseText = await uploadResponse.body.text();
-      console.log("[ACTION] Staged upload response body:", uploadResponseText);
+      console.log("[ACTION] Reading staged upload response body...");
+      try {
+        const uploadResponseText = await Promise.race([
+          uploadResponse.body.text(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Response body read timeout")), 5000))
+        ]);
+        console.log("[ACTION] Staged upload response body:", uploadResponseText || "(empty)");
+      } catch (err) {
+        console.error("[ACTION] Could not read response body (non-critical):", err.message);
+        // Continue anyway - the upload may have succeeded even if we can't read the response
+      }
       
       console.log("[ACTION] File uploaded to staged URL successfully");
       
