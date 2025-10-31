@@ -87,14 +87,13 @@ const shopify = shopifyApp({
               {
                 variables: {
                   id: def.id,
-                  definition: {
-                    capabilities: {
-                      onlineStore: {
-                        enabled: true,
-                        urlHandle: "{handle}",
+                    definition: {
+                      capabilities: {
+                        onlineStore: {
+                          enabled: true,
+                        },
                       },
                     },
-                  },
                 },
               },
             );
@@ -222,7 +221,6 @@ const shopify = shopifyApp({
                   },
                   onlineStore: {
                     enabled: true,
-                    urlHandle: "{handle}",
                   },
                 },
               },
