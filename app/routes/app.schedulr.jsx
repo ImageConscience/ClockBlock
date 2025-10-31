@@ -215,11 +215,24 @@ export const action = async ({ request }) => {
       console.log("[ACTION] FormData headers:", JSON.stringify(headers, null, 2));
       console.log("[ACTION] Parameters count:", stagedTarget.parameters.length);
       
-      // Use undici's request method which properly handles form-data streams
+      // Convert form-data stream to buffer for undici
+      const formDataBuffer = await new Promise((resolve, reject) => {
+        const chunks = [];
+        formDataToUpload.on('data', (chunk) => chunks.push(chunk));
+        formDataToUpload.on('end', () => resolve(Buffer.concat(chunks)));
+        formDataToUpload.on('error', reject);
+      });
+      
+      console.log("[ACTION] FormData buffer size:", formDataBuffer.length, "bytes");
+      
+      // Use undici's request method with the buffer
       const uploadResponse = await request(stagedTarget.url, {
         method: "POST",
-        body: formDataToUpload,
-        headers: headers,
+        body: formDataBuffer,
+        headers: {
+          ...headers,
+          'Content-Length': formDataBuffer.length.toString(),
+        },
       });
       
       console.log("[ACTION] Staged upload HTTP response status:", uploadResponse.statusCode, uploadResponse.statusMessage);
