@@ -198,6 +198,7 @@ export const action = async ({ request }) => {
       
       let stagedResponse;
       let stagedJson;
+      let stagedUploadError = null;
       
       try {
         stagedResponse = await admin.graphql(
@@ -241,24 +242,28 @@ export const action = async ({ request }) => {
         console.error("[ACTION] Error message:", graphqlError?.message);
         console.error("[ACTION] Error stack:", graphqlError?.stack);
         
+        // Store the error instead of returning immediately
+        // We'll handle it below to avoid React Router intercepting it
+        stagedUploadError = graphqlError;
+      }
+      
+      // Handle staged upload error AFTER the try-catch to prevent React Router from intercepting
+      if (stagedUploadError) {
+        console.log("[ACTION] Handling staged upload error");
         // Check if it's a permissions error
-        if (graphqlError?.message?.includes("Access denied") || graphqlError?.message?.includes("stagedUploadsCreate")) {
+        if (stagedUploadError?.message?.includes("Access denied") || stagedUploadError?.message?.includes("stagedUploadsCreate")) {
           console.log("[ACTION] Returning JSON error response for permissions issue");
-          const response = json({ 
+          return json({ 
             error: "Access denied: The app needs write_files scope. Please reinstall the app to update permissions.", 
             success: false 
           });
-          console.log("[ACTION] Response created, returning...");
-          return response;
         }
         
         console.log("[ACTION] Returning JSON error response for general error");
-        const response = json({ 
-          error: `Failed to create staged upload: ${graphqlError?.message || 'Unknown error'}`, 
+        return json({ 
+          error: `Failed to create staged upload: ${stagedUploadError?.message || 'Unknown error'}`, 
           success: false 
         });
-        console.log("[ACTION] Response created, returning...");
-        return response;
       }
       
       // Check if stagedUploadsCreate returned null (permissions issue) BEFORE checking for errors
