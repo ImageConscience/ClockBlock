@@ -353,17 +353,19 @@ export const action = async ({ request }) => {
       
       const headers = formDataToUpload.getHeaders();
       
-      // Extract base URL (without query parameters) for the POST request
-      // Google Cloud Storage expects parameters as form data, not query params
+      // Use the base URL without query parameters - all auth params must be in form data
+      // The URL from Shopify may have query params, but GCS requires form data params
       const uploadUrl = stagedTarget.url.split('?')[0];
       
       console.log("[ACTION] Uploading to staged URL (base):", uploadUrl);
+      console.log("[ACTION] Full staged URL from Shopify:", stagedTarget.url);
       console.log("[ACTION] Form data headers:", JSON.stringify(headers, null, 2));
+      console.log("[ACTION] Number of parameters:", stagedTarget.parameters.length);
       
       try {
         // Use axios with form-data - axios handles the stream correctly
         // and preserves the exact multipart format for signature verification
-        // Use base URL without query parameters - all params go in form data
+        // All authentication parameters MUST be in the form data, not the URL
         const uploadResponse = await axios.post(uploadUrl, formDataToUpload, {
           headers: headers, // Use form-data's headers (includes boundary)
           maxContentLength: Infinity,
