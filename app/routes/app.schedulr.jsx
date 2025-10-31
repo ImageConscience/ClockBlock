@@ -66,12 +66,82 @@ export const action = async ({ request }) => {
   const endAt = String(formData.get("end_at") || "").trim();
   const title = String(formData.get("title") || "").trim();
   const description = String(formData.get("description") || "").trim();
-  const desktopBanner = String(formData.get("desktop_banner") || "").trim();
-  const mobileBanner = String(formData.get("mobile_banner") || "").trim();
+  const desktopBannerFile = formData.get("desktop_banner");
+  const mobileBannerFile = formData.get("mobile_banner");
   const targetUrl = String(formData.get("target_url") || "").trim();
   const headline = String(formData.get("headline") || "").trim();
   const buttonText = String(formData.get("button_text") || "").trim();
   const status = String(formData.get("status") || "active").trim();
+
+  // Helper function to upload file and get file reference
+  const uploadFile = async (file) => {
+    if (!file || !(file instanceof File)) return null;
+    
+    try {
+      // Convert File to base64
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const base64 = buffer.toString("base64");
+      
+      const uploadResponse = await admin.graphql(
+        `#graphql
+        mutation fileCreate($files: [FileCreateInput!]!) {
+          fileCreate(files: $files) {
+            files {
+              id
+              ... on MediaImage {
+                id
+                image {
+                  url
+                }
+              }
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `,
+        {
+          variables: {
+            files: [
+              {
+                originalSource: `data:${file.type};base64,${base64}`,
+                filename: file.name,
+                contentType: file.type,
+              },
+            ],
+          },
+        }
+      );
+      
+      const uploadJson = await uploadResponse.json();
+      
+      if (uploadJson?.data?.fileCreate?.userErrors?.length > 0) {
+        console.error("File upload errors:", uploadJson.data.fileCreate.userErrors);
+        return null;
+      }
+      
+      const fileId = uploadJson?.data?.fileCreate?.files?.[0]?.id;
+      return fileId || null;
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      return null;
+    }
+  };
+
+  // Upload files if provided
+  let desktopBannerFileId = null;
+  let mobileBannerFileId = null;
+  
+  if (desktopBannerFile && desktopBannerFile instanceof File) {
+    desktopBannerFileId = await uploadFile(desktopBannerFile);
+  }
+  
+  if (mobileBannerFile && mobileBannerFile instanceof File) {
+    mobileBannerFileId = await uploadFile(mobileBannerFile);
+  }
 
   // Query metaobject definition to check if it exists
   let definitionExists = false;
@@ -394,9 +464,31 @@ export const action = async ({ request }) => {
 
   if (title) fields.push({ key: "title", value: title });
   if (description) fields.push({ key: "description", value: description });
-  if (desktopBanner) fields.push({ key: "desktop_banner", value: desktopBanner });
-  if (mobileBanner) fields.push({ key: "mobile_banner", value: mobileBanner });
-  if (targetUrl) fields.push({ key: "target_url", value: targetUrl });
+  if (desktopBannerFileId) fields.push({ key: "desktop_banner", value: desktopBannerFileId });
+  if (mobileBannerFileId) fields.push({ key: "mobile_banner", value: mobileBannerFileId });
+  
+  // Validate and format URL - ensure it has a proper scheme
+  if (targetUrl) {
+    let formattedUrl = targetUrl.trim();
+    // Shopify URL fields require a scheme (http, https, mailto, sms, tel)
+    // Relative URLs (starting with /) need to be converted to full URLs
+    if (formattedUrl && !/^(https?|mailto|sms|tel):/i.test(formattedUrl)) {
+      if (formattedUrl.startsWith("/")) {
+        // Get shop domain from admin session
+        const shopResponse = await admin.graphql(`#graphql query { shop { myshopifyDomain } }`);
+        const shopJson = await shopResponse.json();
+        const shopDomain = shopJson?.data?.shop?.myshopifyDomain || "example.myshopify.com";
+        formattedUrl = `https://${shopDomain}${formattedUrl}`;
+      } else {
+        formattedUrl = `https://${formattedUrl}`;
+      }
+    }
+    // Only add if URL is valid and not empty
+    if (formattedUrl && formattedUrl !== "https://") {
+      fields.push({ key: "target_url", value: formattedUrl });
+    }
+  }
+  
   if (headline) fields.push({ key: "headline", value: headline });
   if (buttonText) fields.push({ key: "button_text", value: buttonText });
 
@@ -491,8 +583,10 @@ function UrlPicker({ name, label, defaultValue = "" }) {
     if (hiddenInputRef.current) {
       let finalUrl = "";
       if (urlType === "home") {
+        // For home page, use root path - will be converted to full URL in action
         finalUrl = "/";
       } else if (urlType === "product" && productHandle) {
+        // Convert to relative URL - will be converted to full URL in action
         finalUrl = `/products/${productHandle}`;
       } else if (urlType === "collection" && collectionHandle) {
         finalUrl = `/collections/${collectionHandle}`;
@@ -500,6 +594,15 @@ function UrlPicker({ name, label, defaultValue = "" }) {
         finalUrl = `/pages/${pageHandle}`;
       } else if (urlType === "custom") {
         finalUrl = customUrl;
+        // Ensure custom URLs have a scheme
+        if (finalUrl && !/^(https?|mailto|sms|tel):/i.test(finalUrl)) {
+          if (!finalUrl.startsWith("/")) {
+            finalUrl = `https://${finalUrl}`;
+          } else {
+            // Relative URLs need to be converted - for now, add https prefix
+            finalUrl = `https://example.com${finalUrl}`;
+          }
+        }
       }
       hiddenInputRef.current.value = finalUrl;
     }
@@ -980,39 +1083,19 @@ export default function SchedulrPage() {
             {/* Modal Content */}
             <div style={{ padding: "1.25rem" }}>
               <h2 style={{ fontSize: "1.25rem", marginBottom: "0.75rem", marginTop: 0, fontWeight: "600" }}>Create New Entry</h2>
-              <fetcher.Form method="post" ref={formRef}>
+              <fetcher.Form method="post" ref={formRef} encType="multipart/form-data">
           <s-stack direction="block" gap="base">
-            <label htmlFor="title" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>Title</label>
-            <input
-              type="text"
-              id="title"
+            <s-text-field
+              label="Title"
               name="title"
               required
               placeholder="Display title for this schedulable entry"
-              style={{
-                width: "100%",
-                padding: "0.375rem 0.5rem",
-                border: "1px solid #c9cccf",
-                borderRadius: "4px",
-                fontSize: "0.8125rem",
-                marginBottom: "0.375rem",
-              }}
             />
-            <label htmlFor="position_id" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>Position ID</label>
-            <input
-              type="text"
-              id="position_id"
+            <s-text-field
+              label="Position ID"
               name="position_id"
               required
               placeholder="e.g., homepage_banner"
-              style={{
-                width: "100%",
-                padding: "0.375rem 0.5rem",
-                border: "1px solid #c9cccf",
-                borderRadius: "4px",
-                fontSize: "0.8125rem",
-                marginBottom: "0.375rem",
-              }}
             />
              <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.375rem" }}>
               <div style={{ flex: "1" }}>
