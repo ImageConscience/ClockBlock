@@ -158,8 +158,9 @@ export const action = async ({ request }) => {
     
     try {
       console.log("[ACTION] File upload request received");
-      console.log("[ACTION] File type:", file instanceof File ? "File object" : typeof file);
-      console.log("[ACTION] File name:", file instanceof File ? file.name : "N/A");
+      console.log("[ACTION] File type:", typeof file, "Is File:", file instanceof File, "Is Blob:", file instanceof Blob);
+      console.log("[ACTION] File constructor:", file?.constructor?.name);
+      console.log("[ACTION] File properties:", Object.keys(file || {}));
       
       const { admin } = await authenticate.admin(request); // request is the HTTP request parameter
       console.log("[ACTION] Admin authenticated successfully for file upload");
@@ -169,12 +170,33 @@ export const action = async ({ request }) => {
         return json({ error: "No file provided", success: false });
       }
       
-      if (!(file instanceof File)) {
-        console.error("[ACTION] File is not a File object, type:", typeof file);
-        return json({ error: "Invalid file format", success: false });
+      // Get filename from File object or use a default (do this early)
+      const fileName = (file.name || `upload-${Date.now()}.jpg`);
+      
+      // Check if it's a File-like object (File, Blob, or has stream() method)
+      const isFileLike = file instanceof File || 
+                        file instanceof Blob || 
+                        (typeof file === "object" && file !== null && 
+                         (file.constructor?.name === "File" || 
+                          file.constructor?.name === "Blob" ||
+                          typeof file.arrayBuffer === "function" ||
+                          typeof file.stream === "function"));
+      
+      console.log("[ACTION] File has name:", "name" in file, "File name:", fileName);
+      console.log("[ACTION] File has type:", "type" in file, "File type:", file?.type || "N/A");
+      console.log("[ACTION] File has size:", "size" in file, "File size:", file?.size || "N/A");
+      console.log("[ACTION] File has arrayBuffer:", typeof file?.arrayBuffer === "function");
+      
+      if (!isFileLike) {
+        console.error("[ACTION] File is not a File/Blob-like object, type:", typeof file, "constructor:", file?.constructor?.name);
+        console.error("[ACTION] File object:", file);
+        return json({ error: `Invalid file format. Received: ${typeof file}, expected File or Blob`, success: false });
       }
       
-      const fileType = file.type || "image/jpeg";
+      // Get file type - File objects have .type, Blobs might not
+      const fileType = (file.type || 
+                       (file instanceof Blob ? "application/octet-stream" : null) ||
+                       "image/jpeg");
       // For fileCreate, contentType should be the actual MIME type (e.g., "image/jpeg")
       // For stagedUploadsCreate, resource should be IMAGE, VIDEO, or MODEL_3D
       const resourceType = fileType.startsWith("image/") ? "IMAGE" : "IMAGE";
@@ -206,9 +228,9 @@ export const action = async ({ request }) => {
             input: [
               {
                 resource: resourceType,
-                filename: file.name,
+                filename: fileName || "image.jpg",
                 mimeType: fileType,
-                fileSize: file.size.toString(),
+                fileSize: (file.size || fileBuffer.length).toString(),
               },
             ],
           },
@@ -248,8 +270,33 @@ export const action = async ({ request }) => {
       console.log("[ACTION] Uploading file...");
       
       // Step 2: Upload file to staged URL
-      // Convert File to Buffer
-      const arrayBuffer = await file.arrayBuffer();
+      // fileName already set above
+      
+      // Convert File/Blob to Buffer
+      // File and Blob objects both have arrayBuffer() method
+      let arrayBuffer;
+      if (typeof file.arrayBuffer === "function") {
+        arrayBuffer = await file.arrayBuffer();
+      } else if (typeof file.stream === "function") {
+        // Fallback for stream-based objects
+        const stream = file.stream();
+        const chunks = [];
+        const reader = stream.getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+        arrayBuffer = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
+        let offset = 0;
+        for (const chunk of chunks) {
+          arrayBuffer.set(chunk, offset);
+          offset += chunk.length;
+        }
+      } else {
+        console.error("[ACTION] File object doesn't have arrayBuffer() or stream() method");
+        return json({ error: "File object doesn't support reading", success: false });
+      }
       const fileBuffer = Buffer.from(arrayBuffer);
       
       // Use form-data package for proper multipart/form-data handling in Node.js
@@ -328,7 +375,7 @@ export const action = async ({ request }) => {
         files: [
           {
             originalSource: stagedTarget.resourceUrl,
-            filename: file.name,
+            filename: fileName || "image.jpg",
             contentType: fileType, // Use the actual MIME type (e.g., "image/jpeg")
           },
         ],
@@ -395,7 +442,7 @@ export const action = async ({ request }) => {
         file: {
           id: uploadedFile.id,
           url: uploadedFile.image?.url || "",
-          alt: uploadedFile.alt || file.name,
+          alt: uploadedFile.alt || fileName || "Uploaded image",
         },
       });
     } catch (error) {
@@ -1022,7 +1069,13 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
           const result = uploadFetcher.data;
           console.log("[MediaLibraryPicker] Upload response data:", result);
           console.log("[MediaLibraryPicker] Upload response type:", typeof result);
-          console.log("[MediaLibraryPicker] Upload response keys:", result ? Object.keys(result) : "null/undefined");
+          if (result) {
+            console.log("[MediaLibraryPicker] Upload response keys:", Object.keys(result));
+            console.log("[MediaLibraryPicker] Upload response success:", result.success);
+            console.log("[MediaLibraryPicker] Upload response error:", result.error);
+            console.log("[MediaLibraryPicker] Upload response file:", result.file);
+            console.log("[MediaLibraryPicker] Full response JSON:", JSON.stringify(result, null, 2));
+          }
           
           // React Router's fetcher automatically parses JSON, so result should be an object
           if (result && typeof result === "object" && result.success && result.file) {
@@ -1095,7 +1148,12 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
         </label>
         <button
           type="button"
-          onClick={() => setShowPicker(true)}
+          onClick={() => {
+            setShowPicker(true);
+            setUploadError(""); // Clear any previous error when opening modal
+            setUploadSuccess(false);
+            setUploadProgress(0);
+          }}
           style={{
             width: "100%",
             padding: "0.5rem",
