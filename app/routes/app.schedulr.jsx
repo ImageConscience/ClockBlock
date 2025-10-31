@@ -1039,14 +1039,26 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
       
       // Use direct fetch() instead of fetcher.submit() because React Router's fetcher
       // doesn't properly serialize File objects in FormData - it converts them to strings
-      const response = await fetch(window.location.pathname, {
+      console.log("[MediaLibraryPicker] Starting fetch request to:", window.location.pathname);
+      const uploadStartTime = Date.now();
+      
+      // Create a timeout promise (60 seconds for large file uploads)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Upload timeout: Request took longer than 60 seconds")), 60000);
+      });
+      
+      // Race between fetch and timeout
+      const fetchPromise = fetch(window.location.pathname, {
         method: "POST",
         body: uploadFormData,
         credentials: "include", // Include session cookies for authentication
         // Don't set Content-Type header - browser will set it with boundary for multipart/form-data
       });
       
-      console.log("[MediaLibraryPicker] Upload response received, status:", response.status);
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
+      const uploadDuration = Date.now() - uploadStartTime;
+      
+      console.log("[MediaLibraryPicker] Upload response received after", uploadDuration, "ms, status:", response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -1112,7 +1124,20 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
         progressIntervalRef.current = null;
       }
       console.error("[MediaLibraryPicker] Error uploading file:", error);
-      setUploadError(error.message || "Failed to upload file. Please try again.");
+      console.error("[MediaLibraryPicker] Error name:", error.name);
+      console.error("[MediaLibraryPicker] Error message:", error.message);
+      console.error("[MediaLibraryPicker] Error stack:", error.stack);
+      
+      let errorMessage = "Failed to upload file. Please try again.";
+      if (error.message?.includes("timeout")) {
+        errorMessage = "Upload timed out. The file may be too large or the server is taking too long to process it.";
+      } else if (error.message?.includes("Failed to fetch") || error.message?.includes("NetworkError")) {
+        errorMessage = "Network error. Please check your connection and try again.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setUploadError(errorMessage);
       setIsUploading(false);
       setUploadProgress(0);
       if (fileInputRef.current) {
