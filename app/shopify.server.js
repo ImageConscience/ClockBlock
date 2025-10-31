@@ -174,9 +174,9 @@ const shopify = shopifyApp({
                 capabilities: {
                   publishable: {
                     enabled: true,
-                    onlineStore: {
-                      enabled: true,
-                    },
+                  },
+                  onlineStore: {
+                    enabled: true,
                   },
                 },
               },
