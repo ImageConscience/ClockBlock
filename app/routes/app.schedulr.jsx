@@ -400,16 +400,21 @@ export const action = async ({ request }) => {
         });
       } catch (uploadError) {
         clearTimeout(uploadTimeout);
-        if (uploadError.name === 'AbortError') {
-          console.error("[ACTION] Upload request timed out after 60 seconds");
+        console.error("[ACTION] Upload request error:", uploadError);
+        console.error("[ACTION] Upload error name:", uploadError?.name);
+        console.error("[ACTION] Upload error message:", uploadError?.message);
+        console.error("[ACTION] Upload error stack:", uploadError?.stack);
+        
+        if (uploadError.name === 'AbortError' || uploadError.message?.includes('timeout')) {
+          console.error("[ACTION] Upload request timed out");
           return json({ 
             error: `Upload timed out. The file may be too large or the server is taking too long to process it.`, 
             success: false 
           });
         }
-        console.error("[ACTION] Upload request error:", uploadError);
+        
         return json({ 
-          error: `Failed to upload file: ${uploadError.message}`, 
+          error: `Failed to upload file: ${uploadError.message || 'Unknown error'}`, 
           success: false 
         });
       }
