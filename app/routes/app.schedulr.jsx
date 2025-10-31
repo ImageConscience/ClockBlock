@@ -131,18 +131,29 @@ export const action = async ({ request }) => {
     console.log("[ACTION] Detected file upload request");
     // This is a file upload request - handle it here using staged uploads
     // Import server-only modules here (not at top level to avoid client bundle issues)
+    let FormDataClass;
     let undiciRequest;
     
     try {
+      const { createRequire } = await import("module");
+      const require = createRequire(import.meta.url);
+      const formDataModule = require("form-data");
+      FormDataClass = formDataModule.default || formDataModule;
+      
       const undiciModule = await import("undici");
       undiciRequest = undiciModule.request;
+      
+      if (!FormDataClass || typeof FormDataClass !== "function") {
+        console.error("[ACTION] FormData is not a constructor:", typeof FormDataClass);
+        return json({ error: "Failed to load FormData module", success: false });
+      }
       
       if (!undiciRequest || typeof undiciRequest !== "function") {
         console.error("[ACTION] undiciRequest is not a function:", typeof undiciRequest);
         return json({ error: "Failed to load request function", success: false });
       }
       
-      console.log("[ACTION] undiciRequest loaded successfully");
+      console.log("[ACTION] FormData and undiciRequest loaded successfully");
     } catch (importError) {
       console.error("[ACTION] Error importing server modules:", importError);
       return json({ error: `Failed to load upload modules: ${importError.message}`, success: false });
@@ -313,57 +324,40 @@ export const action = async ({ request }) => {
       console.log("[ACTION] File buffer created, size:", fileBuffer.length, "bytes");
       console.log("[ACTION] Parameters to include:", stagedTarget.parameters.map(p => `${p.name}=${p.value}`).join(', '));
       
-      // Manually construct multipart/form-data body
-      // Use a simpler boundary format that's more compatible with Google Cloud Storage signatures
-      // Generate a UUID-like boundary (standard multipart format)
-      const boundary = `----formdata-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-      
-      const parts = [];
+      // Use form-data package to properly construct multipart/form-data
+      // This ensures the format matches what Google Cloud Storage expects for signature verification
+      const formDataToUpload = new FormDataClass();
       
       // Add parameters in the exact order provided by Shopify (order matters for signature)
       for (const param of stagedTarget.parameters) {
-        parts.push(
-          `--${boundary}\r\n` +
-          `Content-Disposition: form-data; name="${param.name}"\r\n` +
-          `\r\n` +
-          `${param.value}\r\n`
-        );
+        formDataToUpload.append(param.name, param.value);
       }
       
       // File must be appended last
-      // Escape filename if it contains special characters
-      const escapedFileName = fileName.replace(/"/g, '\\"');
-      parts.push(
-        `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="file"; filename="${escapedFileName}"\r\n` +
-        `Content-Type: ${fileType}\r\n` +
-        `\r\n`
-      );
+      formDataToUpload.append("file", fileBuffer, {
+        filename: fileName,
+        contentType: fileType,
+      });
       
-      // Combine parts into a buffer
-      const headerBuffer = Buffer.from(parts.join(''), 'utf8');
-      const footerBuffer = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8');
-      const formDataBuffer = Buffer.concat([headerBuffer, fileBuffer, footerBuffer]);
+      // Get headers from form-data (includes Content-Type with boundary)
+      const headers = formDataToUpload.getHeaders();
       
-      console.log("[ACTION] Multipart form-data constructed, total size:", formDataBuffer.length, "bytes");
-      console.log("[ACTION] Boundary:", boundary);
-      
-      // Use undici's request method with the buffer
+      console.log("[ACTION] FormData created with headers:", JSON.stringify(headers, null, 2));
       console.log("[ACTION] Starting upload to staged URL:", stagedTarget.url);
       const uploadStartTime = Date.now();
       
-      // Add timeout for the upload request (45 seconds)
+      // Use form-data as a stream for undici
+      // This ensures proper encoding and avoids signature mismatches
       const uploadTimeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error("Upload to staged URL timeout after 45 seconds")), 45000);
       });
       
       const uploadRequestPromise = undiciRequest(stagedTarget.url, {
         method: "POST",
-        body: formDataBuffer,
+        body: formDataToUpload,
         headers: {
-          'Content-Type': `multipart/form-data; boundary=${boundary}`,
-          // Don't set Content-Length - let undici handle it automatically
-          // This helps avoid signature mismatches with Google Cloud Storage
+          ...headers,
+          // Don't set Content-Length - let form-data and undici handle it
         },
       });
       
