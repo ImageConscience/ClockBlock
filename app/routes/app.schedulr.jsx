@@ -4,18 +4,6 @@ import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 
-// Declare global shopify type for TypeScript/IDE
-declare global {
-  interface Window {
-    shopify?: {
-      resourcePicker: (options: { type: string }) => Promise<Array<{ id: string; [key: string]: any }>>;
-      toast: {
-        show: (message: string) => void;
-      };
-    };
-  }
-}
-
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
 
