@@ -348,40 +348,49 @@ export const action = async ({ request }) => {
       console.log("[ACTION] FormData headers:", JSON.stringify(headers, null, 2));
       console.log("[ACTION] Parameters count:", stagedTarget.parameters.length);
       
-      // Convert form-data stream to buffer for undici
+      // Convert form-data to buffer for undici
+      // form-data package needs to be piped/consumed to emit events
+      // We'll use getBuffer() method if available, or pipe through a PassThrough stream
       console.log("[ACTION] Converting form-data to buffer...");
-      const formDataBufferPromise = new Promise((resolve, reject) => {
-        const chunks = [];
-        let hasEnded = false;
-        
-        // Add timeout for stream conversion (30 seconds)
-        const timeout = setTimeout(() => {
-          if (!hasEnded) {
-            reject(new Error("FormData stream conversion timeout after 30 seconds"));
-          }
-        }, 30000);
-        
-        formDataToUpload.on('data', (chunk) => {
-          console.log("[ACTION] Received form-data chunk, size:", chunk.length);
-          chunks.push(chunk);
-        });
-        
-        formDataToUpload.on('end', () => {
-          hasEnded = true;
-          clearTimeout(timeout);
-          console.log("[ACTION] Form-data stream ended, total chunks:", chunks.length);
-          resolve(Buffer.concat(chunks));
-        });
-        
-        formDataToUpload.on('error', (err) => {
-          hasEnded = true;
-          clearTimeout(timeout);
-          console.error("[ACTION] Form-data stream error:", err);
-          reject(err);
-        });
-      });
       
-      const formDataBuffer = await formDataBufferPromise;
+      let formDataBuffer;
+      try {
+        // Try using getBuffer() method if it exists (some versions of form-data have this)
+        if (typeof formDataToUpload.getBuffer === "function") {
+          console.log("[ACTION] Using getBuffer() method");
+          formDataBuffer = await formDataToUpload.getBuffer();
+        } else {
+          // Fallback: pipe form-data through a PassThrough stream to collect chunks
+          const { PassThrough } = await import("stream");
+          const passThrough = new PassThrough();
+          const chunks = [];
+          
+          passThrough.on('data', (chunk) => {
+            chunks.push(chunk);
+          });
+          
+          const bufferPromise = new Promise((resolve, reject) => {
+            passThrough.on('end', () => {
+              console.log("[ACTION] Form-data stream ended, total chunks:", chunks.length);
+              resolve(Buffer.concat(chunks));
+            });
+            passThrough.on('error', reject);
+            
+            // Add timeout
+            setTimeout(() => {
+              reject(new Error("FormData stream conversion timeout after 30 seconds"));
+            }, 30000);
+          });
+          
+          // Pipe form-data to pass-through stream
+          formDataToUpload.pipe(passThrough);
+          formDataBuffer = await bufferPromise;
+        }
+      } catch (bufferError) {
+        console.error("[ACTION] Error converting form-data to buffer:", bufferError);
+        throw bufferError;
+      }
+      
       console.log("[ACTION] FormData buffer size:", formDataBuffer.length, "bytes");
       
       // Use undici's request method with the buffer
