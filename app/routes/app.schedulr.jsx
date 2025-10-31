@@ -337,12 +337,12 @@ export const action = async ({ request }) => {
       // Log parameters for debugging
       console.log("[ACTION] Staged upload parameters:", JSON.stringify(stagedTarget.parameters, null, 2));
       
+      // According to Shopify docs, parameters must be added EXACTLY as provided
+      // Some parameters (like 'key') may need quotes preserved
       for (const param of stagedTarget.parameters) {
-        // Remove quotes from parameter values if they exist (Google Cloud Storage expects unquoted values)
-        const paramValue = param.value.startsWith('"') && param.value.endsWith('"') 
-          ? param.value.slice(1, -1) 
-          : param.value;
-        formDataToUpload.append(param.name, paramValue);
+        // Keep parameter values exactly as provided - don't modify quotes
+        // The signature depends on the exact value format
+        formDataToUpload.append(param.name, param.value);
       }
       
       // File MUST be appended last (critical for signature verification)
