@@ -97,7 +97,7 @@ export const action = async ({ request }) => {
   const hasTitle = formData.get("title");
   
   if (file && !hasTitle) {
-    // This is a file upload request - handle it here
+    // This is a file upload request - handle it here using staged uploads
     try {
       console.log("[ACTION] File upload request received");
       console.log("[ACTION] File type:", file instanceof File ? "File object" : typeof file);
@@ -116,20 +116,128 @@ export const action = async ({ request }) => {
         return { error: "Invalid file format", success: false };
       }
       
-      console.log("[ACTION] Converting file to base64, size:", file.size, "bytes");
-      // Convert File to base64
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const base64 = buffer.toString("base64");
-      console.log("[ACTION] Base64 conversion complete, length:", base64.length);
-      
       const fileType = file.type || "image/jpeg";
-      const contentType = fileType.startsWith("image/") ? "IMAGE" : "GENERIC_FILE";
+      // For fileCreate, contentType should be the actual MIME type (e.g., "image/jpeg")
+      // For stagedUploadsCreate, resource should be IMAGE, VIDEO, or MODEL_3D
+      const resourceType = fileType.startsWith("image/") ? "IMAGE" : "IMAGE";
       
-      console.log("[ACTION] Uploading to Shopify, content type:", contentType);
+      console.log("[ACTION] Creating staged upload target, file type:", fileType, "resource type:", resourceType);
       
-      // Upload file using fileCreate mutation
-      const uploadResponse = await admin.graphql(
+      // Step 1: Create staged upload target
+      const stagedResponse = await admin.graphql(
+        `#graphql
+        mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
+          stagedUploadsCreate(input: $input) {
+            stagedTargets {
+              resourceUrl
+              url
+              parameters {
+                name
+                value
+              }
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `,
+        {
+          variables: {
+            input: [
+              {
+                resource: resourceType,
+                filename: file.name,
+                mimeType: fileType,
+                fileSize: file.size.toString(),
+              },
+            ],
+          },
+        }
+      );
+      
+      const stagedJson = await stagedResponse.json();
+      console.log("[ACTION] Staged upload response:", JSON.stringify(stagedJson, null, 2));
+      
+      if (stagedJson?.errors) {
+        const errors = stagedJson.errors
+          .map((e) => e.message)
+          .join(", ");
+        console.error("[ACTION] GraphQL errors creating staged upload:", errors);
+        return { error: `Failed to create staged upload: ${errors}`, success: false };
+      }
+      
+      if (stagedJson?.data?.stagedUploadsCreate?.userErrors?.length > 0) {
+        const errors = stagedJson.data.stagedUploadsCreate.userErrors
+          .map((e) => e.message)
+          .join(", ");
+        console.error("[ACTION] User errors creating staged upload:", errors);
+        return { error: `Failed to create staged upload: ${errors}`, success: false };
+      }
+      
+      const stagedTarget = stagedJson?.data?.stagedUploadsCreate?.stagedTargets?.[0];
+      if (!stagedTarget?.url || !stagedTarget?.resourceUrl) {
+        console.error("[ACTION] No staged upload target returned");
+        console.error("[ACTION] Staged upload response structure:", JSON.stringify(stagedJson, null, 2));
+        return { error: "Failed to create staged upload target", success: false };
+      }
+      
+      console.log("[ACTION] Staged upload target created");
+      console.log("[ACTION] Staged upload URL:", stagedTarget.url);
+      console.log("[ACTION] Staged upload resourceUrl:", stagedTarget.resourceUrl);
+      console.log("[ACTION] Staged upload parameters:", JSON.stringify(stagedTarget.parameters, null, 2));
+      console.log("[ACTION] Uploading file...");
+      
+      // Step 2: Upload file to staged URL
+      const formDataToUpload = new FormData();
+      stagedTarget.parameters.forEach((param) => {
+        formDataToUpload.append(param.name, param.value);
+      });
+      formDataToUpload.append("file", file);
+      
+      console.log("[ACTION] Uploading to staged URL with FormData containing", formDataToUpload.getAll("file").length, "file(s)");
+      
+      const uploadResponse = await fetch(stagedTarget.url, {
+        method: "POST",
+        body: formDataToUpload,
+      });
+      
+      console.log("[ACTION] Staged upload HTTP response status:", uploadResponse.status, uploadResponse.statusText);
+      
+      if (!uploadResponse.ok) {
+        const responseText = await uploadResponse.text();
+        console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.status);
+        console.error("[ACTION] Response body:", responseText);
+        return { error: `Failed to upload file: HTTP ${uploadResponse.status}`, success: false };
+      }
+      
+      // Read and log the response body (may be empty, but we should consume it)
+      const uploadResponseText = await uploadResponse.text();
+      console.log("[ACTION] Staged upload response body:", uploadResponseText);
+      
+      console.log("[ACTION] File uploaded to staged URL successfully");
+      
+      // Wait a moment for Shopify to process the staged upload
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log("[ACTION] Creating file record with resourceUrl:", stagedTarget.resourceUrl);
+      
+      // Step 3: Create file record using resourceUrl
+      // Note: originalSource should be the resourceUrl from staged upload, and contentType should be the MIME type
+      const fileCreateVariables = {
+        files: [
+          {
+            originalSource: stagedTarget.resourceUrl,
+            filename: file.name,
+            contentType: fileType, // Use the actual MIME type (e.g., "image/jpeg")
+          },
+        ],
+      };
+      
+      console.log("[ACTION] fileCreate mutation variables:", JSON.stringify(fileCreateVariables, null, 2));
+      
+      const fileCreateResponse = await admin.graphql(
         `#graphql
         mutation fileCreate($files: [FileCreateInput!]!) {
           fileCreate(files: $files) {
@@ -152,38 +260,30 @@ export const action = async ({ request }) => {
         }
       `,
         {
-          variables: {
-            files: [
-              {
-                originalSource: `data:${fileType};base64,${base64}`,
-                filename: file.name,
-                contentType: contentType,
-              },
-            ],
-          },
+          variables: fileCreateVariables,
         }
       );
       
-      const uploadJson = await uploadResponse.json();
-      console.log("[ACTION] File upload response:", JSON.stringify(uploadJson, null, 2));
+      const fileCreateJson = await fileCreateResponse.json();
+      console.log("[ACTION] File create response:", JSON.stringify(fileCreateJson, null, 2));
       
-      if (uploadJson?.errors) {
-        const errors = uploadJson.errors
+      if (fileCreateJson?.errors) {
+        const errors = fileCreateJson.errors
           .map((e) => e.message)
           .join(", ");
-        console.error("[ACTION] GraphQL errors:", errors);
-        return { error: `Failed to upload file: ${errors}`, success: false };
+        console.error("[ACTION] GraphQL errors creating file:", errors);
+        return { error: `Failed to create file: ${errors}`, success: false };
       }
       
-      if (uploadJson?.data?.fileCreate?.userErrors?.length > 0) {
-        const errors = uploadJson.data.fileCreate.userErrors
+      if (fileCreateJson?.data?.fileCreate?.userErrors?.length > 0) {
+        const errors = fileCreateJson.data.fileCreate.userErrors
           .map((e) => e.message)
           .join(", ");
-        console.error("[ACTION] User errors:", errors);
-        return { error: `Failed to upload file: ${errors}`, success: false };
+        console.error("[ACTION] User errors creating file:", errors);
+        return { error: `Failed to create file: ${errors}`, success: false };
       }
       
-      const uploadedFile = uploadJson?.data?.fileCreate?.files?.[0];
+      const uploadedFile = fileCreateJson?.data?.fileCreate?.files?.[0];
       if (!uploadedFile?.id) {
         console.error("[ACTION] No file ID returned in response");
         return { error: "File uploaded but no ID returned", success: false };
