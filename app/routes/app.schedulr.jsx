@@ -1108,48 +1108,18 @@ export default function SchedulrPage() {
               required
               placeholder="e.g., homepage_banner"
             />
-             <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.375rem" }}>
-              <div style={{ flex: "1" }}>
-                <label
-                  htmlFor="start_at"
-                  style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}
-                >
-                  Start Date & Time
-                </label>
-                <input
-                  type="datetime-local"
-                  id="start_at"
-                  name="start_at"
-                  style={{
-                    width: "100%",
-                    padding: "0.375rem 0.5rem",
-                    border: "1px solid #c9cccf",
-                    borderRadius: "4px",
-                    fontSize: "0.8125rem",
-                  }}
-                />
-              </div>
-              <div style={{ flex: "1" }}>
-                <label
-                  htmlFor="end_at"
-                  style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}
-                >
-                  End Date & Time
-                </label>
-                <input
-                  type="datetime-local"
-                  id="end_at"
-                  name="end_at"
-                  style={{
-                    width: "100%",
-                    padding: "0.375rem 0.5rem",
-                    border: "1px solid #c9cccf",
-                    borderRadius: "4px",
-                    fontSize: "0.8125rem",
-                  }}
-                />
-              </div>
-            </div>
+                  <s-stack direction="inline" gap="base">
+                    <s-text-field
+                      label="Start Date & Time"
+                      name="start_at"
+                      type="datetime-local"
+                    />
+                    <s-text-field
+                      label="End Date & Time"
+                      name="end_at"
+                      type="datetime-local"
+                    />
+                  </s-stack>
                   <s-text-field
                     label="Description"
                     name="description"
