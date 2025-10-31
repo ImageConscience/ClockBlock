@@ -1126,7 +1126,7 @@ export default function SchedulrPage() {
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
                 fontSize: "0.875rem",
-                marginBottom: "0.75rem",
+                marginBottom: "0.5rem",
               }}
             />
             <label
