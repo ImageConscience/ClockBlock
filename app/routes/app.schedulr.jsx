@@ -334,8 +334,15 @@ export const action = async ({ request }) => {
       
       // Add all parameters in exact order provided by Shopify
       // DO NOT modify parameter names or values - they're signed
+      // Log parameters for debugging
+      console.log("[ACTION] Staged upload parameters:", JSON.stringify(stagedTarget.parameters, null, 2));
+      
       for (const param of stagedTarget.parameters) {
-        formDataToUpload.append(param.name, param.value);
+        // Remove quotes from parameter values if they exist (Google Cloud Storage expects unquoted values)
+        const paramValue = param.value.startsWith('"') && param.value.endsWith('"') 
+          ? param.value.slice(1, -1) 
+          : param.value;
+        formDataToUpload.append(param.name, paramValue);
       }
       
       // File MUST be appended last (critical for signature verification)
@@ -346,13 +353,18 @@ export const action = async ({ request }) => {
       
       const headers = formDataToUpload.getHeaders();
       
-      console.log("[ACTION] Uploading to staged URL:", stagedTarget.url);
+      // Extract base URL (without query parameters) for the POST request
+      // Google Cloud Storage expects parameters as form data, not query params
+      const uploadUrl = stagedTarget.url.split('?')[0];
+      
+      console.log("[ACTION] Uploading to staged URL (base):", uploadUrl);
       console.log("[ACTION] Form data headers:", JSON.stringify(headers, null, 2));
       
       try {
         // Use axios with form-data - axios handles the stream correctly
         // and preserves the exact multipart format for signature verification
-        const uploadResponse = await axios.post(stagedTarget.url, formDataToUpload, {
+        // Use base URL without query parameters - all params go in form data
+        const uploadResponse = await axios.post(uploadUrl, formDataToUpload, {
           headers: headers, // Use form-data's headers (includes boundary)
           maxContentLength: Infinity,
           maxBodyLength: Infinity,
