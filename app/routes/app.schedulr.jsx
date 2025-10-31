@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useFetcher, useLoaderData, redirect, useNavigation, useRevalidator } from "react-router";
+import { useFetcher, useLoaderData, redirect, useNavigation, useRevalidator, useRouteError, isRouteErrorResponse } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
@@ -241,20 +241,19 @@ export const action = async ({ request }) => {
       if (!stagedUploadResult.success) {
         const graphqlError = stagedUploadResult.error;
         console.log("[ACTION] Handling staged upload error");
-        // Check if it's a permissions error
-        if (graphqlError?.message?.includes("Access denied") || graphqlError?.message?.includes("stagedUploadsCreate")) {
-          console.log("[ACTION] Returning JSON error response for permissions issue");
-          return json({ 
-            error: "Access denied: The app needs write_files scope. Please reinstall the app to update permissions.", 
-            success: false 
-          });
+        
+        // Build error response
+        let errorMessage = "Access denied: The app needs write_files scope. Please reinstall the app to update permissions.";
+        if (!graphqlError?.message?.includes("Access denied") && !graphqlError?.message?.includes("stagedUploadsCreate")) {
+          errorMessage = `Failed to create staged upload: ${graphqlError?.message || 'Unknown error'}`;
         }
         
-        console.log("[ACTION] Returning JSON error response for general error");
-        return json({ 
-          error: `Failed to create staged upload: ${graphqlError?.message || 'Unknown error'}`, 
+        console.log("[ACTION] Returning JSON error response");
+        // Use boundary.data() to throw a proper response that React Router will handle correctly
+        throw boundary.data(json({ 
+          error: errorMessage, 
           success: false 
-        });
+        }));
       }
       
       const stagedJson = stagedUploadResult.json;
