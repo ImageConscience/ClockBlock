@@ -362,7 +362,8 @@ export const action = async ({ request }) => {
         body: formDataBuffer,
         headers: {
           'Content-Type': `multipart/form-data; boundary=${boundary}`,
-          'Content-Length': formDataBuffer.length.toString(),
+          // Don't set Content-Length - let undici handle it automatically
+          // This helps avoid signature mismatches with Google Cloud Storage
         },
       });
       
