@@ -313,7 +313,7 @@ export const action = async ({ request }) => {
       });
       // File must be appended last
       formDataToUpload.append("file", fileBuffer, {
-        filename: file.name,
+        filename: fileName || "image.jpg",
         contentType: fileType,
       });
       
@@ -325,7 +325,7 @@ export const action = async ({ request }) => {
       
       const headers = formDataToUpload.getHeaders();
       
-      console.log("[ACTION] Uploading to staged URL with FormData containing file:", file.name);
+      console.log("[ACTION] Uploading to staged URL with FormData containing file:", fileName);
       console.log("[ACTION] FormData headers:", JSON.stringify(headers, null, 2));
       console.log("[ACTION] Parameters count:", stagedTarget.parameters.length);
       
