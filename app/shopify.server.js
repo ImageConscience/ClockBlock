@@ -87,13 +87,16 @@ const shopify = shopifyApp({
               {
                 variables: {
                   id: def.id,
-                    definition: {
-                      capabilities: {
-                        onlineStore: {
-                          enabled: true,
+                  definition: {
+                    capabilities: {
+                      onlineStore: {
+                        enabled: true,
+                        data: {
+                          urlHandle: "schedulable-entity",
                         },
                       },
                     },
+                  },
                 },
               },
             );
@@ -221,6 +224,9 @@ const shopify = shopifyApp({
                   },
                   onlineStore: {
                     enabled: true,
+                    data: {
+                      urlHandle: "schedulable-entity",
+                    },
                   },
                 },
               },

@@ -167,6 +167,9 @@ export const action = async ({ request }) => {
                 },
                 onlineStore: {
                   enabled: true,
+                  data: {
+                    urlHandle: "schedulable-entity",
+                  },
                 },
               },
             },
