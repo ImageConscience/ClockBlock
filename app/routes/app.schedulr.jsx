@@ -832,22 +832,6 @@ export default function SchedulrPage() {
                 marginBottom: "0.75rem",
               }}
             />
-            <label htmlFor="description" style={{ display: "block", marginBottom: "0.375rem", fontWeight: "500", fontSize: "0.875rem" }}>Description</label>
-            <textarea
-              id="description"
-              name="description"
-              rows={3}
-              placeholder="Short description or summary"
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                border: "1px solid #c9cccf",
-                borderRadius: "4px",
-                fontSize: "0.875rem",
-                resize: "vertical",
-                marginBottom: "0.75rem",
-              }}
-            />
              <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.75rem" }}>
               <div style={{ flex: "1" }}>
                 <label
@@ -890,6 +874,22 @@ export default function SchedulrPage() {
                 />
               </div>
             </div>
+            <label htmlFor="description" style={{ display: "block", marginBottom: "0.375rem", fontWeight: "500", fontSize: "0.875rem" }}>Description</label>
+            <textarea
+              id="description"
+              name="description"
+              rows={3}
+              placeholder="Short description or summary"
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+                fontSize: "0.875rem",
+                resize: "vertical",
+                marginBottom: "0.75rem",
+              }}
+            />
             <div style={{ marginBottom: "0.75rem" }}>
               <RichTextEditor name="content" label="Content" />
             </div>
