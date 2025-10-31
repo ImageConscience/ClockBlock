@@ -2177,3 +2177,20 @@ export default function SchedulrPage() {
 export const headers = (headersArgs) => {
   return boundary.headers(headersArgs);
 };
+
+// Add error boundary to catch and handle errors properly
+export function ErrorBoundary() {
+  const error = useRouteError();
+  console.error("[ErrorBoundary] Error caught:", error);
+  
+  // If it's a route error response with JSON data, return it
+  if (isRouteErrorResponse(error) && error.data && typeof error.data === 'object') {
+    return boundary.data(json({
+      error: error.data.error || error.data.message || "An error occurred",
+      success: false
+    }));
+  }
+  
+  // Otherwise use Shopify's default error boundary
+  return boundary.error(error);
+}
