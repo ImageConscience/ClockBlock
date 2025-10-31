@@ -235,6 +235,7 @@ export const action = async ({ request }) => {
         
         stagedJson = await stagedResponse.json();
         console.log("[ACTION] Staged upload response received");
+        console.log("[ACTION] Staged upload JSON response:", JSON.stringify(stagedJson, null, 2));
       } catch (graphqlError) {
         console.error("[ACTION] Error calling stagedUploadsCreate:", graphqlError);
         console.error("[ACTION] Error message:", graphqlError?.message);
@@ -250,6 +251,28 @@ export const action = async ({ request }) => {
         
         return json({ 
           error: `Failed to create staged upload: ${graphqlError?.message || 'Unknown error'}`, 
+          success: false 
+        });
+      }
+      
+      // Check if stagedUploadsCreate returned null (permissions issue) BEFORE checking for errors
+      // This happens when the GraphQL mutation succeeds but returns null due to permissions
+      if (!stagedJson?.data?.stagedUploadsCreate) {
+        console.error("[ACTION] stagedUploadsCreate returned null - checking for errors in response");
+        console.error("[ACTION] Full stagedJson:", JSON.stringify(stagedJson, null, 2));
+        
+        // Check if there are GraphQL errors
+        if (stagedJson?.errors) {
+          const errors = stagedJson.errors.map((e) => e.message).join(", ");
+          console.error("[ACTION] GraphQL errors in null response:", errors);
+          return json({ 
+            error: `Failed to create staged upload: ${errors}`, 
+            success: false 
+          });
+        }
+        
+        return json({ 
+          error: "Access denied: The app needs write_files scope. Please reinstall the app to update permissions.", 
           success: false 
         });
       }
