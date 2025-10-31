@@ -871,8 +871,11 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
   const [localMediaFiles, setLocalMediaFiles] = useState(mediaFiles);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const hiddenInputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const progressIntervalRef = useRef(null);
   const revalidator = useRevalidator();
   const uploadFetcher = useFetcher();
 
@@ -912,8 +915,24 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
       return;
     }
     
+    // Clear any existing progress interval
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+    
     setIsUploading(true);
     setUploadError("");
+    setUploadSuccess(false);
+    setUploadProgress(0);
+    
+    // Simulate progress (we can't get real progress from fetcher, but we can show it's working)
+    progressIntervalRef.current = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 90) return prev; // Don't go to 100% until we get response
+        return prev + 10;
+      });
+    }, 500);
     
     try {
       const uploadFormData = new FormData();
@@ -927,9 +946,14 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
       });
       console.log("[MediaLibraryPicker] Upload request submitted");
     } catch (error) {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
       console.error("[MediaLibraryPicker] Error initiating file upload:", error);
       setUploadError("Failed to upload file. Please try again.");
       setIsUploading(false);
+      setUploadProgress(0);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -938,40 +962,71 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
 
   // Handle upload fetcher response
   useEffect(() => {
+    // Clean up progress interval when upload completes
     if (uploadFetcher.state === "idle") {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+    }
+    
+    if (uploadFetcher.state === "idle" && uploadFetcher.data !== undefined) {
+      setUploadProgress(100);
       setIsUploading(false);
       
-      if (uploadFetcher.data) {
-        const result = uploadFetcher.data;
-        console.log("[MediaLibraryPicker] Upload response:", result);
-        
-        if (result.success && result.file) {
-          // Add the new file to the local list
-          setLocalMediaFiles([result.file, ...localMediaFiles]);
-          // Automatically select the newly uploaded file
-          setSelectedFileId(result.file.id);
-          if (hiddenInputRef.current) {
-            hiddenInputRef.current.value = result.file.id;
+      // Small delay to show 100% progress
+      setTimeout(() => {
+        if (uploadFetcher.data) {
+          const result = uploadFetcher.data;
+          console.log("[MediaLibraryPicker] Upload response:", result);
+          
+          if (result && result.success && result.file) {
+            // Add the new file to the local list
+            const newFile = {
+              id: result.file.id,
+              url: result.file.url,
+              alt: result.file.alt || "Uploaded image",
+            };
+            setLocalMediaFiles((prev) => [newFile, ...prev]);
+            // Automatically select the newly uploaded file
+            setSelectedFileId(newFile.id);
+            if (hiddenInputRef.current) {
+              hiddenInputRef.current.value = newFile.id;
+            }
+            setUploadError("");
+            setUploadSuccess(true);
+            // Reload media files from server
+            revalidator.revalidate();
+            
+            // Close picker after successful upload
+            setTimeout(() => {
+              setShowPicker(false);
+              setUploadSuccess(false);
+              setUploadProgress(0);
+            }, 1500);
+          } else {
+            const errorMessage = result?.error || "Failed to upload file";
+            console.error("[MediaLibraryPicker] Upload error:", errorMessage);
+            setUploadError(errorMessage);
+            setUploadProgress(0);
           }
-          setUploadError("");
-          // Reload media files from server
-          revalidator.revalidate();
         } else {
-          const errorMessage = result.error || "Failed to upload file";
-          console.error("[MediaLibraryPicker] Upload error:", errorMessage);
-          setUploadError(errorMessage);
+          // No data returned - might be an error
+          setUploadError("Upload failed - no response from server");
+          setUploadProgress(0);
         }
-      }
-      
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+        
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }, 300);
     } else if (uploadFetcher.state === "submitting") {
       setIsUploading(true);
       setUploadError("");
+      setUploadSuccess(false);
     }
-  }, [uploadFetcher.state, uploadFetcher.data, localMediaFiles, revalidator]);
+  }, [uploadFetcher.state, uploadFetcher.data, revalidator]);
 
   // Sync hidden input when selectedFileId changes
   useEffect(() => {
@@ -1140,6 +1195,62 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
                   {isUploading ? "Uploading..." : "Upload Image"}
                 </button>
               </div>
+              {/* Upload Progress */}
+              {isUploading && (
+                <div style={{ marginBottom: "0.5rem" }}>
+                  <div
+                    style={{
+                      padding: "0.5rem",
+                      backgroundColor: "#f0f9f6",
+                      border: "1px solid #008060",
+                      borderRadius: "4px",
+                      fontSize: "0.875rem",
+                      marginBottom: "0.25rem",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
+                      <span style={{ color: "#008060", fontWeight: "500" }}>Uploading... {uploadProgress}%</span>
+                    </div>
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "6px",
+                        backgroundColor: "#e1e3e5",
+                        borderRadius: "3px",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${uploadProgress}%`,
+                          height: "100%",
+                          backgroundColor: "#008060",
+                          transition: "width 0.3s ease",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Success Message */}
+              {uploadSuccess && (
+                <div
+                  style={{
+                    padding: "0.5rem",
+                    backgroundColor: "#d4edda",
+                    border: "1px solid #c3e6cb",
+                    borderRadius: "4px",
+                    color: "#155724",
+                    fontSize: "0.875rem",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  ✓ File uploaded successfully!
+                </div>
+              )}
+              
+              {/* Error Message */}
               {uploadError && (
                 <div
                   style={{
@@ -1152,7 +1263,7 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
                     marginBottom: "0.5rem",
                   }}
                 >
-                  {uploadError}
+                  ✗ {uploadError}
                 </div>
               )}
             </div>
