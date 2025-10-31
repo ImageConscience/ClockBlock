@@ -101,16 +101,38 @@ export const action = async ({ request }) => {
     // This is a file upload request - handle it here using staged uploads
     // Import server-only modules here (not at top level to avoid client bundle issues)
     // form-data is CommonJS, so we use createRequire to import it
-    const require = createRequire(import.meta.url);
-    const FormData = require("form-data");
-    const { request } = await import("undici");
+    let FormData;
+    let undiciRequest;
+    
+    try {
+      const require = createRequire(import.meta.url);
+      const formDataModule = require("form-data");
+      FormData = formDataModule.default || formDataModule;
+      const undiciModule = await import("undici");
+      undiciRequest = undiciModule.request;
+      
+      if (!FormData || typeof FormData !== "function") {
+        console.error("[ACTION] FormData is not a constructor:", typeof FormData);
+        return { error: "Failed to load FormData module", success: false };
+      }
+      
+      if (!undiciRequest || typeof undiciRequest !== "function") {
+        console.error("[ACTION] undiciRequest is not a function:", typeof undiciRequest);
+        return { error: "Failed to load request function", success: false };
+      }
+      
+      console.log("[ACTION] FormData and undiciRequest loaded successfully");
+    } catch (importError) {
+      console.error("[ACTION] Error importing server modules:", importError);
+      return { error: `Failed to load upload modules: ${importError.message}`, success: false };
+    }
     
     try {
       console.log("[ACTION] File upload request received");
       console.log("[ACTION] File type:", file instanceof File ? "File object" : typeof file);
       console.log("[ACTION] File name:", file instanceof File ? file.name : "N/A");
       
-      const { admin } = await authenticate.admin(request);
+      const { admin } = await authenticate.admin(request); // request is the HTTP request parameter
       console.log("[ACTION] Admin authenticated successfully for file upload");
       
       if (!file) {
@@ -203,6 +225,12 @@ export const action = async ({ request }) => {
       
       // Use form-data package for proper multipart/form-data handling in Node.js
       const formDataToUpload = new FormData();
+      
+      if (!formDataToUpload || typeof formDataToUpload.append !== "function") {
+        console.error("[ACTION] FormData instance is invalid:", typeof formDataToUpload);
+        return { error: "Failed to create FormData instance", success: false };
+      }
+      
       // Append parameters in the exact order provided by Shopify (order matters for signature)
       stagedTarget.parameters.forEach((param) => {
         formDataToUpload.append(param.name, param.value);
@@ -214,6 +242,11 @@ export const action = async ({ request }) => {
       });
       
       // Get headers from form-data (includes Content-Type with boundary)
+      if (typeof formDataToUpload.getHeaders !== "function") {
+        console.error("[ACTION] FormData instance does not have getHeaders method");
+        return { error: "FormData instance is missing getHeaders method", success: false };
+      }
+      
       const headers = formDataToUpload.getHeaders();
       
       console.log("[ACTION] Uploading to staged URL with FormData containing file:", file.name);
@@ -231,7 +264,7 @@ export const action = async ({ request }) => {
       console.log("[ACTION] FormData buffer size:", formDataBuffer.length, "bytes");
       
       // Use undici's request method with the buffer
-      const uploadResponse = await request(stagedTarget.url, {
+      const uploadResponse = await undiciRequest(stagedTarget.url, {
         method: "POST",
         body: formDataBuffer,
         headers: {
