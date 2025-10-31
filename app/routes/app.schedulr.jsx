@@ -367,7 +367,6 @@ export const action = async ({ request }) => {
           },
         });
       } catch (uploadError) {
-        clearTimeout(uploadTimeout);
         console.error("[ACTION] Upload request error:", uploadError);
         console.error("[ACTION] Upload error name:", uploadError?.name);
         console.error("[ACTION] Upload error message:", uploadError?.message);
