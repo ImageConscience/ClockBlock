@@ -89,89 +89,6 @@ export const loader = async ({ request }) => {
   }
 };
 
-// Action to handle file uploads to media library
-export const uploadMediaAction = async ({ request }) => {
-  try {
-    const { admin } = await authenticate.admin(request);
-    const formData = await request.formData();
-    const file = formData.get("file");
-    
-    if (!file || !(file instanceof File)) {
-      return { error: "No file provided", success: false };
-    }
-    
-    // Convert File to base64
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const base64 = buffer.toString("base64");
-    
-    // Upload file using fileCreate mutation
-    const uploadResponse = await admin.graphql(
-      `#graphql
-      mutation fileCreate($files: [FileCreateInput!]!) {
-        fileCreate(files: $files) {
-          files {
-            id
-            ... on MediaImage {
-              alt
-              image {
-                url
-                width
-                height
-              }
-            }
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `,
-      {
-        variables: {
-          files: [
-            {
-              originalSource: `data:${file.type};base64,${base64}`,
-              filename: file.name,
-              contentType: file.type.startsWith("image/") ? "IMAGE" : "GENERIC_FILE",
-            },
-          ],
-        },
-      }
-    );
-    
-    const uploadJson = await uploadResponse.json();
-    
-    if (uploadJson?.data?.fileCreate?.userErrors?.length > 0) {
-      const errors = uploadJson.data.fileCreate.userErrors
-        .map((e) => e.message)
-        .join(", ");
-      return { error: `Failed to upload file: ${errors}`, success: false };
-    }
-    
-    const uploadedFile = uploadJson?.data?.fileCreate?.files?.[0];
-    if (!uploadedFile?.id) {
-      return { error: "File uploaded but no ID returned", success: false };
-    }
-    
-    return {
-      success: true,
-      file: {
-        id: uploadedFile.id,
-        url: uploadedFile.image?.url || "",
-        alt: uploadedFile.alt || file.name,
-      },
-    };
-  } catch (error) {
-    console.error("Error uploading file:", error);
-    return {
-      error: `Failed to upload file: ${error.message}`,
-      success: false,
-    };
-  }
-};
-
 export const action = async ({ request }) => {
   const formData = await request.formData();
   
@@ -180,8 +97,84 @@ export const action = async ({ request }) => {
   const hasTitle = formData.get("title");
   
   if (file && !hasTitle) {
-    // This is a file upload request
-    return uploadMediaAction({ request });
+    // This is a file upload request - handle it here
+    try {
+      const { admin } = await authenticate.admin(request);
+      
+      if (!file || !(file instanceof File)) {
+        return { error: "No file provided", success: false };
+      }
+      
+      // Convert File to base64
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const base64 = buffer.toString("base64");
+      
+      // Upload file using fileCreate mutation
+      const uploadResponse = await admin.graphql(
+        `#graphql
+        mutation fileCreate($files: [FileCreateInput!]!) {
+          fileCreate(files: $files) {
+            files {
+              id
+              ... on MediaImage {
+                alt
+                image {
+                  url
+                  width
+                  height
+                }
+              }
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `,
+        {
+          variables: {
+            files: [
+              {
+                originalSource: `data:${file.type};base64,${base64}`,
+                filename: file.name,
+                contentType: file.type.startsWith("image/") ? "IMAGE" : "GENERIC_FILE",
+              },
+            ],
+          },
+        }
+      );
+      
+      const uploadJson = await uploadResponse.json();
+      
+      if (uploadJson?.data?.fileCreate?.userErrors?.length > 0) {
+        const errors = uploadJson.data.fileCreate.userErrors
+          .map((e) => e.message)
+          .join(", ");
+        return { error: `Failed to upload file: ${errors}`, success: false };
+      }
+      
+      const uploadedFile = uploadJson?.data?.fileCreate?.files?.[0];
+      if (!uploadedFile?.id) {
+        return { error: "File uploaded but no ID returned", success: false };
+      }
+      
+      return {
+        success: true,
+        file: {
+          id: uploadedFile.id,
+          url: uploadedFile.image?.url || "",
+          alt: uploadedFile.alt || file.name,
+        },
+      };
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      return {
+        error: `Failed to upload file: ${error.message}`,
+        success: false,
+      };
+    }
   }
   
   console.log("[ACTION] Action called - starting entry creation");
