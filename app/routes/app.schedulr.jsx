@@ -285,8 +285,23 @@ export const action = async ({ request }) => {
       
       // Step 2: Upload file to staged URL using axios with form-data
       // Axios handles form-data streams correctly and preserves the multipart format
-      const FormDataClass = (await import("form-data")).default;
-      const axios = (await import("axios")).default;
+      let FormDataClass;
+      let axios;
+      
+      try {
+        console.log("[ACTION] Importing form-data and axios...");
+        const formDataModule = await import("form-data");
+        FormDataClass = formDataModule.default;
+        const axiosModule = await import("axios");
+        axios = axiosModule.default;
+        console.log("[ACTION] Successfully imported form-data and axios");
+      } catch (importError) {
+        console.error("[ACTION] Failed to import form-data or axios:", importError);
+        return json({ 
+          error: `Failed to load upload libraries: ${importError.message}`, 
+          success: false 
+        });
+      }
       
       const formDataToUpload = new FormDataClass();
       
