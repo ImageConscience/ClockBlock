@@ -66,82 +66,15 @@ export const action = async ({ request }) => {
   const endAt = String(formData.get("end_at") || "").trim();
   const title = String(formData.get("title") || "").trim();
   const description = String(formData.get("description") || "").trim();
-  const desktopBannerFile = formData.get("desktop_banner");
-  const mobileBannerFile = formData.get("mobile_banner");
+  const desktopBannerFileId = String(formData.get("desktop_banner") || "").trim();
+  const mobileBannerFileId = String(formData.get("mobile_banner") || "").trim();
   const targetUrl = String(formData.get("target_url") || "").trim();
   const headline = String(formData.get("headline") || "").trim();
   const buttonText = String(formData.get("button_text") || "").trim();
   const status = String(formData.get("status") || "active").trim();
 
-  // Helper function to upload file and get file reference
-  const uploadFile = async (file) => {
-    if (!file || !(file instanceof File)) return null;
-    
-    try {
-      // Convert File to base64
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const base64 = buffer.toString("base64");
-      
-      const uploadResponse = await admin.graphql(
-        `#graphql
-        mutation fileCreate($files: [FileCreateInput!]!) {
-          fileCreate(files: $files) {
-            files {
-              id
-              ... on MediaImage {
-                id
-                image {
-                  url
-                }
-              }
-            }
-            userErrors {
-              field
-              message
-            }
-          }
-        }
-      `,
-        {
-          variables: {
-            files: [
-              {
-                originalSource: `data:${file.type};base64,${base64}`,
-                filename: file.name,
-                contentType: file.type,
-              },
-            ],
-          },
-        }
-      );
-      
-      const uploadJson = await uploadResponse.json();
-      
-      if (uploadJson?.data?.fileCreate?.userErrors?.length > 0) {
-        console.error("File upload errors:", uploadJson.data.fileCreate.userErrors);
-        return null;
-      }
-      
-      const fileId = uploadJson?.data?.fileCreate?.files?.[0]?.id;
-      return fileId || null;
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      return null;
-    }
-  };
-
-  // Upload files if provided
-  let desktopBannerFileId = null;
-  let mobileBannerFileId = null;
-  
-  if (desktopBannerFile && desktopBannerFile instanceof File) {
-    desktopBannerFileId = await uploadFile(desktopBannerFile);
-  }
-  
-  if (mobileBannerFile && mobileBannerFile instanceof File) {
-    mobileBannerFileId = await uploadFile(mobileBannerFile);
-  }
+  // Note: s-media-picker returns file reference IDs (GIDs) directly
+  // No need to upload files - the component handles uploads to media library
 
   // Query metaobject definition to check if it exists
   let definitionExists = false;
@@ -464,8 +397,13 @@ export const action = async ({ request }) => {
 
   if (title) fields.push({ key: "title", value: title });
   if (description) fields.push({ key: "description", value: description });
-  if (desktopBannerFileId) fields.push({ key: "desktop_banner", value: desktopBannerFileId });
-  if (mobileBannerFileId) fields.push({ key: "mobile_banner", value: mobileBannerFileId });
+  // s-media-picker returns file reference IDs directly
+  if (desktopBannerFileId && desktopBannerFileId !== "") {
+    fields.push({ key: "desktop_banner", value: desktopBannerFileId });
+  }
+  if (mobileBannerFileId && mobileBannerFileId !== "") {
+    fields.push({ key: "mobile_banner", value: mobileBannerFileId });
+  }
   
   // Validate and format URL - ensure it has a proper scheme
   if (targetUrl) {
@@ -1083,7 +1021,7 @@ export default function SchedulrPage() {
             {/* Modal Content */}
             <div style={{ padding: "1.25rem" }}>
               <h2 style={{ fontSize: "1.25rem", marginBottom: "0.75rem", marginTop: 0, fontWeight: "600" }}>Create New Entry</h2>
-              <fetcher.Form method="post" ref={formRef} encType="multipart/form-data">
+              <fetcher.Form method="post" ref={formRef}>
           <s-stack direction="block" gap="base">
             <s-text-field
               label="Title"
