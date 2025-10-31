@@ -198,6 +198,7 @@ export const action = async ({ request }) => {
       console.log("[ACTION] File converted to base64, data URI length:", dataUri.length);
       
       // Use fileCreate mutation with data URI directly
+      // Note: contentType is not needed when using data URI - Shopify infers it from the data URI
       const fileCreateResponse = await admin.graphql(
         `#graphql
         mutation fileCreate($files: [FileCreateInput!]!) {
@@ -226,7 +227,7 @@ export const action = async ({ request }) => {
               {
                 originalSource: dataUri,
                 filename: fileName,
-                contentType: fileType,
+                // Don't include contentType - it's not needed for data URIs and expects an enum value, not MIME type
               },
             ],
           },
