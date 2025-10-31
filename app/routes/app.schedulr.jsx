@@ -362,30 +362,25 @@ export const action = async ({ request }) => {
         contentType: fileType,
       });
       
+      // Get headers from form-data (includes multipart boundary)
+      // DO NOT manually set Content-Type - let form-data/axios handle it
       const headers = formDataToUpload.getHeaders();
       
-      // For FILE resource type, Google Cloud Storage authentication may be in the URL query string
-      // OR in form data parameters. We need to check which one Shopify provides.
-      // If URL has query params with X-Goog-* headers, those are the authentication
-      // If parameters array has x-goog-* fields, those go in form data
-      // Let's use the full URL as provided by Shopify to preserve all authentication
+      // Use the FULL URL as provided by Shopify - it contains signed query parameters
+      // These query parameters are the authentication for Google Cloud Storage
       const uploadUrl = stagedTarget.url;
       
       console.log("[ACTION] Uploading to staged URL (full):", uploadUrl);
       console.log("[ACTION] Number of parameters in array:", stagedTarget.parameters.length);
       console.log("[ACTION] Form data headers:", JSON.stringify(headers, null, 2));
       
-      // Check if URL has query parameters (these are part of the GCS signature)
-      const urlHasQueryParams = uploadUrl.includes('?');
-      console.log("[ACTION] URL has query parameters:", urlHasQueryParams);
-      
       try {
-        // Use axios with form-data - axios handles the stream correctly
-        // and preserves the exact multipart format for signature verification
-        // For FILE type, authentication can be in URL query params OR form data
-        // Using the full URL preserves query param authentication if present
+        // Use axios with form-data for Google Cloud Storage upload
+        // Critical: DO NOT set Content-Type manually - axios will use form-data's headers
+        // which includes the correct multipart boundary
+        // The signature verification depends on the exact multipart format
         const uploadResponse = await axios.post(uploadUrl, formDataToUpload, {
-          headers: headers, // Use form-data's headers (includes boundary)
+          headers: headers, // form-data provides correct Content-Type with boundary
           maxContentLength: Infinity,
           maxBodyLength: Infinity,
           timeout: 60000, // 60 second timeout
