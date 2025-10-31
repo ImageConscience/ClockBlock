@@ -249,59 +249,50 @@ export const action = async ({ request }) => {
       
       console.log("[ACTION] Staged upload target created, uploading file...");
       
-      // Step 2: Upload file to staged URL using Node's native fetch
-      // Node's fetch doesn't add extra headers that break signature verification
-      const FormDataClass = (await import("form-data")).default;
+      // Step 2: Upload file to staged URL
+      // Manually construct multipart/form-data to ensure exact format for signature verification
+      const boundary = `----formdata-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+      const parts = [];
       
-      const formDataToUpload = new FormDataClass();
-      
-      // Add parameters in exact order provided by Shopify
+      // Add all parameters first (in order)
       for (const param of stagedTarget.parameters) {
-        formDataToUpload.append(param.name, param.value);
+        parts.push(`--${boundary}\r\n`);
+        parts.push(`Content-Disposition: form-data; name="${param.name}"\r\n\r\n`);
+        parts.push(`${param.value}\r\n`);
       }
       
-      // File must be appended last
-      formDataToUpload.append("file", fileBuffer, {
-        filename: fileName,
-        contentType: fileType,
-      });
+      // File must be appended last (critical for signature verification)
+      parts.push(`--${boundary}\r\n`);
+      parts.push(`Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n`);
+      parts.push(`Content-Type: ${fileType}\r\n\r\n`);
       
-      // Get headers from form-data (includes Content-Type with boundary)
-      const headers = formDataToUpload.getHeaders();
+      // Convert parts to buffers
+      const textBuffers = parts.map(part => Buffer.from(part, 'utf8'));
+      const finalBoundary = Buffer.from(`--${boundary}--\r\n`, 'utf8');
+      
+      // Concatenate all buffers
+      const multipartBuffer = Buffer.concat([
+        ...textBuffers,
+        fileBuffer,
+        Buffer.from('\r\n', 'utf8'),
+        finalBoundary,
+      ]);
+      
+      const contentType = `multipart/form-data; boundary=${boundary}`;
       
       console.log("[ACTION] Uploading to staged URL:", stagedTarget.url);
-      console.log("[ACTION] Form data headers:", JSON.stringify(headers, null, 2));
+      console.log("[ACTION] Multipart buffer size:", multipartBuffer.length, "bytes");
       
-      // Convert form-data to buffer using a proper method
-      // form-data needs to be piped/consumed to get the buffer
-      const chunks = [];
-      
-      return new Promise((resolve, reject) => {
-        formDataToUpload.on('data', (chunk) => {
-          // Convert chunk to buffer if it's a string
-          const bufferChunk = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-          chunks.push(bufferChunk);
-        });
-        
-        formDataToUpload.on('end', async () => {
-          try {
-            // Ensure all chunks are buffers before concatenating
-            const bufferChunks = chunks.map(chunk => 
-              Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, typeof chunk === 'string' ? 'utf8' : undefined)
-            );
-            const formDataBuffer = Buffer.concat(bufferChunks);
-            console.log("[ACTION] Form data buffer created, size:", formDataBuffer.length, "bytes");
-            
-            // Use Node's native fetch with the buffer
-            const uploadResponse = await fetch(stagedTarget.url, {
-              method: 'POST',
-              body: formDataBuffer,
-              headers: {
-                'Content-Type': headers['content-type'],
-                'Content-Length': formDataBuffer.length.toString(),
-                // Don't add any other headers - they break signature verification
-              },
-            });
+      // Use Node's native fetch with the manually constructed multipart buffer
+      const uploadResponse = await fetch(stagedTarget.url, {
+        method: 'POST',
+        body: multipartBuffer,
+        headers: {
+          'Content-Type': contentType,
+          'Content-Length': multipartBuffer.length.toString(),
+          // Don't add any other headers - they break signature verification
+        },
+      });
             
             console.log("[ACTION] Staged upload response status:", uploadResponse.status);
             
