@@ -130,178 +130,47 @@ export const action = async ({ request }) => {
     
     if (file && !hasTitle) {
     console.log("[ACTION] Detected file upload request");
-    // This is a file upload request - handle it here using staged uploads
-    // Import server-only modules here (not at top level to avoid client bundle issues)
-    let FormDataClass;
-    let undiciRequest;
-    
+    // This is a file upload request - use direct base64 upload instead of staged uploads
+    // This avoids Google Cloud Storage signature issues completely
     try {
-      const { createRequire } = await import("module");
-      const require = createRequire(import.meta.url);
-      const formDataModule = require("form-data");
-      FormDataClass = formDataModule.default || formDataModule;
+      console.log("[ACTION] File upload request received - using direct base64 upload");
       
-      const undiciModule = await import("undici");
-      undiciRequest = undiciModule.request;
-      
-      if (!FormDataClass || typeof FormDataClass !== "function") {
-        console.error("[ACTION] FormData is not a constructor:", typeof FormDataClass);
-        return json({ error: "Failed to load FormData module", success: false });
-      }
-      
-      if (!undiciRequest || typeof undiciRequest !== "function") {
-        console.error("[ACTION] undiciRequest is not a function:", typeof undiciRequest);
-        return json({ error: "Failed to load request function", success: false });
-      }
-      
-      console.log("[ACTION] FormData and undiciRequest loaded successfully");
-    } catch (importError) {
-      console.error("[ACTION] Error importing server modules:", importError);
-      return json({ error: `Failed to load upload modules: ${importError.message}`, success: false });
-    }
-    
-    try {
-      console.log("[ACTION] File upload request received");
-      console.log("[ACTION] File type:", typeof file, "Is File:", file instanceof File, "Is Blob:", file instanceof Blob);
-      
-      const { admin } = await authenticate.admin(request); // request is the HTTP request parameter
+      const { admin } = await authenticate.admin(request);
       console.log("[ACTION] Admin authenticated successfully for file upload");
       
       if (!file) {
-        console.error("[ACTION] No file provided in form data");
         return json({ error: "No file provided", success: false });
       }
       
-      // Check if file is a string (filename only) vs a File object
+      // Validate file
       if (typeof file === "string") {
-        console.error("[ACTION] File is a string (filename only), not a File object. FormData may not be parsing correctly.");
-        console.error("[ACTION] Received filename:", file);
         return json({ 
-          error: "File upload failed: File object not received. Please try again or check your browser compatibility.", 
+          error: "File upload failed: File object not received.", 
           success: false 
         });
       }
       
-      // Check if it's a File-like object (File, Blob, or has stream() method)
       const isFileLike = file instanceof File || 
                         file instanceof Blob || 
                         (typeof file === "object" && file !== null && 
-                         (file.constructor?.name === "File" || 
-                          file.constructor?.name === "Blob" ||
-                          typeof file.arrayBuffer === "function" ||
+                         (typeof file.arrayBuffer === "function" ||
                           typeof file.stream === "function"));
       
       if (!isFileLike) {
-        console.error("[ACTION] File is not a File/Blob-like object, type:", typeof file);
-        if (typeof file === "object" && file !== null) {
-          console.error("[ACTION] File constructor:", file.constructor?.name);
-          console.error("[ACTION] File properties:", Object.keys(file));
-        }
-        console.error("[ACTION] File value:", file);
-        return json({ error: `Invalid file format. Received: ${typeof file}, expected File or Blob`, success: false });
+        return json({ error: `Invalid file format. Received: ${typeof file}`, success: false });
       }
       
-      // Safe property access (only check 'in' operator on objects)
-      const hasName = typeof file === "object" && file !== null && "name" in file;
-      const hasType = typeof file === "object" && file !== null && "type" in file;
-      const hasSize = typeof file === "object" && file !== null && "size" in file;
-      const hasArrayBuffer = typeof file?.arrayBuffer === "function";
+      const fileName = file.name || `upload-${Date.now()}.jpg`;
+      const fileType = file.type || "image/jpeg";
+      const fileSize = file.size || 0;
       
-      // Get filename from File object or use a default
-      const fileName = (hasName ? file.name : null) || `upload-${Date.now()}.jpg`;
+      console.log("[ACTION] File:", fileName, "Type:", fileType, "Size:", fileSize, "bytes");
       
-      console.log("[ACTION] File constructor:", file?.constructor?.name);
-      console.log("[ACTION] File has name:", hasName, "File name:", fileName);
-      console.log("[ACTION] File has type:", hasType, "File type:", file?.type || "N/A");
-      console.log("[ACTION] File has size:", hasSize, "File size:", file?.size || "N/A");
-      console.log("[ACTION] File has arrayBuffer:", hasArrayBuffer);
-      
-      // Get file type - File objects have .type, Blobs might not
-      const fileType = (file.type || 
-                       (file instanceof Blob ? "application/octet-stream" : null) ||
-                       "image/jpeg");
-      // For fileCreate, contentType should be the actual MIME type (e.g., "image/jpeg")
-      // For stagedUploadsCreate, resource should be IMAGE, VIDEO, or MODEL_3D
-      const resourceType = fileType.startsWith("image/") ? "IMAGE" : "IMAGE";
-      
-      console.log("[ACTION] Creating staged upload target, file type:", fileType, "resource type:", resourceType);
-      
-      // Step 1: Create staged upload target
-      const stagedResponse = await admin.graphql(
-        `#graphql
-        mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
-          stagedUploadsCreate(input: $input) {
-            stagedTargets {
-              resourceUrl
-              url
-              parameters {
-                name
-                value
-              }
-            }
-            userErrors {
-              field
-              message
-            }
-          }
-        }
-      `,
-        {
-          variables: {
-            input: [
-              {
-                resource: resourceType,
-                filename: fileName || "image.jpg",
-                mimeType: fileType,
-                fileSize: (file.size || fileBuffer.length).toString(),
-              },
-            ],
-          },
-        }
-      );
-      
-      const stagedJson = await stagedResponse.json();
-      console.log("[ACTION] Staged upload response:", JSON.stringify(stagedJson, null, 2));
-      
-      if (stagedJson?.errors) {
-        const errors = stagedJson.errors
-          .map((e) => e.message)
-          .join(", ");
-        console.error("[ACTION] GraphQL errors creating staged upload:", errors);
-        return json({ error: `Failed to create staged upload: ${errors}`, success: false });
-      }
-      
-      if (stagedJson?.data?.stagedUploadsCreate?.userErrors?.length > 0) {
-        const errors = stagedJson.data.stagedUploadsCreate.userErrors
-          .map((e) => e.message)
-          .join(", ");
-        console.error("[ACTION] User errors creating staged upload:", errors);
-        return json({ error: `Failed to create staged upload: ${errors}`, success: false });
-      }
-      
-      const stagedTarget = stagedJson?.data?.stagedUploadsCreate?.stagedTargets?.[0];
-      if (!stagedTarget?.url || !stagedTarget?.resourceUrl) {
-        console.error("[ACTION] No staged upload target returned");
-        console.error("[ACTION] Staged upload response structure:", JSON.stringify(stagedJson, null, 2));
-        return json({ error: "Failed to create staged upload target", success: false });
-      }
-      
-      console.log("[ACTION] Staged upload target created");
-      console.log("[ACTION] Staged upload URL:", stagedTarget.url);
-      console.log("[ACTION] Staged upload resourceUrl:", stagedTarget.resourceUrl);
-      console.log("[ACTION] Staged upload parameters:", JSON.stringify(stagedTarget.parameters, null, 2));
-      console.log("[ACTION] Uploading file...");
-      
-      // Step 2: Upload file to staged URL
-      // fileName already set above
-      
-      // Convert File/Blob to Buffer
-      // File and Blob objects both have arrayBuffer() method
+      // Convert file to base64
       let arrayBuffer;
       if (typeof file.arrayBuffer === "function") {
         arrayBuffer = await file.arrayBuffer();
       } else if (typeof file.stream === "function") {
-        // Fallback for stream-based objects
         const stream = file.stream();
         const chunks = [];
         const reader = stream.getReader();
@@ -310,127 +179,25 @@ export const action = async ({ request }) => {
           if (done) break;
           chunks.push(value);
         }
-        arrayBuffer = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
+        const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+        arrayBuffer = new Uint8Array(totalLength);
         let offset = 0;
         for (const chunk of chunks) {
           arrayBuffer.set(chunk, offset);
           offset += chunk.length;
         }
       } else {
-        console.error("[ACTION] File object doesn't have arrayBuffer() or stream() method");
         return json({ error: "File object doesn't support reading", success: false });
       }
-      const fileBuffer = Buffer.from(arrayBuffer);
       
-      console.log("[ACTION] File buffer created, size:", fileBuffer.length, "bytes");
-      console.log("[ACTION] Parameters to include:", stagedTarget.parameters.map(p => `${p.name}=${p.value}`).join(', '));
+      // Convert to base64 data URI
+      const buffer = Buffer.from(arrayBuffer);
+      const base64 = buffer.toString('base64');
+      const dataUri = `data:${fileType};base64,${base64}`;
       
-      // Use form-data package to properly construct multipart/form-data
-      // This ensures the format matches what Google Cloud Storage expects for signature verification
-      const formDataToUpload = new FormDataClass();
+      console.log("[ACTION] File converted to base64, data URI length:", dataUri.length);
       
-      // Add parameters in the exact order provided by Shopify (order matters for signature)
-      for (const param of stagedTarget.parameters) {
-        formDataToUpload.append(param.name, param.value);
-      }
-      
-      // File must be appended last
-      formDataToUpload.append("file", fileBuffer, {
-        filename: fileName,
-        contentType: fileType,
-      });
-      
-      // Get headers from form-data (includes Content-Type with boundary)
-      const headers = formDataToUpload.getHeaders();
-      
-      console.log("[ACTION] FormData created with headers:", JSON.stringify(headers, null, 2));
-      console.log("[ACTION] Starting upload to staged URL:", stagedTarget.url);
-      const uploadStartTime = Date.now();
-      
-      // Use form-data as a stream for undici
-      // This ensures proper encoding and avoids signature mismatches
-      const uploadTimeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Upload to staged URL timeout after 45 seconds")), 45000);
-      });
-      
-      const uploadRequestPromise = undiciRequest(stagedTarget.url, {
-        method: "POST",
-        body: formDataToUpload,
-        headers: {
-          ...headers,
-          // Don't set Content-Length - let form-data and undici handle it
-        },
-      });
-      
-      const uploadResponse = await Promise.race([uploadRequestPromise, uploadTimeoutPromise]);
-      const uploadDuration = Date.now() - uploadStartTime;
-      
-      console.log("[ACTION] Staged upload HTTP response received after", uploadDuration, "ms");
-      console.log("[ACTION] Staged upload HTTP response status:", uploadResponse.statusCode, uploadResponse.statusMessage);
-      
-      if (uploadResponse.statusCode !== 200 && uploadResponse.statusCode !== 204) {
-        console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.statusCode);
-        let errorDetails = "";
-        try {
-          const responseText = await Promise.race([
-            uploadResponse.body.text(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("Response body read timeout")), 5000))
-          ]);
-          console.error("[ACTION] Response body:", responseText);
-          errorDetails = responseText;
-          
-          // Extract more specific error from XML response if it's a signature mismatch
-          if (responseText.includes("SignatureDoesNotMatch")) {
-            console.error("[ACTION] Signature mismatch detected - the multipart format may not match what Shopify signed");
-            return json({ 
-              error: `Failed to upload file: Signature verification failed. The file format may not match what Shopify expects.`,
-              success: false 
-            });
-          }
-        } catch (err) {
-          console.error("[ACTION] Could not read response body:", err.message);
-        }
-        console.error("[ACTION] Returning error response as JSON");
-        return json({ 
-          error: `Failed to upload file: HTTP ${uploadResponse.statusCode}${errorDetails ? ` - ${errorDetails.substring(0, 200)}` : ''}`, 
-          success: false 
-        });
-      }
-      
-      // Read and log the response body (may be empty, but we should consume it)
-      console.log("[ACTION] Reading staged upload response body...");
-      try {
-        const uploadResponseText = await Promise.race([
-          uploadResponse.body.text(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("Response body read timeout")), 5000))
-        ]);
-        console.log("[ACTION] Staged upload response body:", uploadResponseText || "(empty)");
-      } catch (err) {
-        console.error("[ACTION] Could not read response body (non-critical):", err.message);
-        // Continue anyway - the upload may have succeeded even if we can't read the response
-      }
-      
-      console.log("[ACTION] File uploaded to staged URL successfully");
-      
-      // Wait a moment for Shopify to process the staged upload
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      console.log("[ACTION] Creating file record with resourceUrl:", stagedTarget.resourceUrl);
-      
-      // Step 3: Create file record using resourceUrl
-      // Note: originalSource should be the resourceUrl from staged upload, and contentType should be the MIME type
-      const fileCreateVariables = {
-        files: [
-          {
-            originalSource: stagedTarget.resourceUrl,
-            filename: fileName || "image.jpg",
-            contentType: fileType, // Use the actual MIME type (e.g., "image/jpeg")
-          },
-        ],
-      };
-      
-      console.log("[ACTION] fileCreate mutation variables:", JSON.stringify(fileCreateVariables, null, 2));
-      
+      // Use fileCreate mutation with data URI directly
       const fileCreateResponse = await admin.graphql(
         `#graphql
         mutation fileCreate($files: [FileCreateInput!]!) {
@@ -454,7 +221,15 @@ export const action = async ({ request }) => {
         }
       `,
         {
-          variables: fileCreateVariables,
+          variables: {
+            files: [
+              {
+                originalSource: dataUri,
+                filename: fileName,
+                contentType: fileType,
+              },
+            ],
+          },
         }
       );
       
