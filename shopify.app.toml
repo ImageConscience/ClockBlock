@@ -2,7 +2,7 @@
 
 client_id = "722d30d098915b95390d2d2c670c1e6d"
 name = "ShopSchedulr"
-application_url = "https://shopschedulr-production.up.railway.app"
+application_url = "https://shopschedulr-production.up.railway.app/app/schedulr"
 embedded = true
 
 [build]

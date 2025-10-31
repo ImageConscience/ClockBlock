@@ -196,62 +196,53 @@ export const action = async ({ request }) => {
       // This is the correct resource type for metaobject file_reference fields
       const resourceType = fileType.startsWith("image/") ? "SHOP_IMAGE" : "SHOP_IMAGE";
       
-      let stagedResponse;
-      let stagedJson;
-      let stagedUploadError = null;
-      
-      try {
-        stagedResponse = await admin.graphql(
-          `#graphql
-          mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
-            stagedUploadsCreate(input: $input) {
-              stagedTargets {
-                resourceUrl
-                url
-                parameters {
-                  name
-                  value
-                }
-              }
-              userErrors {
-                field
-                message
+      // Use Promise-based approach to catch errors before React Router intercepts them
+      const stagedUploadResult = await admin.graphql(
+        `#graphql
+        mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
+          stagedUploadsCreate(input: $input) {
+            stagedTargets {
+              resourceUrl
+              url
+              parameters {
+                name
+                value
               }
             }
+            userErrors {
+              field
+              message
+            }
           }
-        `,
-          {
-            variables: {
-              input: [
-                {
-                  resource: resourceType,
-                  filename: fileName,
-                  mimeType: fileType,
-                  fileSize: fileSize.toString(),
-                },
-              ],
-            },
-          }
-        );
-        
-        stagedJson = await stagedResponse.json();
+        }
+      `,
+        {
+          variables: {
+            input: [
+              {
+                resource: resourceType,
+                filename: fileName,
+                mimeType: fileType,
+                fileSize: fileSize.toString(),
+              },
+            ],
+          },
+        }
+      ).then(async (response) => {
+        const json = await response.json();
         console.log("[ACTION] Staged upload response received");
-        console.log("[ACTION] Staged upload JSON response:", JSON.stringify(stagedJson, null, 2));
-      } catch (graphqlError) {
-        console.error("[ACTION] Error calling stagedUploadsCreate:", graphqlError);
-        console.error("[ACTION] Error message:", graphqlError?.message);
-        console.error("[ACTION] Error stack:", graphqlError?.stack);
-        
-        // Store the error instead of returning immediately
-        // We'll handle it below to avoid React Router intercepting it
-        stagedUploadError = graphqlError;
-      }
+        return { success: true, json };
+      }).catch((error) => {
+        console.error("[ACTION] Error calling stagedUploadsCreate:", error);
+        console.error("[ACTION] Error message:", error?.message);
+        return { success: false, error };
+      });
       
-      // Handle staged upload error AFTER the try-catch to prevent React Router from intercepting
-      if (stagedUploadError) {
+      if (!stagedUploadResult.success) {
+        const graphqlError = stagedUploadResult.error;
         console.log("[ACTION] Handling staged upload error");
         // Check if it's a permissions error
-        if (stagedUploadError?.message?.includes("Access denied") || stagedUploadError?.message?.includes("stagedUploadsCreate")) {
+        if (graphqlError?.message?.includes("Access denied") || graphqlError?.message?.includes("stagedUploadsCreate")) {
           console.log("[ACTION] Returning JSON error response for permissions issue");
           return json({ 
             error: "Access denied: The app needs write_files scope. Please reinstall the app to update permissions.", 
@@ -261,10 +252,12 @@ export const action = async ({ request }) => {
         
         console.log("[ACTION] Returning JSON error response for general error");
         return json({ 
-          error: `Failed to create staged upload: ${stagedUploadError?.message || 'Unknown error'}`, 
+          error: `Failed to create staged upload: ${graphqlError?.message || 'Unknown error'}`, 
           success: false 
         });
       }
+      
+      const stagedJson = stagedUploadResult.json;
       
       // Check if stagedUploadsCreate returned null (permissions issue) BEFORE checking for errors
       // This happens when the GraphQL mutation succeeds but returns null due to permissions
