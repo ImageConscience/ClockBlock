@@ -634,28 +634,41 @@ export default function SchedulrPage() {
   const revalidator = useRevalidator();
   const formRef = useRef(null);
   const [showForm, setShowForm] = useState(false);
-  const previousFetcherState = useRef(null);
-  const handledSuccessRef = useRef(false);
+  const handledResponseRef = useRef(null);
 
   useEffect(() => {
-    console.log("[CLIENT] Fetcher data changed:", fetcher.data);
-    console.log("[CLIENT] Fetcher state:", fetcher.state);
+    // Skip if no fetcher data
+    if (!fetcher.data) {
+      return;
+    }
+
+    // Only process when fetcher is idle (not submitting)
+    if (fetcher.state !== "idle") {
+      return;
+    }
+
+    // Create a unique identifier for this response
+    const responseId = JSON.stringify(fetcher.data);
     
-    // Only show toast when fetcher transitions from submitting to idle
-    const justCompleted = previousFetcherState.current === "submitting" && fetcher.state === "idle";
+    // Skip if we've already handled this exact response
+    if (handledResponseRef.current === responseId) {
+      return;
+    }
+
+    console.log("[CLIENT] Handling new fetcher response:", fetcher.data);
     
-    if (fetcher.data?.error && justCompleted) {
+    if (fetcher.data?.error) {
       console.error("[CLIENT] Error in fetcher data:", fetcher.data.error);
       shopify.toast.show(fetcher.data.error, { isError: true });
-      handledSuccessRef.current = false;
-    } else if (fetcher.data?.success === false && !fetcher.data?.error && justCompleted) {
+      handledResponseRef.current = responseId;
+    } else if (fetcher.data?.success === false) {
       console.error("[CLIENT] Failed to create entry");
       shopify.toast.show("Failed to create entry", { isError: true });
-      handledSuccessRef.current = false;
-    } else if (fetcher.data?.success === true && justCompleted && !handledSuccessRef.current) {
+      handledResponseRef.current = responseId;
+    } else if (fetcher.data?.success === true) {
       console.log("[CLIENT] Entry created successfully, reloading entries");
       shopify.toast.show(fetcher.data.message || "Entry created successfully!", { isError: false });
-      handledSuccessRef.current = true;
+      handledResponseRef.current = responseId;
       // Reload the entries list
       revalidator.revalidate();
       // Reset the form
@@ -663,21 +676,22 @@ export default function SchedulrPage() {
         formRef.current.reset();
       }
       // Don't close the modal - let user create another entry
-      // setShowForm(false);
     }
-    
-    // Reset handled flag when starting a new submission
+  }, [fetcher.data, fetcher.state, shopify, revalidator]);
+
+  // Clear handled response when starting a new submission
+  useEffect(() => {
     if (fetcher.state === "submitting") {
-      handledSuccessRef.current = false;
+      handledResponseRef.current = null;
     }
-    
-    previousFetcherState.current = fetcher.state;
-    
+  }, [fetcher.state]);
+
+  useEffect(() => {
     if (loaderError) {
       console.error("[CLIENT] Loader error:", loaderError);
       shopify.toast.show(loaderError, { isError: true });
     }
-  }, [fetcher.data, fetcher.state, loaderError, shopify, revalidator]);
+  }, [loaderError, shopify]);
 
   const isLoading = navigation.state === "submitting" || fetcher.state === "submitting";
 
