@@ -195,41 +195,64 @@ export const action = async ({ request }) => {
       // Use SHOP_IMAGE for files that will be added to the Files page via fileCreate
       // This is the correct resource type for metaobject file_reference fields
       const resourceType = fileType.startsWith("image/") ? "SHOP_IMAGE" : "SHOP_IMAGE";
-      const stagedResponse = await admin.graphql(
-        `#graphql
-        mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
-          stagedUploadsCreate(input: $input) {
-            stagedTargets {
-              resourceUrl
-              url
-              parameters {
-                name
-                value
+      
+      let stagedResponse;
+      let stagedJson;
+      
+      try {
+        stagedResponse = await admin.graphql(
+          `#graphql
+          mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
+            stagedUploadsCreate(input: $input) {
+              stagedTargets {
+                resourceUrl
+                url
+                parameters {
+                  name
+                  value
+                }
+              }
+              userErrors {
+                field
+                message
               }
             }
-            userErrors {
-              field
-              message
-            }
           }
+        `,
+          {
+            variables: {
+              input: [
+                {
+                  resource: resourceType,
+                  filename: fileName,
+                  mimeType: fileType,
+                  fileSize: fileSize.toString(),
+                },
+              ],
+            },
+          }
+        );
+        
+        stagedJson = await stagedResponse.json();
+        console.log("[ACTION] Staged upload response received");
+      } catch (graphqlError) {
+        console.error("[ACTION] Error calling stagedUploadsCreate:", graphqlError);
+        console.error("[ACTION] Error message:", graphqlError?.message);
+        console.error("[ACTION] Error stack:", graphqlError?.stack);
+        
+        // Check if it's a permissions error
+        if (graphqlError?.message?.includes("Access denied") || graphqlError?.message?.includes("stagedUploadsCreate")) {
+          return json({ 
+            error: "Access denied: The app needs write_files scope and may need to be reinstalled to get the latest permissions.", 
+            success: false 
+          });
         }
-      `,
-        {
-          variables: {
-            input: [
-              {
-                resource: resourceType,
-                filename: fileName,
-                mimeType: fileType,
-                fileSize: fileSize.toString(),
-              },
-            ],
-          },
-        }
-      );
-      
-      const stagedJson = await stagedResponse.json();
-      console.log("[ACTION] Staged upload response received");
+        
+        return json({ 
+          error: `Failed to create staged upload: ${graphqlError?.message || 'Unknown error'}`, 
+          success: false 
+        });
+      }
       
       if (stagedJson?.errors) {
         const errors = stagedJson.errors.map((e) => e.message).join(", ");
@@ -241,6 +264,15 @@ export const action = async ({ request }) => {
         const errors = stagedJson.data.stagedUploadsCreate.userErrors.map((e) => e.message).join(", ");
         console.error("[ACTION] User errors creating staged upload:", errors);
         return json({ error: `Failed to create staged upload: ${errors}`, success: false });
+      }
+      
+      // Check if stagedUploadsCreate returned null (permissions issue)
+      if (!stagedJson?.data?.stagedUploadsCreate) {
+        console.error("[ACTION] stagedUploadsCreate returned null - likely a permissions issue");
+        return json({ 
+          error: "Access denied: The app needs write_files scope. Please reinstall the app to update permissions.", 
+          success: false 
+        });
       }
       
       const stagedTarget = stagedJson?.data?.stagedUploadsCreate?.stagedTargets?.[0];
