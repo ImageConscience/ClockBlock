@@ -129,28 +129,18 @@ export const action = async ({ request }) => {
     console.log("[ACTION] Detected file upload request");
     // This is a file upload request - handle it here using staged uploads
     // Import server-only modules here (not at top level to avoid client bundle issues)
-    // form-data is CommonJS, so we use createRequire to import it
-    let FormData;
     let undiciRequest;
     
     try {
-      const require = createRequire(import.meta.url);
-      const formDataModule = require("form-data");
-      FormData = formDataModule.default || formDataModule;
       const undiciModule = await import("undici");
       undiciRequest = undiciModule.request;
-      
-      if (!FormData || typeof FormData !== "function") {
-        console.error("[ACTION] FormData is not a constructor:", typeof FormData);
-        return json({ error: "Failed to load FormData module", success: false });
-      }
       
       if (!undiciRequest || typeof undiciRequest !== "function") {
         console.error("[ACTION] undiciRequest is not a function:", typeof undiciRequest);
         return json({ error: "Failed to load request function", success: false });
       }
       
-      console.log("[ACTION] FormData and undiciRequest loaded successfully");
+      console.log("[ACTION] undiciRequest loaded successfully");
     } catch (importError) {
       console.error("[ACTION] Error importing server modules:", importError);
       return json({ error: `Failed to load upload modules: ${importError.message}`, success: false });
