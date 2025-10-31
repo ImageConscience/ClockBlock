@@ -7,12 +7,14 @@ import { authenticate } from "../shopify.server";
 
 // Helper to return JSON response (React Router v7 compatible)
 const json = (data, init = {}) => {
+  const headers = new Headers({
+    "Content-Type": "application/json; charset=utf-8",
+    ...init.headers,
+  });
   return new Response(JSON.stringify(data), {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...init.headers,
-    },
+    status: init.status || 200,
+    statusText: init.statusText,
+    headers,
   });
 };
 
@@ -369,16 +371,31 @@ export const action = async ({ request }) => {
       
       if (uploadResponse.statusCode !== 200 && uploadResponse.statusCode !== 204) {
         console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.statusCode);
+        let errorDetails = "";
         try {
           const responseText = await Promise.race([
             uploadResponse.body.text(),
             new Promise((_, reject) => setTimeout(() => reject(new Error("Response body read timeout")), 5000))
           ]);
           console.error("[ACTION] Response body:", responseText);
+          errorDetails = responseText;
+          
+          // Extract more specific error from XML response if it's a signature mismatch
+          if (responseText.includes("SignatureDoesNotMatch")) {
+            console.error("[ACTION] Signature mismatch detected - the multipart format may not match what Shopify signed");
+            return json({ 
+              error: `Failed to upload file: Signature verification failed. The file format may not match what Shopify expects.`,
+              success: false 
+            });
+          }
         } catch (err) {
           console.error("[ACTION] Could not read response body:", err.message);
         }
-        return json({ error: `Failed to upload file: HTTP ${uploadResponse.statusCode}`, success: false });
+        console.error("[ACTION] Returning error response as JSON");
+        return json({ 
+          error: `Failed to upload file: HTTP ${uploadResponse.statusCode}${errorDetails ? ` - ${errorDetails.substring(0, 200)}` : ''}`, 
+          success: false 
+        });
       }
       
       // Read and log the response body (may be empty, but we should consume it)
