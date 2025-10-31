@@ -1093,35 +1093,15 @@ export default function SchedulrPage() {
                 marginBottom: "0.375rem",
               }}
             />
-            <label htmlFor="desktop_banner" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>Desktop Banner</label>
-            <input
-              type="file"
-              id="desktop_banner"
+            <s-media-picker
+              label="Desktop Banner"
               name="desktop_banner"
               accept="image/*"
-              style={{
-                width: "100%",
-                padding: "0.375rem 0.5rem",
-                border: "1px solid #c9cccf",
-                borderRadius: "4px",
-                fontSize: "0.8125rem",
-                marginBottom: "0.375rem",
-              }}
             />
-            <label htmlFor="mobile_banner" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>Mobile Banner</label>
-            <input
-              type="file"
-              id="mobile_banner"
+            <s-media-picker
+              label="Mobile Banner"
               name="mobile_banner"
               accept="image/*"
-              style={{
-                width: "100%",
-                padding: "0.375rem 0.5rem",
-                border: "1px solid #c9cccf",
-                borderRadius: "4px",
-                fontSize: "0.8125rem",
-                marginBottom: "0.375rem",
-              }}
             />
             <UrlPicker name="target_url" label="Target URL" />
             <label htmlFor="headline" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>Headline</label>
