@@ -1093,7 +1093,7 @@ export default function SchedulrPage() {
 
             {/* Modal Content */}
             <div style={{ padding: "1.25rem" }}>
-              <h2 style={{ fontSize: "1.25rem", marginBottom: "0.75rem", marginTop: 0, fontWeight: "600" }}>Create New Entry</h2>
+              <s-heading size="large" style={{ marginBottom: "1rem", marginTop: 0 }}>Create New Entry</s-heading>
               <fetcher.Form method="post" ref={formRef} encType="multipart/form-data">
           <s-stack direction="block" gap="base">
             <s-text-field
