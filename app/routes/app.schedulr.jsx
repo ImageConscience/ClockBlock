@@ -171,6 +171,13 @@ export const action = async ({ request }) => {
                     urlHandle: "schedulable-entity",
                   },
                 },
+                renderable: {
+                  enabled: true,
+                  data: {
+                    metaTitleKey: "title",
+                    metaDescriptionKey: "description",
+                  },
+                },
               },
             },
           },

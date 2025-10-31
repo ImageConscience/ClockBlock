@@ -67,8 +67,8 @@ const shopify = shopifyApp({
           const def = checkJson.data.metaobjectDefinitionByType;
           console.log(`[afterAuth] Metaobject definition already exists: ${def.id}`);
           try {
-            // Check if we need to update capabilities (onlineStore)
-            console.log(`[afterAuth] Attempting to enable onlineStore capability if not already enabled`);
+            // Check if we need to update capabilities (onlineStore and renderable)
+            console.log(`[afterAuth] Attempting to enable onlineStore and renderable capabilities if not already enabled`);
             const updateResponse = await admin.graphql(
               `#graphql
               mutation UpdateSchedulableEntityDefinition($id: ID!, $definition: MetaobjectDefinitionUpdateInput!) {
@@ -78,6 +78,7 @@ const shopify = shopifyApp({
                     capabilities {
                       publishable { enabled }
                       onlineStore { enabled }
+                      renderable { enabled }
                     }
                   }
                   userErrors { field message }
@@ -95,6 +96,13 @@ const shopify = shopifyApp({
                           urlHandle: "schedulable-entity",
                         },
                       },
+                      renderable: {
+                        enabled: true,
+                        data: {
+                          metaTitleKey: "title",
+                          metaDescriptionKey: "description",
+                        },
+                      },
                     },
                   },
                 },
@@ -104,13 +112,13 @@ const shopify = shopifyApp({
             console.log(`[afterAuth] Update capabilities response:`, JSON.stringify(updateJson, null, 2));
             if (updateJson?.data?.metaobjectDefinitionUpdate?.userErrors?.length) {
               console.warn(
-                `[afterAuth] Could not update onlineStore capability: `,
+                `[afterAuth] Could not update capabilities: `,
                 updateJson.data.metaobjectDefinitionUpdate.userErrors
                   .map((e) => `${e.field}: ${e.message}`)
                   .join(", "),
               );
             } else {
-              console.log(`[afterAuth] Successfully updated onlineStore capability`);
+              console.log(`[afterAuth] Successfully updated onlineStore and renderable capabilities`);
             }
             
             // Also update content field if it's rich_text
@@ -226,6 +234,13 @@ const shopify = shopifyApp({
                     enabled: true,
                     data: {
                       urlHandle: "schedulable-entity",
+                    },
+                  },
+                  renderable: {
+                    enabled: true,
+                    data: {
+                      metaTitleKey: "title",
+                      metaDescriptionKey: "description",
                     },
                   },
                 },
