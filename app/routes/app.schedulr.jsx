@@ -4,6 +4,7 @@ import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import FormData from "form-data";
+import { request } from "undici";
 
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
@@ -191,39 +192,47 @@ export const action = async ({ request }) => {
       console.log("[ACTION] Uploading file...");
       
       // Step 2: Upload file to staged URL
-      // Convert File to Buffer for form-data package
+      // Convert File to Buffer
       const arrayBuffer = await file.arrayBuffer();
       const fileBuffer = Buffer.from(arrayBuffer);
       
       // Use form-data package for proper multipart/form-data handling in Node.js
       const formDataToUpload = new FormData();
+      // Append parameters in the exact order provided by Shopify (order matters for signature)
       stagedTarget.parameters.forEach((param) => {
         formDataToUpload.append(param.name, param.value);
       });
+      // File must be appended last
       formDataToUpload.append("file", fileBuffer, {
         filename: file.name,
         contentType: fileType,
       });
       
-      console.log("[ACTION] Uploading to staged URL with FormData containing file:", file.name);
+      // Get headers from form-data (includes Content-Type with boundary)
+      const headers = formDataToUpload.getHeaders();
       
-      const uploadResponse = await fetch(stagedTarget.url, {
+      console.log("[ACTION] Uploading to staged URL with FormData containing file:", file.name);
+      console.log("[ACTION] FormData headers:", JSON.stringify(headers, null, 2));
+      console.log("[ACTION] Parameters count:", stagedTarget.parameters.length);
+      
+      // Use undici's request method which properly handles form-data streams
+      const uploadResponse = await request(stagedTarget.url, {
         method: "POST",
         body: formDataToUpload,
-        headers: formDataToUpload.getHeaders(),
+        headers: headers,
       });
       
-      console.log("[ACTION] Staged upload HTTP response status:", uploadResponse.status, uploadResponse.statusText);
+      console.log("[ACTION] Staged upload HTTP response status:", uploadResponse.statusCode, uploadResponse.statusMessage);
       
-      if (!uploadResponse.ok) {
-        const responseText = await uploadResponse.text();
-        console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.status);
+      if (uploadResponse.statusCode !== 200 && uploadResponse.statusCode !== 204) {
+        const responseText = await uploadResponse.body.text();
+        console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.statusCode);
         console.error("[ACTION] Response body:", responseText);
-        return { error: `Failed to upload file: HTTP ${uploadResponse.status}`, success: false };
+        return { error: `Failed to upload file: HTTP ${uploadResponse.statusCode}`, success: false };
       }
       
       // Read and log the response body (may be empty, but we should consume it)
-      const uploadResponseText = await uploadResponse.text();
+      const uploadResponseText = await uploadResponse.body.text();
       console.log("[ACTION] Staged upload response body:", uploadResponseText);
       
       console.log("[ACTION] File uploaded to staged URL successfully");
