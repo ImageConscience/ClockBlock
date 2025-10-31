@@ -618,43 +618,27 @@ export const action = async ({ request }) => {
   }
 };
 
-function MediaLibraryPicker({ name, label, defaultValue = "" }) {
-  const appBridge = useAppBridge();
+function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" }) {
   const [selectedFileId, setSelectedFileId] = useState(defaultValue);
-  const [selectedFileUrl, setSelectedFileUrl] = useState("");
-  const [selectedFileAlt, setSelectedFileAlt] = useState("");
-  const hiddenInputRef = useRef<HTMLInputElement>(null);
+  const [showPicker, setShowPicker] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const hiddenInputRef = useRef(null);
 
-  const handlePickMedia = async () => {
-    try {
-      // Use App Bridge resourcePicker - note: file type might vary based on App Bridge version
-      // Try 'file' first, fallback to checking shopify global
-      const shopify = window.shopify || (appBridge as any);
-      
-      if (shopify && typeof shopify.resourcePicker === 'function') {
-        const selected = await shopify.resourcePicker({ type: 'file' });
-        if (selected && selected.length > 0) {
-          const file = selected[0];
-          setSelectedFileId(file.id);
-          setSelectedFileUrl(file.preview?.image?.url || file.image?.url || "");
-          setSelectedFileAlt(file.alt || "");
-          
-          // Update hidden input for form submission
-          if (hiddenInputRef.current) {
-            hiddenInputRef.current.value = file.id;
-          }
-        }
-      } else {
-        // Fallback: try using the mediaFiles query approach
-        console.warn("ResourcePicker not available, using alternative method");
-      }
-    } catch (error) {
-      console.error("Error opening resource picker:", error);
-      if (window.shopify?.toast) {
-        window.shopify.toast.show("Failed to open media picker");
-      }
+  const selectedFile = mediaFiles.find((f) => f.id === selectedFileId);
+
+  const handleSelectFile = (fileId, fileUrl, fileAlt) => {
+    setSelectedFileId(fileId);
+    setShowPicker(false);
+    setSearchTerm("");
+    if (hiddenInputRef.current) {
+      hiddenInputRef.current.value = fileId;
     }
   };
+
+  const filteredFiles = mediaFiles.filter((file) =>
+    (file.alt || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (file.url || "").toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   // Sync hidden input when selectedFileId changes
   useEffect(() => {
@@ -664,49 +648,190 @@ function MediaLibraryPicker({ name, label, defaultValue = "" }) {
   }, [selectedFileId]);
 
   return (
-    <div style={{ marginBottom: "0.5rem" }}>
-      <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
-        {label}
-      </label>
-      <button
-        type="button"
-        onClick={handlePickMedia}
-        style={{
-          width: "100%",
-          padding: "0.5rem",
-          border: "1px solid #c9cccf",
-          borderRadius: "4px",
-          fontSize: "0.875rem",
-          backgroundColor: "white",
-          cursor: "pointer",
-          textAlign: "left",
-        }}
-      >
-        {selectedFileId ? `Selected: ${selectedFileAlt || "Image"}` : `Select ${label} from media library`}
-      </button>
-      <input
-        type="hidden"
-        ref={hiddenInputRef}
-        name={name}
-        value={selectedFileId}
-      />
-      {selectedFileUrl && (
-        <div style={{ marginTop: "0.5rem" }}>
-          <img
-            src={selectedFileUrl}
-            alt={selectedFileAlt || ""}
+    <>
+      <div style={{ marginBottom: "0.5rem" }}>
+        <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+          {label}
+        </label>
+        <button
+          type="button"
+          onClick={() => setShowPicker(true)}
+          style={{
+            width: "100%",
+            padding: "0.5rem",
+            border: "1px solid #c9cccf",
+            borderRadius: "4px",
+            fontSize: "0.875rem",
+            backgroundColor: "white",
+            cursor: "pointer",
+            textAlign: "left",
+          }}
+        >
+          {selectedFile ? `Selected: ${selectedFile.alt || "Image"}` : `Select ${label} from media library`}
+        </button>
+        <input
+          type="hidden"
+          ref={hiddenInputRef}
+          name={name}
+          value={selectedFileId}
+        />
+        {selectedFile && selectedFile.url && (
+          <div style={{ marginTop: "0.5rem" }}>
+            <img
+              src={selectedFile.url}
+              alt={selectedFile.alt || ""}
+              style={{
+                maxWidth: "200px",
+                maxHeight: "150px",
+                objectFit: "contain",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+                padding: "0.25rem",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedFileId("");
+                if (hiddenInputRef.current) {
+                  hiddenInputRef.current.value = "";
+                }
+              }}
+              style={{
+                marginTop: "0.25rem",
+                padding: "0.25rem 0.5rem",
+                fontSize: "0.75rem",
+                color: "#d72c0d",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+              }}
+            >
+              Remove
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Media Library Picker Modal */}
+      {showPicker && (
+        <div
+          onClick={() => setShowPicker(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 2000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "2rem",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
             style={{
-              maxWidth: "200px",
-              maxHeight: "150px",
-              objectFit: "contain",
-              border: "1px solid #c9cccf",
-              borderRadius: "4px",
-              padding: "0.25rem",
+              backgroundColor: "white",
+              borderRadius: "8px",
+              width: "100%",
+              maxWidth: "800px",
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
             }}
-          />
+          >
+            <div style={{ padding: "1.5rem", borderBottom: "1px solid #e1e3e5" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "600" }}>Select {label}</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowPicker(false)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    fontSize: "1.5rem",
+                    cursor: "pointer",
+                    color: "#666",
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <input
+                type="text"
+                placeholder="Search images..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  border: "1px solid #c9cccf",
+                  borderRadius: "4px",
+                  fontSize: "0.875rem",
+                }}
+              />
+            </div>
+            <div
+              style={{
+                padding: "1.5rem",
+                overflowY: "auto",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+                gap: "1rem",
+              }}
+            >
+              {filteredFiles.length === 0 ? (
+                <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "2rem", color: "#666" }}>
+                  {mediaFiles.length === 0 ? "No images found in media library" : "No images match your search"}
+                </div>
+              ) : (
+                filteredFiles.map((file) => (
+                  <div
+                    key={file.id}
+                    onClick={() => handleSelectFile(file.id, file.url, file.alt)}
+                    style={{
+                      cursor: "pointer",
+                      border: selectedFileId === file.id ? "2px solid #008060" : "1px solid #c9cccf",
+                      borderRadius: "4px",
+                      padding: "0.5rem",
+                      backgroundColor: selectedFileId === file.id ? "#f0f9f6" : "white",
+                    }}
+                  >
+                    <img
+                      src={file.url}
+                      alt={file.alt || ""}
+                      style={{
+                        width: "100%",
+                        aspectRatio: "1",
+                        objectFit: "cover",
+                        borderRadius: "4px",
+                        marginBottom: "0.5rem",
+                      }}
+                    />
+                    <div
+                      style={{
+                        fontSize: "0.75rem",
+                        color: "#666",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {file.alt || "Untitled"}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -1274,10 +1399,12 @@ export default function SchedulrPage() {
                   <MediaLibraryPicker
                     name="desktop_banner"
                     label="Desktop Banner"
+                    mediaFiles={mediaFiles || []}
                   />
                   <MediaLibraryPicker
                     name="mobile_banner"
                     label="Mobile Banner"
+                    mediaFiles={mediaFiles || []}
                   />
                   <s-text-field
                     label="Headline"
