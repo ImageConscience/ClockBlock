@@ -249,9 +249,11 @@ export const action = async ({ request }) => {
       
       console.log("[ACTION] Staged upload target created, uploading file...");
       
-      // Step 2: Upload file to staged URL using form-data library
-      // The form-data library handles multipart construction correctly for GCS signatures
+      // Step 2: Upload file to staged URL using axios with form-data
+      // Axios handles form-data streams correctly and preserves the multipart format
       const FormDataClass = (await import("form-data")).default;
+      const axios = (await import("axios")).default;
+      
       const formDataToUpload = new FormDataClass();
       
       // Add all parameters in exact order provided by Shopify
@@ -271,75 +273,25 @@ export const action = async ({ request }) => {
       console.log("[ACTION] Uploading to staged URL:", stagedTarget.url);
       console.log("[ACTION] Form data headers:", JSON.stringify(headers, null, 2));
       
-      // Use undici to stream form-data directly - this preserves the exact format
-      // that Google Cloud Storage expects for signature verification
-      let undiciRequest;
       try {
-        const undiciModule = await import("undici");
-        undiciRequest = undiciModule.request;
-      } catch (importError) {
-        console.error("[ACTION] Failed to import undici:", importError);
-        return json({ 
-          error: `Failed to import upload library: ${importError.message}`, 
-          success: false 
-        });
-      }
-      
-      // Add timeout for the upload request (60 seconds)
-      const uploadTimeout = setTimeout(() => {
-        // Timeout will be handled in the catch block
-      }, 60000);
-      
-      try {
-        // Use undici with form-data stream directly
-        // This ensures the exact multipart format is preserved
-        // Important: Do NOT set Content-Length - let undici/form-data handle it
-        // This is critical for signature verification
-        const uploadPromise = undiciRequest(stagedTarget.url, {
-          method: 'POST',
-          body: formDataToUpload, // Pass stream directly
-          headers: {
-            'Content-Type': headers['content-type'], // Only Content-Type with boundary
-            // DO NOT set Content-Length - it breaks signature verification
-          },
+        // Use axios with form-data - axios handles the stream correctly
+        // and preserves the exact multipart format for signature verification
+        const uploadResponse = await axios.post(stagedTarget.url, formDataToUpload, {
+          headers: headers, // Use form-data's headers (includes boundary)
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity,
+          timeout: 60000, // 60 second timeout
         });
         
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("Upload timeout after 60 seconds")), 60000);
-        });
+        console.log("[ACTION] Staged upload response status:", uploadResponse.status);
         
-        const uploadResponse = await Promise.race([uploadPromise, timeoutPromise]);
-        
-        clearTimeout(uploadTimeout);
-        console.log("[ACTION] Staged upload response status:", uploadResponse.statusCode);
-        
-        if (uploadResponse.statusCode !== 200 && uploadResponse.statusCode !== 204) {
-          let errorText = "";
-          try {
-            const chunks = [];
-            for await (const chunk of uploadResponse.body) {
-              chunks.push(chunk);
-            }
-            errorText = Buffer.concat(chunks).toString('utf8');
-          } catch (readError) {
-            console.error("[ACTION] Could not read error response:", readError);
-          }
-          
-          console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.statusCode);
-          console.error("[ACTION] Error response:", errorText);
+        if (uploadResponse.status !== 200 && uploadResponse.status !== 204) {
+          console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.status);
+          console.error("[ACTION] Error response:", uploadResponse.data);
           return json({ 
-            error: `Failed to upload file: HTTP ${uploadResponse.statusCode}`, 
+            error: `Failed to upload file: HTTP ${uploadResponse.status}`, 
             success: false 
           });
-        }
-        
-        // Consume the response body if successful
-        try {
-          for await (const chunk of uploadResponse.body) {
-            // Consume the stream
-          }
-        } catch (consumeError) {
-          // Ignore consumption errors
         }
         
         console.log("[ACTION] File uploaded to staged URL successfully");
