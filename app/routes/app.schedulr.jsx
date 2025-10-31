@@ -475,46 +475,34 @@ export const action = async ({ request }) => {
             alt: uploadedFile.alt || fileName || "Uploaded image",
           },
         });
-      } catch (uploadError) {
-        console.error("[ACTION] Upload request error:", uploadError);
-        console.error("[ACTION] Upload error name:", uploadError?.name);
-        console.error("[ACTION] Upload error message:", uploadError?.message);
-        console.error("[ACTION] Upload error stack:", uploadError?.stack);
-        
-        // Log axios error response details if available
-        if (uploadError.response) {
-          console.error("[ACTION] Upload error response status:", uploadError.response.status);
-          console.error("[ACTION] Upload error response data:", uploadError.response.data);
-          console.error("[ACTION] Upload error response headers:", uploadError.response.headers);
-        }
-        
-        if (uploadError.name === 'AbortError' || uploadError.message?.includes('timeout')) {
-          console.error("[ACTION] Upload request timed out");
-          return json({ 
-            error: `Upload timed out. The file may be too large or the server is taking too long to process it.`, 
+        } catch (uploadError) {
+          console.error("[ACTION] Upload request error:", uploadError);
+          console.error("[ACTION] Upload error name:", uploadError?.name);
+          console.error("[ACTION] Upload error message:", uploadError?.message);
+          console.error("[ACTION] Upload error stack:", uploadError?.stack);
+          
+          // With fetch, network errors are thrown as exceptions
+          // HTTP errors (4xx, 5xx) don't throw - they're returned as Response objects
+          // So if we catch here, it's likely a network error or abort
+          if (uploadError.name === 'AbortError' || uploadError.message?.includes('timeout')) {
+            console.error("[ACTION] Upload request timed out or aborted");
+            return json({ 
+              error: `Upload timed out. The file may be too large or the server is taking too long to process it.`, 
+              success: false 
+            });
+          }
+          
+          // Extract error message
+          const errorMessage = uploadError.message || 'Unknown error';
+          
+          console.error("[ACTION] Returning JSON error response for upload failure");
+          const errorResponse = json({ 
+            error: `Failed to upload file: ${errorMessage}`, 
             success: false 
           });
+          console.log("[ACTION] JSON response created, returning now");
+          return errorResponse;
         }
-        
-        // Extract more specific error message from axios error
-        let errorMessage = uploadError.message || 'Unknown error';
-        if (uploadError.response?.data) {
-          const errorData = uploadError.response.data;
-          if (typeof errorData === 'string') {
-            errorMessage = errorData;
-          } else if (errorData.error || errorData.message) {
-            errorMessage = errorData.error || errorData.message;
-          }
-        }
-        
-        console.error("[ACTION] Returning JSON error response for upload failure");
-        const errorResponse = json({ 
-          error: `Failed to upload file: ${errorMessage}`, 
-          success: false 
-        });
-        console.log("[ACTION] JSON response created, returning now");
-        return errorResponse;
-      }
     } catch (error) {
       console.error("[ACTION] Outer catch - Error uploading file:", error);
       console.error("[ACTION] Outer catch - Error message:", error.message);
