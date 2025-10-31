@@ -312,18 +312,18 @@ export const action = async ({ request }) => {
         
         clearTimeout(uploadTimeout);
         console.log("[ACTION] Staged upload response status:", uploadResponse.status);
-      
-      if (!uploadResponse.ok && uploadResponse.status !== 200 && uploadResponse.status !== 204) {
-        const errorText = await uploadResponse.text();
-        console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.status);
-        console.error("[ACTION] Error response:", errorText);
-        return json({ 
-          error: `Failed to upload file: HTTP ${uploadResponse.status}`, 
-          success: false 
-        });
-      }
-      
-      console.log("[ACTION] File uploaded to staged URL successfully");
+        
+        if (!uploadResponse.ok && uploadResponse.status !== 200 && uploadResponse.status !== 204) {
+          const errorText = await uploadResponse.text();
+          console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.status);
+          console.error("[ACTION] Error response:", errorText);
+          return json({ 
+            error: `Failed to upload file: HTTP ${uploadResponse.status}`, 
+            success: false 
+          });
+        }
+        
+        console.log("[ACTION] File uploaded to staged URL successfully");
       
       // Wait a moment for Shopify to process the staged upload
       await new Promise(resolve => setTimeout(resolve, 500));
