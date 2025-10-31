@@ -318,118 +318,40 @@ export const action = async ({ request }) => {
       }
       const fileBuffer = Buffer.from(arrayBuffer);
       
-      // Use form-data package for proper multipart/form-data handling in Node.js
-      const formDataToUpload = new FormData();
+      console.log("[ACTION] File buffer created, size:", fileBuffer.length, "bytes");
+      console.log("[ACTION] Parameters to include:", stagedTarget.parameters.map(p => `${p.name}=${p.value}`).join(', '));
       
-      if (!formDataToUpload || typeof formDataToUpload.append !== "function") {
-        console.error("[ACTION] FormData instance is invalid:", typeof formDataToUpload);
-        return json({ error: "Failed to create FormData instance", success: false });
+      // Manually construct multipart/form-data body
+      // The signature verification requires the exact format, so we construct it manually
+      const boundary = `----WebKitFormBoundary${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+      
+      const parts = [];
+      
+      // Add parameters in the exact order provided by Shopify (order matters for signature)
+      for (const param of stagedTarget.parameters) {
+        parts.push(
+          `--${boundary}\r\n` +
+          `Content-Disposition: form-data; name="${param.name}"\r\n` +
+          `\r\n` +
+          `${param.value}\r\n`
+        );
       }
       
-      // Append parameters in the exact order provided by Shopify (order matters for signature)
-      stagedTarget.parameters.forEach((param) => {
-        formDataToUpload.append(param.name, param.value);
-      });
       // File must be appended last
-      formDataToUpload.append("file", fileBuffer, {
-        filename: fileName || "image.jpg",
-        contentType: fileType,
-      });
+      parts.push(
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n` +
+        `Content-Type: ${fileType}\r\n` +
+        `\r\n`
+      );
       
-      // Get headers from form-data (includes Content-Type with boundary)
-      if (typeof formDataToUpload.getHeaders !== "function") {
-        console.error("[ACTION] FormData instance does not have getHeaders method");
-        return json({ error: "FormData instance is missing getHeaders method", success: false });
-      }
+      // Combine parts into a buffer
+      const headerBuffer = Buffer.from(parts.join(''), 'utf8');
+      const footerBuffer = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8');
+      const formDataBuffer = Buffer.concat([headerBuffer, fileBuffer, footerBuffer]);
       
-      const headers = formDataToUpload.getHeaders();
-      
-      console.log("[ACTION] Uploading to staged URL with FormData containing file:", fileName);
-      console.log("[ACTION] FormData headers:", JSON.stringify(headers, null, 2));
-      console.log("[ACTION] Parameters count:", stagedTarget.parameters.length);
-      
-      // Convert form-data to buffer for undici
-      // form-data package needs to be piped/consumed to emit events
-      // We'll use getBuffer() method if available, or pipe through a PassThrough stream
-      console.log("[ACTION] Converting form-data to buffer...");
-      
-      let formDataBuffer;
-      try {
-        // Try using getBuffer() method if it exists (some versions of form-data have this)
-        if (typeof formDataToUpload.getBuffer === "function") {
-          console.log("[ACTION] Using getBuffer() method");
-          formDataBuffer = await formDataToUpload.getBuffer();
-        } else {
-          // Fallback: pipe form-data through a PassThrough stream to collect chunks
-          const streamModule = await import("stream");
-          const PassThrough = streamModule.PassThrough || streamModule.default?.PassThrough;
-          
-          if (!PassThrough) {
-            throw new Error("PassThrough stream not available");
-          }
-          
-          const passThrough = new PassThrough();
-          const chunks = [];
-          let streamEnded = false;
-          let streamError = null;
-          
-          // Set up listeners BEFORE piping
-          passThrough.on('data', (chunk) => {
-            console.log("[ACTION] Received chunk, size:", chunk.length, "Total chunks:", chunks.length + 1);
-            chunks.push(chunk);
-          });
-          
-          passThrough.on('end', () => {
-            console.log("[ACTION] PassThrough stream ended, total chunks:", chunks.length);
-            streamEnded = true;
-          });
-          
-          passThrough.on('error', (err) => {
-            console.error("[ACTION] PassThrough stream error:", err);
-            streamError = err;
-          });
-          
-          const bufferPromise = new Promise((resolve, reject) => {
-            // Check periodically if stream ended
-            const checkInterval = setInterval(() => {
-              if (streamError) {
-                clearInterval(checkInterval);
-                reject(streamError);
-              } else if (streamEnded) {
-                clearInterval(checkInterval);
-                console.log("[ACTION] Stream ended, creating buffer from", chunks.length, "chunks");
-                resolve(Buffer.concat(chunks));
-              }
-            }, 100);
-            
-            // Add timeout
-            const timeout = setTimeout(() => {
-              clearInterval(checkInterval);
-              reject(new Error("FormData stream conversion timeout after 30 seconds"));
-            }, 30000);
-            
-            // Clean up on resolve
-            bufferPromise.then(() => {
-              clearInterval(checkInterval);
-              clearTimeout(timeout);
-            }).catch(() => {
-              clearInterval(checkInterval);
-              clearTimeout(timeout);
-            });
-          });
-          
-          // Now pipe form-data to pass-through stream
-          console.log("[ACTION] Piping form-data to PassThrough stream...");
-          formDataToUpload.pipe(passThrough);
-          
-          formDataBuffer = await bufferPromise;
-        }
-      } catch (bufferError) {
-        console.error("[ACTION] Error converting form-data to buffer:", bufferError);
-        throw bufferError;
-      }
-      
-      console.log("[ACTION] FormData buffer size:", formDataBuffer.length, "bytes");
+      console.log("[ACTION] Multipart form-data constructed, total size:", formDataBuffer.length, "bytes");
+      console.log("[ACTION] Boundary:", boundary);
       
       // Use undici's request method with the buffer
       console.log("[ACTION] Starting upload to staged URL:", stagedTarget.url);
