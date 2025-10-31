@@ -271,56 +271,59 @@ export const action = async ({ request }) => {
       console.log("[ACTION] Uploading to staged URL:", stagedTarget.url);
       console.log("[ACTION] Form data headers:", JSON.stringify(headers, null, 2));
       
-      // Convert form-data to a stream and then to buffer
-      // We need to consume the stream to get the complete buffer
-      const chunks = [];
-      
-      await new Promise((resolve, reject) => {
-        formDataToUpload.on('data', (chunk) => {
-          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-        });
-        formDataToUpload.on('end', resolve);
-        formDataToUpload.on('error', reject);
-        
-        // Start the stream emitting - this is critical!
-        // form-data streams need to be piped or resumed to start
-        formDataToUpload.resume();
-      });
-      
-      const multipartBuffer = Buffer.concat(chunks);
-      
-      console.log("[ACTION] Multipart buffer created, size:", multipartBuffer.length, "bytes");
+      // Use undici to stream form-data directly - this preserves the exact format
+      // that Google Cloud Storage expects for signature verification
+      const { request: undiciRequest } = await import("undici");
       
       // Add timeout for the upload request (60 seconds)
-      const uploadController = new AbortController();
       const uploadTimeout = setTimeout(() => {
-        uploadController.abort();
+        // Timeout will be handled in the catch block
       }, 60000);
       
       try {
-        // Use Node's native fetch with the complete buffer
-        const uploadResponse = await fetch(stagedTarget.url, {
-          method: 'POST',
-          body: multipartBuffer,
-          signal: uploadController.signal,
-          headers: {
-            'Content-Type': headers['content-type'],
-            'Content-Length': multipartBuffer.length.toString(),
-            // Don't add any other headers - they break signature verification
-          },
-        });
+        // Use undici with form-data stream directly
+        // This ensures the exact multipart format is preserved
+        const uploadResponse = await Promise.race([
+          undiciRequest(stagedTarget.url, {
+            method: 'POST',
+            body: formDataToUpload, // Pass stream directly
+            headers: headers, // Use form-data's headers (includes boundary)
+          }),
+          new Promise((_, reject) => {
+            setTimeout(() => reject(new Error("Upload timeout after 60 seconds")), 60000);
+          })
+        ]);
         
         clearTimeout(uploadTimeout);
-        console.log("[ACTION] Staged upload response status:", uploadResponse.status);
+        console.log("[ACTION] Staged upload response status:", uploadResponse.statusCode);
         
-        if (!uploadResponse.ok && uploadResponse.status !== 200 && uploadResponse.status !== 204) {
-          const errorText = await uploadResponse.text();
-          console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.status);
+        if (uploadResponse.statusCode !== 200 && uploadResponse.statusCode !== 204) {
+          let errorText = "";
+          try {
+            const chunks = [];
+            for await (const chunk of uploadResponse.body) {
+              chunks.push(chunk);
+            }
+            errorText = Buffer.concat(chunks).toString('utf8');
+          } catch (readError) {
+            console.error("[ACTION] Could not read error response:", readError);
+          }
+          
+          console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.statusCode);
           console.error("[ACTION] Error response:", errorText);
           return json({ 
-            error: `Failed to upload file: HTTP ${uploadResponse.status}`, 
+            error: `Failed to upload file: HTTP ${uploadResponse.statusCode}`, 
             success: false 
           });
+        }
+        
+        // Consume the response body if successful
+        try {
+          for await (const chunk of uploadResponse.body) {
+            // Consume the stream
+          }
+        } catch (consumeError) {
+          // Ignore consumption errors
         }
         
         console.log("[ACTION] File uploaded to staged URL successfully");
