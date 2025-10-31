@@ -102,13 +102,17 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
+  console.log("[ACTION] Action called - request method:", request.method);
   const formData = await request.formData();
   
   // Check if this is a file upload request (has file but no title/position_id)
   const file = formData.get("file");
   const hasTitle = formData.get("title");
   
+  console.log("[ACTION] File present:", !!file, "Has title:", !!hasTitle, "File type:", file instanceof File ? file.type : typeof file);
+  
   if (file && !hasTitle) {
+    console.log("[ACTION] Detected file upload request");
     // This is a file upload request - handle it here using staged uploads
     // Import server-only modules here (not at top level to avoid client bundle issues)
     // form-data is CommonJS, so we use createRequire to import it
@@ -973,6 +977,8 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
 
   // Handle upload fetcher response
   useEffect(() => {
+    console.log("[MediaLibraryPicker] Fetcher state:", uploadFetcher.state, "Data:", uploadFetcher.data, "FormAction:", uploadFetcher.formAction);
+    
     // Clean up progress interval when upload completes
     if (uploadFetcher.state === "idle") {
       if (progressIntervalRef.current) {
@@ -981,23 +987,34 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
       }
     }
     
-    if (uploadFetcher.state === "idle" && uploadFetcher.data !== undefined) {
-      setUploadProgress(100);
-      setIsUploading(false);
+    // Check if we have data and the fetcher is idle (completed)
+    if (uploadFetcher.state === "idle") {
+      // Clean up progress interval
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
       
-      // Small delay to show 100% progress
-      setTimeout(() => {
-        if (uploadFetcher.data) {
+      if (uploadFetcher.data !== undefined) {
+        setUploadProgress(100);
+        setIsUploading(false);
+        
+        // Small delay to show 100% progress
+        setTimeout(() => {
           const result = uploadFetcher.data;
-          console.log("[MediaLibraryPicker] Upload response:", result);
+          console.log("[MediaLibraryPicker] Upload response data:", result);
+          console.log("[MediaLibraryPicker] Upload response type:", typeof result);
+          console.log("[MediaLibraryPicker] Upload response keys:", result ? Object.keys(result) : "null/undefined");
           
-          if (result && result.success && result.file) {
+          // React Router's fetcher automatically parses JSON, so result should be an object
+          if (result && typeof result === "object" && result.success && result.file) {
             // Add the new file to the local list
             const newFile = {
               id: result.file.id,
               url: result.file.url,
               alt: result.file.alt || "Uploaded image",
             };
+            console.log("[MediaLibraryPicker] Upload successful, file:", newFile);
             setLocalMediaFiles((prev) => [newFile, ...prev]);
             // Automatically select the newly uploaded file
             setSelectedFileId(newFile.id);
@@ -1016,22 +1033,28 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
               setUploadProgress(0);
             }, 1500);
           } else {
-            const errorMessage = result?.error || "Failed to upload file";
+            const errorMessage = result?.error || result?.message || "Failed to upload file";
             console.error("[MediaLibraryPicker] Upload error:", errorMessage);
+            console.error("[MediaLibraryPicker] Full result:", JSON.stringify(result, null, 2));
             setUploadError(errorMessage);
             setUploadProgress(0);
           }
-        } else {
-          // No data returned - might be an error
-          setUploadError("Upload failed - no response from server");
-          setUploadProgress(0);
-        }
-        
-        // Reset file input
+          
+          // Reset file input
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+        }, 300);
+      } else if (uploadFetcher.state === "idle") {
+        // Fetcher is idle but no data - might have errored
+        console.error("[MediaLibraryPicker] Fetcher is idle but no data received");
+        setIsUploading(false);
+        setUploadProgress(0);
+        setUploadError("Upload failed - no response from server");
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
-      }, 300);
+      }
     } else if (uploadFetcher.state === "submitting") {
       setIsUploading(true);
       setUploadError("");
