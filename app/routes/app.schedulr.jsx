@@ -249,46 +249,50 @@ export const action = async ({ request }) => {
       
       console.log("[ACTION] Staged upload target created, uploading file...");
       
-      // Step 2: Upload file to staged URL
-      // Manually construct multipart/form-data to ensure exact format for signature verification
-      const boundary = `----formdata-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-      const parts = [];
+      // Step 2: Upload file to staged URL using form-data library
+      // The form-data library handles multipart construction correctly for GCS signatures
+      const FormDataClass = (await import("form-data")).default;
+      const formDataToUpload = new FormDataClass();
       
-      // Add all parameters first (in order)
+      // Add all parameters in exact order provided by Shopify
+      // DO NOT modify parameter names or values - they're signed
       for (const param of stagedTarget.parameters) {
-        parts.push(`--${boundary}\r\n`);
-        parts.push(`Content-Disposition: form-data; name="${param.name}"\r\n\r\n`);
-        parts.push(`${param.value}\r\n`);
+        formDataToUpload.append(param.name, param.value);
       }
       
-      // File must be appended last (critical for signature verification)
-      parts.push(`--${boundary}\r\n`);
-      parts.push(`Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n`);
-      parts.push(`Content-Type: ${fileType}\r\n\r\n`);
+      // File MUST be appended last (critical for signature verification)
+      formDataToUpload.append("file", fileBuffer, {
+        filename: fileName,
+        contentType: fileType,
+      });
       
-      // Convert parts to buffers
-      const textBuffers = parts.map(part => Buffer.from(part, 'utf8'));
-      const finalBoundary = Buffer.from(`--${boundary}--\r\n`, 'utf8');
-      
-      // Concatenate all buffers
-      const multipartBuffer = Buffer.concat([
-        ...textBuffers,
-        fileBuffer,
-        Buffer.from('\r\n', 'utf8'),
-        finalBoundary,
-      ]);
-      
-      const contentType = `multipart/form-data; boundary=${boundary}`;
+      const headers = formDataToUpload.getHeaders();
       
       console.log("[ACTION] Uploading to staged URL:", stagedTarget.url);
-      console.log("[ACTION] Multipart buffer size:", multipartBuffer.length, "bytes");
+      console.log("[ACTION] Form data headers:", JSON.stringify(headers, null, 2));
       
-      // Use Node's native fetch with the manually constructed multipart buffer
+      // Convert form-data to a stream and then to buffer
+      // We need to consume the stream to get the complete buffer
+      const chunks = [];
+      
+      await new Promise((resolve, reject) => {
+        formDataToUpload.on('data', (chunk) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        });
+        formDataToUpload.on('end', resolve);
+        formDataToUpload.on('error', reject);
+      });
+      
+      const multipartBuffer = Buffer.concat(chunks);
+      
+      console.log("[ACTION] Multipart buffer created, size:", multipartBuffer.length, "bytes");
+      
+      // Use Node's native fetch with the complete buffer
       const uploadResponse = await fetch(stagedTarget.url, {
         method: 'POST',
         body: multipartBuffer,
         headers: {
-          'Content-Type': contentType,
+          'Content-Type': headers['content-type'],
           'Content-Length': multipartBuffer.length.toString(),
           // Don't add any other headers - they break signature verification
         },
