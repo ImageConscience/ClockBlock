@@ -130,10 +130,10 @@ export const action = async ({ request }) => {
     
     if (file && !hasTitle) {
     console.log("[ACTION] Detected file upload request");
-    // This is a file upload request - use direct base64 upload instead of staged uploads
-    // This avoids Google Cloud Storage signature issues completely
+    // This is a file upload request - use staged uploads with axios
+    // axios handles multipart/form-data correctly for Google Cloud Storage signatures
     try {
-      console.log("[ACTION] File upload request received - using direct base64 upload");
+      console.log("[ACTION] File upload request received - using staged uploads with axios");
       
       const { admin } = await authenticate.admin(request);
       console.log("[ACTION] Admin authenticated successfully for file upload");
@@ -166,7 +166,7 @@ export const action = async ({ request }) => {
       
       console.log("[ACTION] File:", fileName, "Type:", fileType, "Size:", fileSize, "bytes");
       
-      // Convert file to base64
+      // Convert file to Buffer
       let arrayBuffer;
       if (typeof file.arrayBuffer === "function") {
         arrayBuffer = await file.arrayBuffer();
@@ -189,16 +189,107 @@ export const action = async ({ request }) => {
       } else {
         return json({ error: "File object doesn't support reading", success: false });
       }
+      const fileBuffer = Buffer.from(arrayBuffer);
       
-      // Convert to base64 data URI
-      const buffer = Buffer.from(arrayBuffer);
-      const base64 = buffer.toString('base64');
-      const dataUri = `data:${fileType};base64,${base64}`;
+      // Step 1: Create staged upload target
+      const resourceType = fileType.startsWith("image/") ? "IMAGE" : "IMAGE";
+      const stagedResponse = await admin.graphql(
+        `#graphql
+        mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
+          stagedUploadsCreate(input: $input) {
+            stagedTargets {
+              resourceUrl
+              url
+              parameters {
+                name
+                value
+              }
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `,
+        {
+          variables: {
+            input: [
+              {
+                resource: resourceType,
+                filename: fileName,
+                mimeType: fileType,
+                fileSize: fileSize.toString(),
+              },
+            ],
+          },
+        }
+      );
       
-      console.log("[ACTION] File converted to base64, data URI length:", dataUri.length);
+      const stagedJson = await stagedResponse.json();
+      console.log("[ACTION] Staged upload response received");
       
-      // Use fileCreate mutation with data URI directly
-      // Note: contentType is not needed when using data URI - Shopify infers it from the data URI
+      if (stagedJson?.errors) {
+        const errors = stagedJson.errors.map((e) => e.message).join(", ");
+        console.error("[ACTION] GraphQL errors creating staged upload:", errors);
+        return json({ error: `Failed to create staged upload: ${errors}`, success: false });
+      }
+      
+      if (stagedJson?.data?.stagedUploadsCreate?.userErrors?.length > 0) {
+        const errors = stagedJson.data.stagedUploadsCreate.userErrors.map((e) => e.message).join(", ");
+        console.error("[ACTION] User errors creating staged upload:", errors);
+        return json({ error: `Failed to create staged upload: ${errors}`, success: false });
+      }
+      
+      const stagedTarget = stagedJson?.data?.stagedUploadsCreate?.stagedTargets?.[0];
+      if (!stagedTarget?.url || !stagedTarget?.resourceUrl) {
+        console.error("[ACTION] No staged upload target returned");
+        return json({ error: "Failed to create staged upload target", success: false });
+      }
+      
+      console.log("[ACTION] Staged upload target created, uploading file...");
+      
+      // Step 2: Upload file to staged URL using axios
+      const axios = (await import("axios")).default;
+      const FormDataClass = (await import("form-data")).default;
+      
+      const formDataToUpload = new FormDataClass();
+      
+      // Add parameters in exact order provided by Shopify
+      for (const param of stagedTarget.parameters) {
+        formDataToUpload.append(param.name, param.value);
+      }
+      
+      // File must be appended last
+      formDataToUpload.append("file", fileBuffer, {
+        filename: fileName,
+        contentType: fileType,
+      });
+      
+      console.log("[ACTION] Uploading to staged URL:", stagedTarget.url);
+      const uploadResponse = await axios.post(stagedTarget.url, formDataToUpload, {
+        headers: formDataToUpload.getHeaders(),
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      });
+      
+      console.log("[ACTION] Staged upload response status:", uploadResponse.status);
+      
+      if (uploadResponse.status !== 200 && uploadResponse.status !== 204) {
+        console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.status);
+        return json({ 
+          error: `Failed to upload file: HTTP ${uploadResponse.status}`, 
+          success: false 
+        });
+      }
+      
+      console.log("[ACTION] File uploaded to staged URL successfully");
+      
+      // Wait a moment for Shopify to process the staged upload
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Step 3: Create file record using resourceUrl
+      console.log("[ACTION] Creating file record using resourceUrl");
       const fileCreateResponse = await admin.graphql(
         `#graphql
         mutation fileCreate($files: [FileCreateInput!]!) {
@@ -225,9 +316,8 @@ export const action = async ({ request }) => {
           variables: {
             files: [
               {
-                originalSource: dataUri,
+                originalSource: stagedTarget.resourceUrl,
                 filename: fileName,
-                // Don't include contentType - it's not needed for data URIs and expects an enum value, not MIME type
               },
             ],
           },
@@ -235,20 +325,16 @@ export const action = async ({ request }) => {
       );
       
       const fileCreateJson = await fileCreateResponse.json();
-      console.log("[ACTION] File create response:", JSON.stringify(fileCreateJson, null, 2));
+      console.log("[ACTION] File create response received");
       
       if (fileCreateJson?.errors) {
-        const errors = fileCreateJson.errors
-          .map((e) => e.message)
-          .join(", ");
+        const errors = fileCreateJson.errors.map((e) => e.message).join(", ");
         console.error("[ACTION] GraphQL errors creating file:", errors);
         return json({ error: `Failed to create file: ${errors}`, success: false });
       }
       
       if (fileCreateJson?.data?.fileCreate?.userErrors?.length > 0) {
-        const errors = fileCreateJson.data.fileCreate.userErrors
-          .map((e) => e.message)
-          .join(", ");
+        const errors = fileCreateJson.data.fileCreate.userErrors.map((e) => e.message).join(", ");
         console.error("[ACTION] User errors creating file:", errors);
         return json({ error: `Failed to create file: ${errors}`, success: false });
       }
@@ -271,6 +357,7 @@ export const action = async ({ request }) => {
       });
     } catch (error) {
       console.error("[ACTION] Error uploading file:", error);
+      console.error("[ACTION] Error message:", error.message);
       console.error("[ACTION] Error stack:", error.stack);
       return json({
         error: `Failed to upload file: ${error.message}`,
