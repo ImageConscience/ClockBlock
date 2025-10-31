@@ -293,10 +293,15 @@ export const action = async ({ request }) => {
       try {
         // Use undici with form-data stream directly
         // This ensures the exact multipart format is preserved
+        // Important: Do NOT set Content-Length - let undici/form-data handle it
+        // This is critical for signature verification
         const uploadPromise = undiciRequest(stagedTarget.url, {
           method: 'POST',
           body: formDataToUpload, // Pass stream directly
-          headers: headers, // Use form-data's headers (includes boundary)
+          headers: {
+            'Content-Type': headers['content-type'], // Only Content-Type with boundary
+            // DO NOT set Content-Length - it breaks signature verification
+          },
         });
         
         const timeoutPromise = new Promise((_, reject) => {
