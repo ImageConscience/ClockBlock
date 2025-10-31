@@ -192,7 +192,9 @@ export const action = async ({ request }) => {
       const fileBuffer = Buffer.from(arrayBuffer);
       
       // Step 1: Create staged upload target
-      const resourceType = fileType.startsWith("image/") ? "IMAGE" : "IMAGE";
+      // Use SHOP_IMAGE for files that will be added to the Files page via fileCreate
+      // This is the correct resource type for metaobject file_reference fields
+      const resourceType = fileType.startsWith("image/") ? "SHOP_IMAGE" : "SHOP_IMAGE";
       const stagedResponse = await admin.graphql(
         `#graphql
         mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
