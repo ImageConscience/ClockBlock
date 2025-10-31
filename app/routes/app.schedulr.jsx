@@ -278,12 +278,13 @@ export const action = async ({ request }) => {
       });
     }
     // If we handled the file upload, return early (don't continue to entry creation)
+    // This return should never be reached if file upload succeeded or failed (both return above)
+    // But adding it as a safety net
     return json({ error: "File upload handled", success: false });
   }
   
   // Entry creation logic (only reached if not a file upload)
-  try {
-    console.log("[ACTION] Action called - starting entry creation");
+  console.log("[ACTION] Action called - starting entry creation");
     const { admin } = await authenticate.admin(request);
     console.log("[ACTION] Admin authenticated successfully");
     console.log("[ACTION] Form data received");
