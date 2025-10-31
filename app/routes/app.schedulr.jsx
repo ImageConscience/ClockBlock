@@ -103,8 +103,21 @@ export const loader = async ({ request }) => {
 
 export const action = async ({ request }) => {
   try {
-    console.log("[ACTION] Action called - request method:", request.method);
+    console.log("[ACTION] ========== ACTION CALLED ==========");
+    console.log("[ACTION] Request URL:", request.url);
+    console.log("[ACTION] Request method:", request.method);
+    console.log("[ACTION] Content-Type:", request.headers.get("content-type"));
+    
     const formData = await request.formData();
+    console.log("[ACTION] FormData received, checking contents...");
+    
+    // Log all formData keys to debug
+    const formDataKeys = [];
+    for (const [key, value] of formData.entries()) {
+      formDataKeys.push(key);
+      console.log("[ACTION] FormData key:", key, "value type:", value instanceof File ? "File" : typeof value, value instanceof File ? `(${value.name}, ${value.size} bytes)` : "");
+    }
+    console.log("[ACTION] All formData keys:", formDataKeys);
     
     // Check if this is a file upload request (has file but no title/position_id)
     const file = formData.get("file");
@@ -870,10 +883,13 @@ export const action = async ({ request }) => {
     console.log("[ACTION] Entry created successfully, returning success");
     return json({ success: true, message: "Entry created successfully!" });
   } catch (error) {
-    console.error("[ACTION] Error in action (top-level catch):", error);
+    console.error("[ACTION] ========== ERROR IN ACTION ==========");
+    console.error("[ACTION] Error message:", error.message);
+    console.error("[ACTION] Error name:", error.name);
     console.error("[ACTION] Error stack:", error.stack);
+    console.error("[ACTION] Full error:", error);
     return json({
-      error: `Failed to process request: ${error.message}`,
+      error: `Failed to process request: ${error.message || "Unknown error"}`,
       success: false,
     });
   }
@@ -955,11 +971,14 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
       console.log("[MediaLibraryPicker] FormData created, submitting...");
       
       // Use fetcher.submit instead of fetch to ensure proper authentication
+      // Note: React Router fetcher automatically handles multipart/form-data
       uploadFetcher.submit(uploadFormData, {
         method: "POST",
         encType: "multipart/form-data",
+        action: "/app/schedulr", // Explicitly specify the action route
       });
       console.log("[MediaLibraryPicker] Upload request submitted");
+      console.log("[MediaLibraryPicker] Fetcher submitting to:", uploadFetcher.formAction || "/app/schedulr");
     } catch (error) {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
