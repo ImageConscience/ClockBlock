@@ -109,82 +109,6 @@ export const action = async ({ request }) => {
   const buttonText = String(formData.get("button_text") || "").trim();
   const status = String(formData.get("status") || "active").trim();
 
-  // Helper function to upload file and get file reference
-  const uploadFile = async (file) => {
-    if (!file || !(file instanceof File)) {
-      // If it's already a file reference ID string, return it
-      if (typeof file === 'string' && file.trim() !== '') {
-        return file.trim();
-      }
-      return null;
-    }
-    
-    try {
-      // Convert File to base64
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const base64 = buffer.toString("base64");
-      
-      const uploadResponse = await admin.graphql(
-        `#graphql
-        mutation fileCreate($files: [FileCreateInput!]!) {
-          fileCreate(files: $files) {
-            files {
-              id
-              ... on MediaImage {
-                id
-                image {
-                  url
-                }
-              }
-            }
-            userErrors {
-              field
-              message
-            }
-          }
-        }
-      `,
-        {
-          variables: {
-            files: [
-              {
-                originalSource: `data:${file.type};base64,${base64}`,
-                filename: file.name,
-                contentType: file.type,
-              },
-            ],
-          },
-        }
-      );
-      
-      const uploadJson = await uploadResponse.json();
-      
-      if (uploadJson?.data?.fileCreate?.userErrors?.length > 0) {
-        console.error("File upload errors:", uploadJson.data.fileCreate.userErrors);
-        return null;
-      }
-      
-      const fileId = uploadJson?.data?.fileCreate?.files?.[0]?.id;
-      return fileId || null;
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      return null;
-    }
-  };
-
-  // Upload files if provided (s-file-picker returns File objects)
-  let desktopBannerFileId = null;
-  let mobileBannerFileId = null;
-  
-  if (desktopBannerFile) {
-    desktopBannerFileId = await uploadFile(desktopBannerFile);
-  }
-  
-  if (mobileBannerFile) {
-    mobileBannerFileId = await uploadFile(mobileBannerFile);
-  }
-
   // Query metaobject definition to check if it exists
   let definitionExists = false;
   try {
@@ -650,12 +574,16 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
             border: "1px solid #c9cccf",
             borderRadius: "4px",
             fontSize: "0.875rem",
-            backgroundColor: "white",
+            backgroundColor: "#f6f6f7",
             cursor: "pointer",
             textAlign: "left",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          {selectedFile ? `Selected: ${selectedFile.alt || "Image"}` : `Select ${label} from media library`}
+          <span>{selectedFile ? `Selected: ${selectedFile.alt || "Image"}` : `Select ${label} from media library`}</span>
+          <span style={{ color: "#666", fontSize: "0.75rem" }}>Browse →</span>
         </button>
         <input
           type="hidden"
@@ -1347,7 +1275,7 @@ export default function SchedulrPage() {
             {/* Modal Content */}
             <div style={{ padding: "1.25rem" }}>
               <s-heading size="large" style={{ marginBottom: "1rem", marginTop: 0 }}>Create New Entry</s-heading>
-              <fetcher.Form method="post" ref={formRef}>
+              <fetcher.Form method="post" ref={formRef} encType="application/x-www-form-urlencoded">
           <s-stack direction="block" gap="base">
             <s-text-field
               label="Title"
