@@ -192,9 +192,10 @@ export const action = async ({ request }) => {
       const fileBuffer = Buffer.from(arrayBuffer);
       
       // Step 1: Create staged upload target
-      // Use SHOP_IMAGE for files that will be added to the Files page via fileCreate
+      // Use FILE for generic files that will be added to the Files page via fileCreate
+      // FILE only requires write_files scope (as per Shopify docs)
       // This is the correct resource type for metaobject file_reference fields
-      const resourceType = fileType.startsWith("image/") ? "SHOP_IMAGE" : "SHOP_IMAGE";
+      const resourceType = "FILE";
       
       // Use Promise-based approach to catch errors before React Router intercepts them
       const stagedUploadResult = await admin.graphql(
@@ -249,11 +250,11 @@ export const action = async ({ request }) => {
         }
         
         console.log("[ACTION] Returning JSON error response");
-        // Use boundary.data() to throw a proper response that React Router will handle correctly
-        throw boundary.data(json({ 
+        // Return JSON error response directly
+        return json({ 
           error: errorMessage, 
           success: false 
-        }));
+        });
       }
       
       const stagedJson = stagedUploadResult.json;
@@ -2183,14 +2184,6 @@ export function ErrorBoundary() {
   const error = useRouteError();
   console.error("[ErrorBoundary] Error caught:", error);
   
-  // If it's a route error response with JSON data, return it
-  if (isRouteErrorResponse(error) && error.data && typeof error.data === 'object') {
-    return boundary.data(json({
-      error: error.data.error || error.data.message || "An error occurred",
-      success: false
-    }));
-  }
-  
-  // Otherwise use Shopify's default error boundary
+  // Use Shopify's default error boundary
   return boundary.error(error);
 }
