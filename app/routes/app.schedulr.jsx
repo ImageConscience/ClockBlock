@@ -357,10 +357,18 @@ export const action = async ({ request }) => {
       }
       
       // File MUST be appended last (critical for signature verification)
+      // For Google Cloud Storage, the file field name must be exactly "file"
+      // The filename option ensures proper Content-Disposition header
       formDataToUpload.append("file", fileBuffer, {
         filename: fileName,
         contentType: fileType,
       });
+      
+      console.log("[ACTION] Form data constructed:");
+      console.log("[ACTION]   - Parameters added:", stagedTarget.parameters.length);
+      console.log("[ACTION]   - File appended last: true");
+      console.log("[ACTION]   - File name:", fileName);
+      console.log("[ACTION]   - File size:", fileBuffer.length, "bytes");
       
       // Get headers from form-data (includes multipart boundary)
       // DO NOT manually set Content-Type - let form-data/axios handle it
