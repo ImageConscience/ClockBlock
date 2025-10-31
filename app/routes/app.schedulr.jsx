@@ -100,17 +100,33 @@ export const action = async ({ request }) => {
     // This is a file upload request - handle it here
     try {
       console.log("[ACTION] File upload request received");
+      console.log("[ACTION] File type:", file instanceof File ? "File object" : typeof file);
+      console.log("[ACTION] File name:", file instanceof File ? file.name : "N/A");
+      
       const { admin } = await authenticate.admin(request);
       console.log("[ACTION] Admin authenticated successfully for file upload");
       
-      if (!file || !(file instanceof File)) {
+      if (!file) {
+        console.error("[ACTION] No file provided in form data");
         return { error: "No file provided", success: false };
       }
       
+      if (!(file instanceof File)) {
+        console.error("[ACTION] File is not a File object, type:", typeof file);
+        return { error: "Invalid file format", success: false };
+      }
+      
+      console.log("[ACTION] Converting file to base64, size:", file.size, "bytes");
       // Convert File to base64
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       const base64 = buffer.toString("base64");
+      console.log("[ACTION] Base64 conversion complete, length:", base64.length);
+      
+      const fileType = file.type || "image/jpeg";
+      const contentType = fileType.startsWith("image/") ? "IMAGE" : "GENERIC_FILE";
+      
+      console.log("[ACTION] Uploading to Shopify, content type:", contentType);
       
       // Upload file using fileCreate mutation
       const uploadResponse = await admin.graphql(
@@ -139,9 +155,9 @@ export const action = async ({ request }) => {
           variables: {
             files: [
               {
-                originalSource: `data:${file.type};base64,${base64}`,
+                originalSource: `data:${fileType};base64,${base64}`,
                 filename: file.name,
-                contentType: file.type.startsWith("image/") ? "IMAGE" : "GENERIC_FILE",
+                contentType: contentType,
               },
             ],
           },
@@ -149,18 +165,31 @@ export const action = async ({ request }) => {
       );
       
       const uploadJson = await uploadResponse.json();
+      console.log("[ACTION] File upload response:", JSON.stringify(uploadJson, null, 2));
+      
+      if (uploadJson?.errors) {
+        const errors = uploadJson.errors
+          .map((e) => e.message)
+          .join(", ");
+        console.error("[ACTION] GraphQL errors:", errors);
+        return { error: `Failed to upload file: ${errors}`, success: false };
+      }
       
       if (uploadJson?.data?.fileCreate?.userErrors?.length > 0) {
         const errors = uploadJson.data.fileCreate.userErrors
           .map((e) => e.message)
           .join(", ");
+        console.error("[ACTION] User errors:", errors);
         return { error: `Failed to upload file: ${errors}`, success: false };
       }
       
       const uploadedFile = uploadJson?.data?.fileCreate?.files?.[0];
       if (!uploadedFile?.id) {
+        console.error("[ACTION] No file ID returned in response");
         return { error: "File uploaded but no ID returned", success: false };
       }
+      
+      console.log("[ACTION] File uploaded successfully, ID:", uploadedFile.id);
       
       return {
         success: true,
@@ -171,7 +200,8 @@ export const action = async ({ request }) => {
         },
       };
     } catch (error) {
-      console.error("Error uploading file:", error);
+      console.error("[ACTION] Error uploading file:", error);
+      console.error("[ACTION] Error stack:", error.stack);
       return {
         error: `Failed to upload file: ${error.message}`,
         success: false,
@@ -699,9 +729,15 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
 
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    console.log("[MediaLibraryPicker] File selected:", file?.name, "Size:", file?.size, "Type:", file?.type);
+    
+    if (!file) {
+      console.log("[MediaLibraryPicker] No file selected");
+      return;
+    }
     
     if (!file.type.startsWith("image/")) {
+      console.log("[MediaLibraryPicker] Invalid file type:", file.type);
       setUploadError("Please upload an image file");
       return;
     }
@@ -712,14 +748,16 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
     try {
       const uploadFormData = new FormData();
       uploadFormData.append("file", file);
+      console.log("[MediaLibraryPicker] FormData created, submitting...");
       
       // Use fetcher.submit instead of fetch to ensure proper authentication
       uploadFetcher.submit(uploadFormData, {
         method: "POST",
         encType: "multipart/form-data",
       });
+      console.log("[MediaLibraryPicker] Upload request submitted");
     } catch (error) {
-      console.error("Error initiating file upload:", error);
+      console.error("[MediaLibraryPicker] Error initiating file upload:", error);
       setUploadError("Failed to upload file. Please try again.");
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -730,29 +768,38 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
 
   // Handle upload fetcher response
   useEffect(() => {
-    if (uploadFetcher.state === "idle" && uploadFetcher.data) {
+    if (uploadFetcher.state === "idle") {
       setIsUploading(false);
-      const result = uploadFetcher.data;
       
-      if (result.success && result.file) {
-        // Add the new file to the local list
-        setLocalMediaFiles([result.file, ...localMediaFiles]);
-        // Automatically select the newly uploaded file
-        setSelectedFileId(result.file.id);
-        if (hiddenInputRef.current) {
-          hiddenInputRef.current.value = result.file.id;
+      if (uploadFetcher.data) {
+        const result = uploadFetcher.data;
+        console.log("[MediaLibraryPicker] Upload response:", result);
+        
+        if (result.success && result.file) {
+          // Add the new file to the local list
+          setLocalMediaFiles([result.file, ...localMediaFiles]);
+          // Automatically select the newly uploaded file
+          setSelectedFileId(result.file.id);
+          if (hiddenInputRef.current) {
+            hiddenInputRef.current.value = result.file.id;
+          }
+          setUploadError("");
+          // Reload media files from server
+          revalidator.revalidate();
+        } else {
+          const errorMessage = result.error || "Failed to upload file";
+          console.error("[MediaLibraryPicker] Upload error:", errorMessage);
+          setUploadError(errorMessage);
         }
-        setUploadError("");
-        // Reload media files from server
-        revalidator.revalidate();
-      } else {
-        setUploadError(result.error || "Failed to upload file");
       }
       
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+    } else if (uploadFetcher.state === "submitting") {
+      setIsUploading(true);
+      setUploadError("");
     }
   }, [uploadFetcher.state, uploadFetcher.data, localMediaFiles, revalidator]);
 
