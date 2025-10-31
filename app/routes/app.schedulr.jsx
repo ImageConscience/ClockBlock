@@ -293,108 +293,90 @@ export const action = async ({ request }) => {
           // Don't add any other headers - they break signature verification
         },
       });
-            
-            console.log("[ACTION] Staged upload response status:", uploadResponse.status);
-            
-            if (!uploadResponse.ok && uploadResponse.status !== 200 && uploadResponse.status !== 204) {
-              const errorText = await uploadResponse.text();
-              console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.status);
-              console.error("[ACTION] Error response:", errorText);
-              resolve(json({ 
-                error: `Failed to upload file: HTTP ${uploadResponse.status}`, 
-                success: false 
-              }));
-              return;
-            }
-            
-            console.log("[ACTION] File uploaded to staged URL successfully");
-            
-            // Wait a moment for Shopify to process the staged upload
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // Step 3: Create file record using resourceUrl
-            console.log("[ACTION] Creating file record using resourceUrl");
-            const fileCreateResponse = await admin.graphql(
-              `#graphql
-              mutation fileCreate($files: [FileCreateInput!]!) {
-                fileCreate(files: $files) {
-                  files {
-                    id
-                    ... on MediaImage {
-                      alt
-                      image {
-                        url
-                        width
-                        height
-                      }
-                    }
-                  }
-                  userErrors {
-                    field
-                    message
-                  }
+      
+      console.log("[ACTION] Staged upload response status:", uploadResponse.status);
+      
+      if (!uploadResponse.ok && uploadResponse.status !== 200 && uploadResponse.status !== 204) {
+        const errorText = await uploadResponse.text();
+        console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.status);
+        console.error("[ACTION] Error response:", errorText);
+        return json({ 
+          error: `Failed to upload file: HTTP ${uploadResponse.status}`, 
+          success: false 
+        });
+      }
+      
+      console.log("[ACTION] File uploaded to staged URL successfully");
+      
+      // Wait a moment for Shopify to process the staged upload
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Step 3: Create file record using resourceUrl
+      console.log("[ACTION] Creating file record using resourceUrl");
+      const fileCreateResponse = await admin.graphql(
+        `#graphql
+        mutation fileCreate($files: [FileCreateInput!]!) {
+          fileCreate(files: $files) {
+            files {
+              id
+              ... on MediaImage {
+                alt
+                image {
+                  url
+                  width
+                  height
                 }
               }
-            `,
-              {
-                variables: {
-                  files: [
-                    {
-                      originalSource: stagedTarget.resourceUrl,
-                      filename: fileName,
-                    },
-                  ],
-                },
-              }
-            );
-            
-            const fileCreateJson = await fileCreateResponse.json();
-            console.log("[ACTION] File create response received");
-            
-            if (fileCreateJson?.errors) {
-              const errors = fileCreateJson.errors.map((e) => e.message).join(", ");
-              console.error("[ACTION] GraphQL errors creating file:", errors);
-              resolve(json({ error: `Failed to create file: ${errors}`, success: false }));
-              return;
             }
-            
-            if (fileCreateJson?.data?.fileCreate?.userErrors?.length > 0) {
-              const errors = fileCreateJson.data.fileCreate.userErrors.map((e) => e.message).join(", ");
-              console.error("[ACTION] User errors creating file:", errors);
-              resolve(json({ error: `Failed to create file: ${errors}`, success: false }));
-              return;
+            userErrors {
+              field
+              message
             }
-            
-            const uploadedFile = fileCreateJson?.data?.fileCreate?.files?.[0];
-            if (!uploadedFile?.id) {
-              console.error("[ACTION] No file ID returned in response");
-              resolve(json({ error: "File uploaded but no ID returned", success: false }));
-              return;
-            }
-            
-            console.log("[ACTION] File uploaded successfully, ID:", uploadedFile.id);
-            
-            resolve(json({
-              success: true,
-              file: {
-                id: uploadedFile.id,
-                url: uploadedFile.image?.url || "",
-                alt: uploadedFile.alt || fileName || "Uploaded image",
-              },
-            }));
-          } catch (err) {
-            console.error("[ACTION] Error in upload process:", err);
-            resolve(json({ error: `Failed to upload file: ${err.message}`, success: false }));
           }
-        });
-        
-        formDataToUpload.on('error', (err) => {
-          console.error("[ACTION] Form data stream error:", err);
-          reject(json({ error: `Failed to prepare upload: ${err.message}`, success: false }));
-        });
-        
-        // Trigger form-data to start emitting
-        formDataToUpload.resume();
+        }
+      `,
+        {
+          variables: {
+            files: [
+              {
+                originalSource: stagedTarget.resourceUrl,
+                filename: fileName,
+              },
+            ],
+          },
+        }
+      );
+      
+      const fileCreateJson = await fileCreateResponse.json();
+      console.log("[ACTION] File create response received");
+      
+      if (fileCreateJson?.errors) {
+        const errors = fileCreateJson.errors.map((e) => e.message).join(", ");
+        console.error("[ACTION] GraphQL errors creating file:", errors);
+        return json({ error: `Failed to create file: ${errors}`, success: false });
+      }
+      
+      if (fileCreateJson?.data?.fileCreate?.userErrors?.length > 0) {
+        const errors = fileCreateJson.data.fileCreate.userErrors.map((e) => e.message).join(", ");
+        console.error("[ACTION] User errors creating file:", errors);
+        return json({ error: `Failed to create file: ${errors}`, success: false });
+      }
+      
+      const uploadedFile = fileCreateJson?.data?.fileCreate?.files?.[0];
+      if (!uploadedFile?.id) {
+        console.error("[ACTION] No file ID returned in response");
+        return json({ error: "File uploaded but no ID returned", success: false });
+      }
+      
+      console.log("[ACTION] File uploaded successfully, ID:", uploadedFile.id);
+      
+      return json({
+        success: true,
+        file: {
+          id: uploadedFile.id,
+          url: uploadedFile.image?.url || "",
+          alt: uploadedFile.alt || fileName || "Uploaded image",
+        },
       });
     } catch (error) {
       console.error("[ACTION] Error uploading file:", error);
