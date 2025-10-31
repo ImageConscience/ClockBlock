@@ -991,10 +991,6 @@ export const action = async ({ request }) => {
     
     // Always return JSON, never throw
     return json({
-      error: error.message || "An unexpected error occurred",
-      success: false,
-    });
-    return json({
       error: `Failed to process request: ${error.message || "Unknown error"}`,
       success: false,
     });
