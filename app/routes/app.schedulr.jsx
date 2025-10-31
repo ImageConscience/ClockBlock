@@ -66,11 +66,14 @@ export const action = async ({ request }) => {
   const endAt = String(formData.get("end_at") || "").trim();
   const title = String(formData.get("title") || "").trim();
   const description = String(formData.get("description") || "").trim();
-  const content = String(formData.get("content") || "").trim();
+  const desktopBanner = String(formData.get("desktop_banner") || "").trim();
+  const mobileBanner = String(formData.get("mobile_banner") || "").trim();
+  const targetUrl = String(formData.get("target_url") || "").trim();
+  const headline = String(formData.get("headline") || "").trim();
+  const buttonText = String(formData.get("button_text") || "").trim();
   const status = String(formData.get("status") || "active").trim();
 
-  // Query metaobject definition to check if it exists and get content field type
-  let contentFieldType = null;
+  // Query metaobject definition to check if it exists
   let definitionExists = false;
   try {
     const defResponse = await admin.graphql(
@@ -78,10 +81,6 @@ export const action = async ({ request }) => {
       query($type: String!) {
         metaobjectDefinitionByType(type: $type) {
           id
-          fieldDefinitions {
-            key
-            type { name }
-          }
         }
       }
     `,
@@ -91,11 +90,7 @@ export const action = async ({ request }) => {
     definitionExists = Boolean(defJson?.data?.metaobjectDefinitionByType?.id);
     
     if (definitionExists) {
-      const contentField = defJson?.data?.metaobjectDefinitionByType?.fieldDefinitions?.find(
-        (f) => f.key === "content"
-      );
-      contentFieldType = contentField?.type?.name || null;
-      console.log("[ACTION] Metaobject definition exists. Content field type:", contentFieldType);
+      console.log("[ACTION] Metaobject definition exists.");
     } else {
       console.log("[ACTION] Metaobject definition does not exist. Creating it...");
     }
@@ -154,9 +149,33 @@ export const action = async ({ request }) => {
                   required: false,
                 },
                 {
-                  name: "Content",
-                  key: "content",
-                  type: "rich_text_field",
+                  name: "Desktop Banner",
+                  key: "desktop_banner",
+                  type: "file_reference",
+                  required: false,
+                },
+                {
+                  name: "Mobile Banner",
+                  key: "mobile_banner",
+                  type: "file_reference",
+                  required: false,
+                },
+                {
+                  name: "Target URL",
+                  key: "target_url",
+                  type: "url",
+                  required: false,
+                },
+                {
+                  name: "Headline",
+                  key: "headline",
+                  type: "single_line_text_field",
+                  required: false,
+                },
+                {
+                  name: "Button Text",
+                  key: "button_text",
+                  type: "single_line_text_field",
                   required: false,
                 },
               ],
@@ -199,8 +218,6 @@ export const action = async ({ request }) => {
       if (createDefJson?.data?.metaobjectDefinitionCreate?.metaobjectDefinition?.id) {
         console.log("[ACTION] Metaobject definition created successfully");
         definitionExists = true;
-        // Set contentFieldType for rich_text_field
-        contentFieldType = "rich_text_field";
       } else {
         return {
           error: "Failed to create metaobject definition. Please try again or contact support.",
@@ -373,21 +390,11 @@ export const action = async ({ request }) => {
 
   if (title) fields.push({ key: "title", value: title });
   if (description) fields.push({ key: "description", value: description });
-  if (content) {
-    // Format content based on field type
-    if (contentFieldType && contentFieldType.toLowerCase().includes("rich_text")) {
-      // For rich_text_field, Shopify expects HTML string directly, not Lexical JSON
-      // The rich_text_field stores HTML content
-      fields.push({ key: "content", value: content });
-    } else {
-      // Multi-line text field or other types - send as plain text
-      // Strip HTML tags for plain text fields
-      const plainText = content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-      if (plainText) {
-        fields.push({ key: "content", value: plainText });
-      }
-    }
-  }
+  if (desktopBanner) fields.push({ key: "desktop_banner", value: desktopBanner });
+  if (mobileBanner) fields.push({ key: "mobile_banner", value: mobileBanner });
+  if (targetUrl) fields.push({ key: "target_url", value: targetUrl });
+  if (headline) fields.push({ key: "headline", value: headline });
+  if (buttonText) fields.push({ key: "button_text", value: buttonText });
 
   // Convert status to Shopify metaobject publish status
   const publishStatus = status === "draft" ? "DRAFT" : "ACTIVE";
@@ -409,6 +416,7 @@ export const action = async ({ request }) => {
       variables: {
         metaobject: {
           type: "schedulable_entity",
+          handle: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
           fields,
           capabilities: {
             publishable: {
@@ -455,7 +463,8 @@ export const action = async ({ request }) => {
   }
 };
 
-function RichTextEditor({ name, label, defaultValue = "" }) {
+// RichTextEditor removed - content field no longer used
+/*function RichTextEditor({ name, label, defaultValue = "" }) {
   const [html, setHtml] = useState(defaultValue);
   const [isCodeView, setIsCodeView] = useState(false);
   const [codeText, setCodeText] = useState(defaultValue);
@@ -675,7 +684,7 @@ function RichTextEditor({ name, label, defaultValue = "" }) {
       <input type="hidden" name={name} ref={hiddenInputRef} value={html} />
     </div>
   );
-}
+}*/
 
 export default function SchedulrPage() {
   const { entries, error: loaderError } = useLoaderData();
@@ -935,9 +944,81 @@ export default function SchedulrPage() {
                 marginBottom: "0.75rem",
               }}
             />
-            <div style={{ marginBottom: "0.75rem" }}>
-              <RichTextEditor name="content" label="Content" />
-            </div>
+            <label htmlFor="desktop_banner" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Desktop Banner</label>
+            <input
+              type="file"
+              id="desktop_banner"
+              name="desktop_banner"
+              accept="image/*"
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+                fontSize: "0.875rem",
+                marginBottom: "0.75rem",
+              }}
+            />
+            <label htmlFor="mobile_banner" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Mobile Banner</label>
+            <input
+              type="file"
+              id="mobile_banner"
+              name="mobile_banner"
+              accept="image/*"
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+                fontSize: "0.875rem",
+                marginBottom: "0.75rem",
+              }}
+            />
+            <label htmlFor="target_url" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Target URL</label>
+            <input
+              type="url"
+              id="target_url"
+              name="target_url"
+              placeholder="https://example.com"
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+                fontSize: "0.875rem",
+                marginBottom: "0.75rem",
+              }}
+            />
+            <label htmlFor="headline" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Headline</label>
+            <input
+              type="text"
+              id="headline"
+              name="headline"
+              placeholder="Headline text"
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+                fontSize: "0.875rem",
+                marginBottom: "0.75rem",
+              }}
+            />
+            <label htmlFor="button_text" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.875rem" }}>Button Text</label>
+            <input
+              type="text"
+              id="button_text"
+              name="button_text"
+              placeholder="Button text"
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+                fontSize: "0.875rem",
+                marginBottom: "0.75rem",
+              }}
+            />
             <label
               htmlFor="status"
               style={{ display: "block", marginBottom: "0.375rem", fontWeight: "500", fontSize: "0.875rem" }}
@@ -1025,26 +1106,21 @@ export default function SchedulrPage() {
                   <s-text style={{ marginTop: "0.5rem" }}>
                     {startDate} → {endDate}
                   </s-text>
-                  {fieldMap.content && (() => {
-                    let html = fieldMap.content;
-                    try {
-                      const parsed = JSON.parse(fieldMap.content);
-                      if (parsed && typeof parsed === "object" && parsed.html) {
-                        html = parsed.html;
-                      }
-                    } catch (_) {}
-                    return (
-                      <div
-                        style={{
-                          marginTop: "0.75rem",
-                          padding: "0.75rem",
-                          borderTop: "1px solid #e1e3e5",
-                          paddingTop: "0.75rem",
-                        }}
-                        dangerouslySetInnerHTML={{ __html: html }}
-                      />
-                    );
-                  })()}
+                  {fieldMap.headline && (
+                    <s-text style={{ marginTop: "0.5rem", fontWeight: "600" }}>
+                      {fieldMap.headline}
+                    </s-text>
+                  )}
+                  {fieldMap.target_url && (
+                    <s-text variant="subdued" style={{ marginTop: "0.5rem" }}>
+                      Target: {fieldMap.target_url}
+                    </s-text>
+                  )}
+                  {fieldMap.button_text && (
+                    <s-text variant="subdued" style={{ marginTop: "0.5rem" }}>
+                      Button: {fieldMap.button_text}
+                    </s-text>
+                  )}
                 </s-box>
               );
             })}

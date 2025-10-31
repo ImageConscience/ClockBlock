@@ -121,47 +121,6 @@ const shopify = shopifyApp({
               console.log(`[afterAuth] Successfully updated onlineStore and renderable capabilities`);
             }
             
-            // Also update content field if it's not rich_text
-            const contentField = def.fieldDefinitions?.find((f) => f.key === "content");
-            const typeName = String(contentField?.type?.name || "").toLowerCase();
-            if (!typeName.includes("rich_text")) {
-              console.log(`[afterAuth] Updating 'content' field type to rich_text_field`);
-              const fieldUpdateResponse = await admin.graphql(
-                `#graphql
-                mutation UpdateSchedulableEntityDefinition($id: ID!, $definition: MetaobjectDefinitionUpdateInput!) {
-                  metaobjectDefinitionUpdate(id: $id, definition: $definition) {
-                    metaobjectDefinition { id }
-                    userErrors { field message }
-                  }
-                }
-              `,
-                {
-                  variables: {
-                    id: def.id,
-                    definition: {
-                      fieldDefinitions: [
-                        {
-                          key: "content",
-                          name: "Content",
-                          type: "rich_text_field",
-                          required: false,
-                        },
-                      ],
-                    },
-                  },
-                },
-              );
-              const fieldUpdateJson = await fieldUpdateResponse.json();
-              console.log(`[afterAuth] Update field response:`, JSON.stringify(fieldUpdateJson, null, 2));
-              if (fieldUpdateJson?.data?.metaobjectDefinitionUpdate?.userErrors?.length) {
-                console.error(
-                  `[afterAuth] Failed to update definition: `,
-                  fieldUpdateJson.data.metaobjectDefinitionUpdate.userErrors
-                    .map((e) => `${e.field}: ${e.message}`)
-                    .join(", "),
-                );
-              }
-            }
           } catch (updateError) {
             console.error(`[afterAuth] Error updating existing definition:`, updateError);
           }
@@ -219,9 +178,33 @@ const shopify = shopifyApp({
                     required: false,
                   },
                   {
-                    name: "Content",
-                    key: "content",
-                    type: "rich_text_field",
+                    name: "Desktop Banner",
+                    key: "desktop_banner",
+                    type: "file_reference",
+                    required: false,
+                  },
+                  {
+                    name: "Mobile Banner",
+                    key: "mobile_banner",
+                    type: "file_reference",
+                    required: false,
+                  },
+                  {
+                    name: "Target URL",
+                    key: "target_url",
+                    type: "url",
+                    required: false,
+                  },
+                  {
+                    name: "Headline",
+                    key: "headline",
+                    type: "single_line_text_field",
+                    required: false,
+                  },
+                  {
+                    name: "Button Text",
+                    key: "button_text",
+                    type: "single_line_text_field",
                     required: false,
                   },
                 ],
