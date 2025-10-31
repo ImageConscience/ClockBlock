@@ -1,9 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import { useFetcher, useLoaderData, redirect, useNavigation, useRevalidator, json } from "react-router";
+import { useFetcher, useLoaderData, redirect, useNavigation, useRevalidator } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { createRequire } from "module";
+
+// Helper to return JSON response (React Router v7 compatible)
+const json = (data, init = {}) => {
+  return new Response(JSON.stringify(data), {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...init.headers,
+    },
+  });
+};
 
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
@@ -27,15 +38,15 @@ export const loader = async ({ request }) => {
     `,
       { variables: { first: 50 } },
     );
-    const json = await response.json();
+    const jsonResponse = await response.json();
 
-    console.log("Loader GraphQL response:", JSON.stringify(json, null, 2));
+    console.log("Loader GraphQL response:", JSON.stringify(jsonResponse, null, 2));
 
     // Check for GraphQL errors
-    if (json?.errors) {
-      console.error("GraphQL errors in loader:", JSON.stringify(json.errors, null, 2));
+    if (jsonResponse?.errors) {
+      console.error("GraphQL errors in loader:", JSON.stringify(jsonResponse.errors, null, 2));
       // If the error is about the type not existing, return empty array
-      const errorMessages = json.errors.map((e) => e.message).join(", ");
+      const errorMessages = jsonResponse.errors.map((e) => e.message).join(", ");
       if (errorMessages.includes("metaobject definition") || errorMessages.includes("type")) {
         console.warn("Metaobject definition may not exist yet. Returning empty entries.");
         return { entries: [], error: "Metaobject definition not found. Please ensure the app has been properly installed." };
@@ -43,7 +54,7 @@ export const loader = async ({ request }) => {
       throw new Error(`GraphQL error: ${errorMessages}`);
     }
 
-    const entries = json?.data?.metaobjects?.nodes ?? [];
+    const entries = jsonResponse?.data?.metaobjects?.nodes ?? [];
     
     // Fetch media files for picker
     let mediaFiles = [];
