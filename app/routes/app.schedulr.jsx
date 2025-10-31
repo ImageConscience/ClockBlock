@@ -196,6 +196,8 @@ export const action = async ({ request }) => {
   const headline = String(formData.get("headline") || "").trim();
   const buttonText = String(formData.get("button_text") || "").trim();
   const status = String(formData.get("status") || "active").trim();
+  // Get user's timezone offset in minutes (negative means ahead of UTC, positive means behind)
+  const userTimezoneOffset = parseInt(formData.get("timezone_offset") || "0", 10);
 
   // Query metaobject definition to check if it exists
   let definitionExists = false;
@@ -445,32 +447,69 @@ export const action = async ({ request }) => {
     };
   }
 
-  // Format dates to ISO 8601 - datetime-local returns YYYY-MM-DDTHH:mm
-  // We need to convert to ISO 8601 format
+  // Format dates to ISO 8601 - datetime-local returns YYYY-MM-DDTHH:mm in user's local time
+  // We need to preserve the user's local timezone when converting to ISO 8601
   const formatDateTime = (dateStr) => {
     if (!dateStr) return null;
     try {
       // datetime-local format is YYYY-MM-DDTHH:mm (no seconds or timezone)
-      // We need to add seconds and timezone
-      let date;
-      if (dateStr.includes("T") && !dateStr.includes("Z") && !dateStr.includes("+")) {
-        // datetime-local format - add seconds if not present
-        const normalized = dateStr.includes(":") && dateStr.split(":").length === 2
-          ? `${dateStr}:00`
-          : dateStr;
-        date = new Date(normalized);
-      } else {
-        date = new Date(dateStr);
+      // Parse the date components directly to preserve the exact time the user entered
+      const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
+      if (!match) {
+        // Fallback to Date parsing if format doesn't match
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) {
+          console.error("Invalid date:", dateStr);
+          return null;
+        }
+        const offset = userTimezoneOffset;
+        const offsetHours = Math.floor(Math.abs(offset) / 60).toString().padStart(2, '0');
+        const offsetMinutes = (Math.abs(offset) % 60).toString().padStart(2, '0');
+        const offsetSign = offset >= 0 ? '+' : '-';
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        const seconds = date.getSeconds().toString().padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetSign}${offsetHours}:${offsetMinutes}`;
       }
-      if (isNaN(date.getTime())) {
-        console.error("Invalid date:", dateStr);
-        return null;
-      }
-      return date.toISOString();
+      
+      // Extract date components (user entered these in their local timezone)
+      const year = match[1];
+      const month = match[2];
+      const day = match[3];
+      const hours = match[4];
+      const minutes = match[5];
+      const seconds = match[6] || "00";
+      
+      // Use user's timezone offset
+      const offset = userTimezoneOffset;
+      const offsetHours = Math.floor(Math.abs(offset) / 60).toString().padStart(2, '0');
+      const offsetMinutes = (Math.abs(offset) % 60).toString().padStart(2, '0');
+      const offsetSign = offset >= 0 ? '+' : '-';
+      
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetSign}${offsetHours}:${offsetMinutes}`;
     } catch (error) {
       console.error("Date formatting error:", error, dateStr);
       return null;
     }
+  };
+
+  // Helper function to create default date in user's local timezone
+  const createLocalDate = (year, month, day, hours, minutes, seconds = 0) => {
+    // Format date components with user's timezone offset
+    const offset = userTimezoneOffset;
+    const offsetHours = Math.floor(Math.abs(offset) / 60).toString().padStart(2, '0');
+    const offsetMinutes = (Math.abs(offset) % 60).toString().padStart(2, '0');
+    const offsetSign = offset >= 0 ? '+' : '-';
+    const y = year.toString().padStart(4, '0');
+    const m = month.toString().padStart(2, '0');
+    const d = day.toString().padStart(2, '0');
+    const h = hours.toString().padStart(2, '0');
+    const min = minutes.toString().padStart(2, '0');
+    const s = seconds.toString().padStart(2, '0');
+    return `${y}-${m}-${d}T${h}:${min}:${s}${offsetSign}${offsetHours}:${offsetMinutes}`;
   };
 
   console.log("Raw form data:", {
@@ -487,14 +526,14 @@ export const action = async ({ request }) => {
     status,
   });
 
-  // Set default dates if not provided
+  // Set default dates if not provided (in user's local timezone)
   // Default start: Jan 1, 2000 at 12:00 AM
   // Default end: Dec 31, 2100 at 11:59 PM
-  const defaultStartDate = new Date("2000-01-01T00:00:00Z");
-  const defaultEndDate = new Date("2100-12-31T23:59:59Z");
+  const defaultStartDateISO = createLocalDate(2000, 1, 1, 0, 0, 0);
+  const defaultEndDateISO = createLocalDate(2100, 12, 31, 23, 59, 59);
   
-  const formattedStartAt = startAt ? formatDateTime(startAt) : defaultStartDate.toISOString();
-  const formattedEndAt = endAt ? formatDateTime(endAt) : defaultEndDate.toISOString();
+  const formattedStartAt = startAt ? formatDateTime(startAt) : defaultStartDateISO;
+  const formattedEndAt = endAt ? formatDateTime(endAt) : defaultEndDateISO;
   
   console.log("Formatted dates:", {
     formattedStartAt,
@@ -1485,6 +1524,12 @@ export default function SchedulrPage() {
               <s-heading size="large" style={{ marginBottom: "1rem", marginTop: 0 }}>Create New Entry</s-heading>
               <fetcher.Form method="post" ref={formRef} encType="application/x-www-form-urlencoded">
           <s-stack direction="block" gap="base">
+            {/* Hidden field to capture user's timezone offset */}
+            <input
+              type="hidden"
+              name="timezone_offset"
+              defaultValue={new Date().getTimezoneOffset() * -1}
+            />
             <s-text-field
               label="Title"
               name="title"
