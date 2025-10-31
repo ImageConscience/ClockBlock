@@ -249,8 +249,8 @@ export const action = async ({ request }) => {
       
       console.log("[ACTION] Staged upload target created, uploading file...");
       
-      // Step 2: Upload file to staged URL using axios
-      const axios = (await import("axios")).default;
+      // Step 2: Upload file to staged URL using Node's native fetch
+      // Node's fetch doesn't add extra headers that break signature verification
       const FormDataClass = (await import("form-data")).default;
       
       const formDataToUpload = new FormDataClass();
@@ -266,17 +266,45 @@ export const action = async ({ request }) => {
         contentType: fileType,
       });
       
+      // Get headers from form-data
+      const headers = formDataToUpload.getHeaders();
+      
+      // Convert form-data to buffer for fetch
+      // form-data needs to be consumed to get the full buffer
+      const chunks = [];
+      formDataToUpload.on('data', (chunk) => chunks.push(chunk));
+      formDataToUpload.on('end', () => {});
+      
+      // Wait for form-data to finish emitting
+      await new Promise((resolve, reject) => {
+        formDataToUpload.on('end', resolve);
+        formDataToUpload.on('error', reject);
+        // Trigger the form-data to start emitting
+        formDataToUpload.resume();
+      });
+      
+      const formDataBuffer = Buffer.concat(chunks);
+      
       console.log("[ACTION] Uploading to staged URL:", stagedTarget.url);
-      const uploadResponse = await axios.post(stagedTarget.url, formDataToUpload, {
-        headers: formDataToUpload.getHeaders(),
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
+      console.log("[ACTION] Form data buffer size:", formDataBuffer.length, "bytes");
+      
+      // Use Node's native fetch with minimal headers
+      const uploadResponse = await fetch(stagedTarget.url, {
+        method: 'POST',
+        body: formDataBuffer,
+        headers: {
+          'Content-Type': headers['content-type'],
+          'Content-Length': formDataBuffer.length.toString(),
+          // Don't add any other headers - they break signature verification
+        },
       });
       
       console.log("[ACTION] Staged upload response status:", uploadResponse.status);
       
-      if (uploadResponse.status !== 200 && uploadResponse.status !== 204) {
+      if (!uploadResponse.ok && uploadResponse.status !== 200 && uploadResponse.status !== 204) {
+        const errorText = await uploadResponse.text();
         console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.status);
+        console.error("[ACTION] Error response:", errorText);
         return json({ 
           error: `Failed to upload file: HTTP ${uploadResponse.status}`, 
           success: false 
