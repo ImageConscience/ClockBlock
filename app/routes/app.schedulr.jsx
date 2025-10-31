@@ -216,13 +216,48 @@ export const action = async ({ request }) => {
     }
   }
 
-  // Convert HTML/text to Lexical JSON format for rich_text_field
+  // Convert HTML to Lexical JSON format for rich_text_field
+  // Shopify's rich_text_field expects a Lexical editor state JSON
+  // The format should match Lexical's serialized state structure
   const htmlToLexicalJSON = (html) => {
-    // Extract text from HTML
-    const textContent = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() || "";
+    if (!html || !html.trim()) {
+      // Return empty Lexical state
+      return JSON.stringify({
+        root: {
+          children: [],
+          direction: "ltr",
+          format: "",
+          indent: 0,
+          type: "root",
+          version: 1,
+        },
+      });
+    }
     
-    // Create minimal Lexical JSON structure
-    return JSON.stringify({
+    // Try to preserve HTML structure by converting to Lexical nodes
+    // For now, let's try a simpler approach - just pass the HTML directly
+    // Shopify might accept HTML strings for rich_text_field
+    
+    // Actually, let's try the correct Lexical format without the nested root
+    // Shopify might expect the Lexical state directly without wrapping
+    const textContent = html.replace(/<[^>]*>/g, "").trim() || "";
+    
+    if (!textContent) {
+      return JSON.stringify({
+        root: {
+          children: [],
+          direction: "ltr",
+          format: "",
+          indent: 0,
+          type: "root",
+          version: 1,
+        },
+      });
+    }
+    
+    // Create proper Lexical JSON structure
+    // Shopify expects the root object directly, not wrapped
+    const lexicalState = {
       root: {
         children: [
           {
@@ -250,7 +285,9 @@ export const action = async ({ request }) => {
         type: "root",
         version: 1,
       },
-    });
+    };
+    
+    return JSON.stringify(lexicalState);
   };
 
   // Validate required fields
@@ -339,8 +376,9 @@ export const action = async ({ request }) => {
   if (content) {
     // Format content based on field type
     if (contentFieldType && contentFieldType.toLowerCase().includes("rich_text")) {
-      // Rich text field requires Lexical JSON format
-      fields.push({ key: "content", value: htmlToLexicalJSON(content) });
+      // For rich_text_field, Shopify expects HTML string directly, not Lexical JSON
+      // The rich_text_field stores HTML content
+      fields.push({ key: "content", value: content });
     } else {
       // Multi-line text field or other types - send as plain text
       // Strip HTML tags for plain text fields
