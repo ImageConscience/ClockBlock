@@ -3,8 +3,6 @@ import { useFetcher, useLoaderData, redirect, useNavigation, useRevalidator } fr
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
-import FormData from "form-data";
-import { request } from "undici";
 
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
@@ -100,6 +98,11 @@ export const action = async ({ request }) => {
   
   if (file && !hasTitle) {
     // This is a file upload request - handle it here using staged uploads
+    // Import server-only modules here (not at top level to avoid client bundle issues)
+    const FormDataModule = await import("form-data");
+    const FormData = FormDataModule.default || FormDataModule;
+    const { request } = await import("undici");
+    
     try {
       console.log("[ACTION] File upload request received");
       console.log("[ACTION] File type:", file instanceof File ? "File object" : typeof file);
