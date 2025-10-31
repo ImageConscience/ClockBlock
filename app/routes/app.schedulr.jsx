@@ -3,7 +3,7 @@ import { useFetcher, useLoaderData, redirect, useNavigation, useRevalidator } fr
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
-import { createRequire } from "module";
+// createRequire no longer needed - removed form-data package
 
 // Helper to return JSON response (React Router v7 compatible)
 const json = (data, init = {}) => {
