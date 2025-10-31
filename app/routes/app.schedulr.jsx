@@ -682,7 +682,8 @@ export default function SchedulrPage() {
       if (formRef.current) {
         formRef.current.reset();
       }
-      // Don't close the modal - let user create another entry
+      // Close the modal after successful submission
+      setShowForm(false);
     }
   }, [fetcher.data, fetcher.state, shopify, revalidator]);
 
@@ -717,11 +718,13 @@ export default function SchedulrPage() {
           style={{
             marginTop: "0.75rem",
             padding: "0.5rem 0.75rem",
-            border: "1px solid #c9cccf",
+            border: "none",
             borderRadius: "4px",
-            background: "#fff",
+            background: "#008060",
+            color: "#fff",
             cursor: "pointer",
-            fontSize: "1rem",
+            fontSize: "0.875rem",
+            fontWeight: "600",
           }}
         >
           New Entry
@@ -794,11 +797,11 @@ export default function SchedulrPage() {
             </button>
 
             {/* Modal Content */}
-            <div style={{ padding: "2rem" }}>
-              <h2 style={{ fontSize: "1.5rem", marginBottom: "1.5rem", marginTop: 0 }}>Create New Entry</h2>
+            <div style={{ padding: "1.5rem" }}>
+              <h2 style={{ fontSize: "1.25rem", marginBottom: "1rem", marginTop: 0, fontWeight: "600" }}>Create New Entry</h2>
               <fetcher.Form method="post" ref={formRef}>
           <s-stack direction="block" gap="base">
-            <label htmlFor="title" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>Title</label>
+            <label htmlFor="title" style={{ display: "block", marginBottom: "0.375rem", fontWeight: "500", fontSize: "0.875rem" }}>Title</label>
             <input
               type="text"
               id="title"
@@ -809,10 +812,11 @@ export default function SchedulrPage() {
                 padding: "0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
-                fontSize: "1rem",
+                fontSize: "0.875rem",
+                marginBottom: "0.75rem",
               }}
             />
-            <label htmlFor="position_id" style={{ display: "block", marginTop: "1rem", marginBottom: "0.5rem", fontWeight: "500" }}>Position ID</label>
+            <label htmlFor="position_id" style={{ display: "block", marginBottom: "0.375rem", fontWeight: "500", fontSize: "0.875rem" }}>Position ID</label>
             <input
               type="text"
               id="position_id"
@@ -824,10 +828,11 @@ export default function SchedulrPage() {
                 padding: "0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
-                fontSize: "1rem",
+                fontSize: "0.875rem",
+                marginBottom: "0.75rem",
               }}
             />
-            <label htmlFor="description" style={{ display: "block", marginTop: "1rem", marginBottom: "0.5rem", fontWeight: "500" }}>Description</label>
+            <label htmlFor="description" style={{ display: "block", marginBottom: "0.375rem", fontWeight: "500", fontSize: "0.875rem" }}>Description</label>
             <textarea
               id="description"
               name="description"
@@ -838,55 +843,59 @@ export default function SchedulrPage() {
                 padding: "0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
-                fontSize: "1rem",
+                fontSize: "0.875rem",
                 resize: "vertical",
+                marginBottom: "0.75rem",
               }}
             />
-            <label
-              htmlFor="start_at"
-              style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}
-            >
-              Start Date & Time
-            </label>
-            <input
-              type="datetime-local"
-              id="start_at"
-              name="start_at"
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                border: "1px solid #c9cccf",
-                borderRadius: "4px",
-                fontSize: "1rem",
-              }}
-            />
-            <label
-              htmlFor="end_at"
-              style={{
-                display: "block",
-                marginTop: "1rem",
-                marginBottom: "0.5rem",
-                fontWeight: "500",
-              }}
-            >
-              End Date & Time
-            </label>
-            <input
-              type="datetime-local"
-              id="end_at"
-              name="end_at"
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                border: "1px solid #c9cccf",
-                borderRadius: "4px",
-                fontSize: "1rem",
-              }}
-            />
-            <RichTextEditor name="content" label="Content" />
+             <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.75rem" }}>
+              <div style={{ flex: "1" }}>
+                <label
+                  htmlFor="start_at"
+                  style={{ display: "block", marginBottom: "0.375rem", fontWeight: "500", fontSize: "0.875rem" }}
+                >
+                  Start Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  id="start_at"
+                  name="start_at"
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    border: "1px solid #c9cccf",
+                    borderRadius: "4px",
+                    fontSize: "0.875rem",
+                  }}
+                />
+              </div>
+              <div style={{ flex: "1" }}>
+                <label
+                  htmlFor="end_at"
+                  style={{ display: "block", marginBottom: "0.375rem", fontWeight: "500", fontSize: "0.875rem" }}
+                >
+                  End Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  id="end_at"
+                  name="end_at"
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem",
+                    border: "1px solid #c9cccf",
+                    borderRadius: "4px",
+                    fontSize: "0.875rem",
+                  }}
+                />
+              </div>
+            </div>
+            <div style={{ marginBottom: "0.75rem" }}>
+              <RichTextEditor name="content" label="Content" />
+            </div>
             <label
               htmlFor="status"
-              style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}
+              style={{ display: "block", marginBottom: "0.375rem", fontWeight: "500", fontSize: "0.875rem" }}
             >
               Entry Status
             </label>
@@ -898,7 +907,8 @@ export default function SchedulrPage() {
                 padding: "0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
-                fontSize: "1rem",
+                fontSize: "0.875rem",
+                marginBottom: "0.75rem",
               }}
               defaultValue="active"
             >
@@ -907,11 +917,13 @@ export default function SchedulrPage() {
             </select>
             <button type="submit" disabled={isLoading} style={{
               padding: "0.5rem 0.75rem",
-              border: "1px solid #c9cccf",
+              border: "none",
               borderRadius: "4px",
-              background: isLoading ? "#e1e3e5" : "#fff",
+              background: isLoading ? "#e1e3e5" : "#008060",
+              color: isLoading ? "#666" : "#fff",
               cursor: isLoading ? "not-allowed" : "pointer",
-              fontSize: "1rem",
+              fontSize: "0.875rem",
+              fontWeight: "600",
             }}>
               {isLoading ? "Creating..." : "Create Entry"}
             </button>
