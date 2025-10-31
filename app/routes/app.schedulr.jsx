@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useFetcher, useLoaderData, redirect, useNavigation, useRevalidator } from "react-router";
+import { useFetcher, useLoaderData, redirect, useNavigation, useRevalidator, json } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
@@ -113,18 +113,18 @@ export const action = async ({ request }) => {
       
       if (!FormData || typeof FormData !== "function") {
         console.error("[ACTION] FormData is not a constructor:", typeof FormData);
-        return { error: "Failed to load FormData module", success: false };
+        return json({ error: "Failed to load FormData module", success: false });
       }
       
       if (!undiciRequest || typeof undiciRequest !== "function") {
         console.error("[ACTION] undiciRequest is not a function:", typeof undiciRequest);
-        return { error: "Failed to load request function", success: false };
+        return json({ error: "Failed to load request function", success: false });
       }
       
       console.log("[ACTION] FormData and undiciRequest loaded successfully");
     } catch (importError) {
       console.error("[ACTION] Error importing server modules:", importError);
-      return { error: `Failed to load upload modules: ${importError.message}`, success: false };
+      return json({ error: `Failed to load upload modules: ${importError.message}`, success: false });
     }
     
     try {
@@ -137,12 +137,12 @@ export const action = async ({ request }) => {
       
       if (!file) {
         console.error("[ACTION] No file provided in form data");
-        return { error: "No file provided", success: false };
+        return json({ error: "No file provided", success: false });
       }
       
       if (!(file instanceof File)) {
         console.error("[ACTION] File is not a File object, type:", typeof file);
-        return { error: "Invalid file format", success: false };
+        return json({ error: "Invalid file format", success: false });
       }
       
       const fileType = file.type || "image/jpeg";
@@ -194,7 +194,7 @@ export const action = async ({ request }) => {
           .map((e) => e.message)
           .join(", ");
         console.error("[ACTION] GraphQL errors creating staged upload:", errors);
-        return { error: `Failed to create staged upload: ${errors}`, success: false };
+        return json({ error: `Failed to create staged upload: ${errors}`, success: false });
       }
       
       if (stagedJson?.data?.stagedUploadsCreate?.userErrors?.length > 0) {
@@ -202,14 +202,14 @@ export const action = async ({ request }) => {
           .map((e) => e.message)
           .join(", ");
         console.error("[ACTION] User errors creating staged upload:", errors);
-        return { error: `Failed to create staged upload: ${errors}`, success: false };
+        return json({ error: `Failed to create staged upload: ${errors}`, success: false });
       }
       
       const stagedTarget = stagedJson?.data?.stagedUploadsCreate?.stagedTargets?.[0];
       if (!stagedTarget?.url || !stagedTarget?.resourceUrl) {
         console.error("[ACTION] No staged upload target returned");
         console.error("[ACTION] Staged upload response structure:", JSON.stringify(stagedJson, null, 2));
-        return { error: "Failed to create staged upload target", success: false };
+        return json({ error: "Failed to create staged upload target", success: false });
       }
       
       console.log("[ACTION] Staged upload target created");
@@ -228,7 +228,7 @@ export const action = async ({ request }) => {
       
       if (!formDataToUpload || typeof formDataToUpload.append !== "function") {
         console.error("[ACTION] FormData instance is invalid:", typeof formDataToUpload);
-        return { error: "Failed to create FormData instance", success: false };
+        return json({ error: "Failed to create FormData instance", success: false });
       }
       
       // Append parameters in the exact order provided by Shopify (order matters for signature)
@@ -244,7 +244,7 @@ export const action = async ({ request }) => {
       // Get headers from form-data (includes Content-Type with boundary)
       if (typeof formDataToUpload.getHeaders !== "function") {
         console.error("[ACTION] FormData instance does not have getHeaders method");
-        return { error: "FormData instance is missing getHeaders method", success: false };
+        return json({ error: "FormData instance is missing getHeaders method", success: false });
       }
       
       const headers = formDataToUpload.getHeaders();
@@ -279,7 +279,7 @@ export const action = async ({ request }) => {
         const responseText = await uploadResponse.body.text();
         console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.statusCode);
         console.error("[ACTION] Response body:", responseText);
-        return { error: `Failed to upload file: HTTP ${uploadResponse.statusCode}`, success: false };
+        return json({ error: `Failed to upload file: HTTP ${uploadResponse.statusCode}`, success: false });
       }
       
       // Read and log the response body (may be empty, but we should consume it)
@@ -342,7 +342,7 @@ export const action = async ({ request }) => {
           .map((e) => e.message)
           .join(", ");
         console.error("[ACTION] GraphQL errors creating file:", errors);
-        return { error: `Failed to create file: ${errors}`, success: false };
+        return json({ error: `Failed to create file: ${errors}`, success: false });
       }
       
       if (fileCreateJson?.data?.fileCreate?.userErrors?.length > 0) {
@@ -350,32 +350,32 @@ export const action = async ({ request }) => {
           .map((e) => e.message)
           .join(", ");
         console.error("[ACTION] User errors creating file:", errors);
-        return { error: `Failed to create file: ${errors}`, success: false };
+        return json({ error: `Failed to create file: ${errors}`, success: false });
       }
       
       const uploadedFile = fileCreateJson?.data?.fileCreate?.files?.[0];
       if (!uploadedFile?.id) {
         console.error("[ACTION] No file ID returned in response");
-        return { error: "File uploaded but no ID returned", success: false };
+        return json({ error: "File uploaded but no ID returned", success: false });
       }
       
       console.log("[ACTION] File uploaded successfully, ID:", uploadedFile.id);
       
-      return {
+      return json({
         success: true,
         file: {
           id: uploadedFile.id,
           url: uploadedFile.image?.url || "",
           alt: uploadedFile.alt || file.name,
         },
-      };
+      });
     } catch (error) {
       console.error("[ACTION] Error uploading file:", error);
       console.error("[ACTION] Error stack:", error.stack);
-      return {
+      return json({
         error: `Failed to upload file: ${error.message}`,
         success: false,
-      };
+      });
     }
   }
   
