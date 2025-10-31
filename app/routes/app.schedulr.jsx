@@ -1361,18 +1361,42 @@ export default function SchedulrPage() {
               required
               placeholder="e.g., homepage_banner"
             />
-                  <s-stack direction="inline" gap="tight" style={{ gap: "15px" }}>
-                    <s-text-field
-                      label="Start Date"
-                      name="start_at"
-                      type="date"
-                    />
-                    <s-text-field
-                      label="End Date"
-                      name="end_at"
-                      type="date"
-                    />
-                  </s-stack>
+                  <div style={{ display: "flex", gap: "15px", marginBottom: "0.5rem" }}>
+                    <div style={{ flex: 1 }}>
+                      <label htmlFor="start_at" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", fontSize: "0.875rem" }}>
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        id="start_at"
+                        name="start_at"
+                        style={{
+                          width: "100%",
+                          padding: "0.5rem",
+                          border: "1px solid #c9cccf",
+                          borderRadius: "4px",
+                          fontSize: "0.875rem",
+                        }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label htmlFor="end_at" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", fontSize: "0.875rem" }}>
+                        End Date
+                      </label>
+                      <input
+                        type="date"
+                        id="end_at"
+                        name="end_at"
+                        style={{
+                          width: "100%",
+                          padding: "0.5rem",
+                          border: "1px solid #c9cccf",
+                          borderRadius: "4px",
+                          fontSize: "0.875rem",
+                        }}
+                      />
+                    </div>
+                  </div>
                   <s-text-field
                     label="Description"
                     name="description"
