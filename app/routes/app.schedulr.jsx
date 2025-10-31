@@ -274,17 +274,22 @@ export const action = async ({ request }) => {
       
       // Convert form-data to buffer using a proper method
       // form-data needs to be piped/consumed to get the buffer
-      const { Readable } = await import('stream');
       const chunks = [];
       
       return new Promise((resolve, reject) => {
         formDataToUpload.on('data', (chunk) => {
-          chunks.push(chunk);
+          // Convert chunk to buffer if it's a string
+          const bufferChunk = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          chunks.push(bufferChunk);
         });
         
         formDataToUpload.on('end', async () => {
           try {
-            const formDataBuffer = Buffer.concat(chunks);
+            // Ensure all chunks are buffers before concatenating
+            const bufferChunks = chunks.map(chunk => 
+              Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, typeof chunk === 'string' ? 'utf8' : undefined)
+            );
+            const formDataBuffer = Buffer.concat(bufferChunks);
             console.log("[ACTION] Form data buffer created, size:", formDataBuffer.length, "bytes");
             
             // Use Node's native fetch with the buffer
