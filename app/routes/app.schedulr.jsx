@@ -102,8 +102,8 @@ export const action = async ({ request }) => {
   const endAt = String(formData.get("end_at") || "").trim();
   const title = String(formData.get("title") || "").trim();
   const description = String(formData.get("description") || "").trim();
-  const desktopBannerFile = formData.get("desktop_banner");
-  const mobileBannerFile = formData.get("mobile_banner");
+  const desktopBannerFileId = String(formData.get("desktop_banner") || "").trim() || null;
+  const mobileBannerFileId = String(formData.get("mobile_banner") || "").trim() || null;
   const targetUrl = String(formData.get("target_url") || "").trim();
   const headline = String(formData.get("headline") || "").trim();
   const buttonText = String(formData.get("button_text") || "").trim();
