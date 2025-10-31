@@ -273,7 +273,17 @@ export const action = async ({ request }) => {
       
       // Use undici to stream form-data directly - this preserves the exact format
       // that Google Cloud Storage expects for signature verification
-      const { request: undiciRequest } = await import("undici");
+      let undiciRequest;
+      try {
+        const undiciModule = await import("undici");
+        undiciRequest = undiciModule.request;
+      } catch (importError) {
+        console.error("[ACTION] Failed to import undici:", importError);
+        return json({ 
+          error: `Failed to import upload library: ${importError.message}`, 
+          success: false 
+        });
+      }
       
       // Add timeout for the upload request (60 seconds)
       const uploadTimeout = setTimeout(() => {
@@ -283,16 +293,17 @@ export const action = async ({ request }) => {
       try {
         // Use undici with form-data stream directly
         // This ensures the exact multipart format is preserved
-        const uploadResponse = await Promise.race([
-          undiciRequest(stagedTarget.url, {
-            method: 'POST',
-            body: formDataToUpload, // Pass stream directly
-            headers: headers, // Use form-data's headers (includes boundary)
-          }),
-          new Promise((_, reject) => {
-            setTimeout(() => reject(new Error("Upload timeout after 60 seconds")), 60000);
-          })
-        ]);
+        const uploadPromise = undiciRequest(stagedTarget.url, {
+          method: 'POST',
+          body: formDataToUpload, // Pass stream directly
+          headers: headers, // Use form-data's headers (includes boundary)
+        });
+        
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("Upload timeout after 60 seconds")), 60000);
+        });
+        
+        const uploadResponse = await Promise.race([uploadPromise, timeoutPromise]);
         
         clearTimeout(uploadTimeout);
         console.log("[ACTION] Staged upload response status:", uploadResponse.statusCode);
