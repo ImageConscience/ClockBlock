@@ -148,15 +148,15 @@ export const action = async ({ request }) => {
                   required: false,
                 },
                 {
-                  name: "Content",
-                  key: "content",
-                  type: "multi_line_text_field",
-                  required: false,
-                },
-                {
                   name: "Description",
                   key: "description",
                   type: "single_line_text_field",
+                  required: false,
+                },
+                {
+                  name: "Content",
+                  key: "content",
+                  type: "rich_text_field",
                   required: false,
                 },
               ],
@@ -199,8 +199,8 @@ export const action = async ({ request }) => {
       if (createDefJson?.data?.metaobjectDefinitionCreate?.metaobjectDefinition?.id) {
         console.log("[ACTION] Metaobject definition created successfully");
         definitionExists = true;
-        // Set contentFieldType for multi_line_text_field
-        contentFieldType = "multi_line_text_field";
+        // Set contentFieldType for rich_text_field
+        contentFieldType = "rich_text_field";
       } else {
         return {
           error: "Failed to create metaobject definition. Please try again or contact support.",

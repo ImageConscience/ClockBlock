@@ -121,11 +121,11 @@ const shopify = shopifyApp({
               console.log(`[afterAuth] Successfully updated onlineStore and renderable capabilities`);
             }
             
-            // Also update content field if it's rich_text
+            // Also update content field if it's not rich_text
             const contentField = def.fieldDefinitions?.find((f) => f.key === "content");
             const typeName = String(contentField?.type?.name || "").toLowerCase();
-            if (typeName.includes("rich_text")) {
-              console.log(`[afterAuth] Updating 'content' field type from rich_text_field to multi_line_text_field`);
+            if (!typeName.includes("rich_text")) {
+              console.log(`[afterAuth] Updating 'content' field type to rich_text_field`);
               const fieldUpdateResponse = await admin.graphql(
                 `#graphql
                 mutation UpdateSchedulableEntityDefinition($id: ID!, $definition: MetaobjectDefinitionUpdateInput!) {
@@ -143,7 +143,7 @@ const shopify = shopifyApp({
                         {
                           key: "content",
                           name: "Content",
-                          type: "multi_line_text_field",
+                          type: "rich_text_field",
                           required: false,
                         },
                       ],
@@ -213,15 +213,15 @@ const shopify = shopifyApp({
                     required: false,
                   },
                   {
-                    name: "Content",
-                    key: "content",
-                    type: "multi_line_text_field",
-                    required: false,
-                  },
-                  {
                     name: "Description",
                     key: "description",
                     type: "single_line_text_field",
+                    required: false,
+                  },
+                  {
+                    name: "Content",
+                    key: "content",
+                    type: "rich_text_field",
                     required: false,
                   },
                 ],
