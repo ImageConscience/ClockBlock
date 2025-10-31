@@ -314,8 +314,9 @@ export const action = async ({ request }) => {
       console.log("[ACTION] Parameters to include:", stagedTarget.parameters.map(p => `${p.name}=${p.value}`).join(', '));
       
       // Manually construct multipart/form-data body
-      // The signature verification requires the exact format, so we construct it manually
-      const boundary = `----WebKitFormBoundary${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+      // Use a simpler boundary format that's more compatible with Google Cloud Storage signatures
+      // Generate a UUID-like boundary (standard multipart format)
+      const boundary = `----formdata-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
       
       const parts = [];
       
@@ -330,9 +331,11 @@ export const action = async ({ request }) => {
       }
       
       // File must be appended last
+      // Escape filename if it contains special characters
+      const escapedFileName = fileName.replace(/"/g, '\\"');
       parts.push(
         `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n` +
+        `Content-Disposition: form-data; name="file"; filename="${escapedFileName}"\r\n` +
         `Content-Type: ${fileType}\r\n` +
         `\r\n`
       );
