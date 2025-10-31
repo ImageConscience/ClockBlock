@@ -102,16 +102,17 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
-  console.log("[ACTION] Action called - request method:", request.method);
-  const formData = await request.formData();
-  
-  // Check if this is a file upload request (has file but no title/position_id)
-  const file = formData.get("file");
-  const hasTitle = formData.get("title");
-  
-  console.log("[ACTION] File present:", !!file, "Has title:", !!hasTitle, "File type:", file instanceof File ? file.type : typeof file);
-  
-  if (file && !hasTitle) {
+  try {
+    console.log("[ACTION] Action called - request method:", request.method);
+    const formData = await request.formData();
+    
+    // Check if this is a file upload request (has file but no title/position_id)
+    const file = formData.get("file");
+    const hasTitle = formData.get("title");
+    
+    console.log("[ACTION] File present:", !!file, "Has title:", !!hasTitle, "File type:", file instanceof File ? file.type : typeof file);
+    
+    if (file && !hasTitle) {
     console.log("[ACTION] Detected file upload request");
     // This is a file upload request - handle it here using staged uploads
     // Import server-only modules here (not at top level to avoid client bundle issues)
@@ -394,29 +395,28 @@ export const action = async ({ request }) => {
     }
   }
   
-  console.log("[ACTION] Action called - starting entry creation");
-  try {
+    console.log("[ACTION] Action called - starting entry creation");
     const { admin } = await authenticate.admin(request);
     console.log("[ACTION] Admin authenticated successfully");
     console.log("[ACTION] Form data received");
 
-  const positionId = String(formData.get("position_id") || "").trim();
-  const startAt = String(formData.get("start_at") || "").trim();
-  const endAt = String(formData.get("end_at") || "").trim();
-  const title = String(formData.get("title") || "").trim();
-  const description = String(formData.get("description") || "").trim();
-  const desktopBannerFileId = String(formData.get("desktop_banner") || "").trim() || null;
-  const mobileBannerFileId = String(formData.get("mobile_banner") || "").trim() || null;
-  const targetUrl = String(formData.get("target_url") || "").trim();
-  const headline = String(formData.get("headline") || "").trim();
-  const buttonText = String(formData.get("button_text") || "").trim();
-  const status = String(formData.get("status") || "active").trim();
-  // Get user's timezone offset in minutes (negative means ahead of UTC, positive means behind)
-  const userTimezoneOffset = parseInt(formData.get("timezone_offset") || "0", 10);
+    const positionId = String(formData.get("position_id") || "").trim();
+    const startAt = String(formData.get("start_at") || "").trim();
+    const endAt = String(formData.get("end_at") || "").trim();
+    const title = String(formData.get("title") || "").trim();
+    const description = String(formData.get("description") || "").trim();
+    const desktopBannerFileId = String(formData.get("desktop_banner") || "").trim() || null;
+    const mobileBannerFileId = String(formData.get("mobile_banner") || "").trim() || null;
+    const targetUrl = String(formData.get("target_url") || "").trim();
+    const headline = String(formData.get("headline") || "").trim();
+    const buttonText = String(formData.get("button_text") || "").trim();
+    const status = String(formData.get("status") || "active").trim();
+    // Get user's timezone offset in minutes (negative means ahead of UTC, positive means behind)
+    const userTimezoneOffset = parseInt(formData.get("timezone_offset") || "0", 10);
 
-  // Query metaobject definition to check if it exists
-  let definitionExists = false;
-  try {
+    // Query metaobject definition to check if it exists
+    let definitionExists = false;
+    try {
     const defResponse = await admin.graphql(
       `#graphql
       query($type: String!) {
@@ -427,21 +427,21 @@ export const action = async ({ request }) => {
     `,
       { variables: { type: "schedulable_entity" } }
     );
-    const defJson = await defResponse.json();
-    definitionExists = Boolean(defJson?.data?.metaobjectDefinitionByType?.id);
-    
-    if (definitionExists) {
-      console.log("[ACTION] Metaobject definition exists.");
-    } else {
-      console.log("[ACTION] Metaobject definition does not exist. Creating it...");
+      const defJson = await defResponse.json();
+      definitionExists = Boolean(defJson?.data?.metaobjectDefinitionByType?.id);
+      
+      if (definitionExists) {
+        console.log("[ACTION] Metaobject definition exists.");
+      } else {
+        console.log("[ACTION] Metaobject definition does not exist. Creating it...");
+      }
+    } catch (defError) {
+      console.error("[ACTION] Could not query metaobject definition:", defError);
+      definitionExists = false;
     }
-  } catch (defError) {
-    console.error("[ACTION] Could not query metaobject definition:", defError);
-    definitionExists = false;
-  }
 
-  // If definition doesn't exist, create it
-  if (!definitionExists) {
+    // If definition doesn't exist, create it
+    if (!definitionExists) {
     try {
       console.log("[ACTION] Creating metaobject definition...");
       const createDefResponse = await admin.graphql(
@@ -550,27 +550,27 @@ export const action = async ({ request }) => {
         const errors = createDefJson.data.metaobjectDefinitionCreate.userErrors
           .map((e) => `${e.field}: ${e.message}`)
           .join(", ");
-        return {
+        return json({
           error: `Failed to create metaobject definition: ${errors}. Please try again or contact support.`,
           success: false,
-        };
+        });
       }
 
       if (createDefJson?.data?.metaobjectDefinitionCreate?.metaobjectDefinition?.id) {
         console.log("[ACTION] Metaobject definition created successfully");
         definitionExists = true;
       } else {
-        return {
+        return json({
           error: "Failed to create metaobject definition. Please try again or contact support.",
           success: false,
-        };
+        });
       }
     } catch (createDefError) {
       console.error("[ACTION] Error creating metaobject definition:", createDefError);
-      return {
+      return json({
         error: `Failed to create metaobject definition: ${createDefError.message}. Please try again or contact support.`,
         success: false,
-      };
+      });
     }
   }
 
@@ -648,23 +648,23 @@ export const action = async ({ request }) => {
     return JSON.stringify(lexicalState);
   };
 
-  // Validate required fields
-  if (!title) {
-    return {
-      error: "Title is required.",
-      success: false,
-    };
-  }
-  if (!positionId) {
-    return {
-      error: "Position ID is required.",
-      success: false,
-    };
-  }
+    // Validate required fields
+    if (!title) {
+      return json({
+        error: "Title is required.",
+        success: false,
+      });
+    }
+    if (!positionId) {
+      return json({
+        error: "Position ID is required.",
+        success: false,
+      });
+    }
 
-  // Format dates to ISO 8601 - datetime-local returns YYYY-MM-DDTHH:mm in user's local time
-  // We need to preserve the user's local timezone when converting to ISO 8601
-  const formatDateTime = (dateStr) => {
+    // Format dates to ISO 8601 - datetime-local returns YYYY-MM-DDTHH:mm in user's local time
+    // We need to preserve the user's local timezone when converting to ISO 8601
+    const formatDateTime = (dateStr) => {
     if (!dateStr) return null;
     try {
       // datetime-local format is YYYY-MM-DDTHH:mm (no seconds or timezone)
@@ -711,8 +711,8 @@ export const action = async ({ request }) => {
     }
   };
 
-  // Helper function to create default date in user's local timezone
-  const createLocalDate = (year, month, day, hours, minutes, seconds = 0) => {
+    // Helper function to create default date in user's local timezone
+    const createLocalDate = (year, month, day, hours, minutes, seconds = 0) => {
     // Format date components with user's timezone offset
     const offset = userTimezoneOffset;
     const offsetHours = Math.floor(Math.abs(offset) / 60).toString().padStart(2, '0');
@@ -727,68 +727,68 @@ export const action = async ({ request }) => {
     return `${y}-${m}-${d}T${h}:${min}:${s}${offsetSign}${offsetHours}:${offsetMinutes}`;
   };
 
-  console.log("Raw form data:", {
-    positionId,
-    startAt,
-    endAt,
-    title,
-    description,
-    desktopBannerFileId,
-    mobileBannerFileId,
-    targetUrl,
-    headline,
-    buttonText,
-    status,
-  });
+    console.log("Raw form data:", {
+      positionId,
+      startAt,
+      endAt,
+      title,
+      description,
+      desktopBannerFileId,
+      mobileBannerFileId,
+      targetUrl,
+      headline,
+      buttonText,
+      status,
+    });
 
-  // Set default dates if not provided (in user's local timezone)
-  // Default start: Jan 1, 2000 at 12:00 AM
-  // Default end: Dec 31, 2100 at 11:59 PM
-  const defaultStartDateISO = createLocalDate(2000, 1, 1, 0, 0, 0);
-  const defaultEndDateISO = createLocalDate(2100, 12, 31, 23, 59, 59);
-  
-  const formattedStartAt = startAt ? formatDateTime(startAt) : defaultStartDateISO;
-  const formattedEndAt = endAt ? formatDateTime(endAt) : defaultEndDateISO;
-  
-  console.log("Formatted dates:", {
-    formattedStartAt,
-    formattedEndAt,
-  });
+    // Set default dates if not provided (in user's local timezone)
+    // Default start: Jan 1, 2000 at 12:00 AM
+    // Default end: Dec 31, 2100 at 11:59 PM
+    const defaultStartDateISO = createLocalDate(2000, 1, 1, 0, 0, 0);
+    const defaultEndDateISO = createLocalDate(2100, 12, 31, 23, 59, 59);
+    
+    const formattedStartAt = startAt ? formatDateTime(startAt) : defaultStartDateISO;
+    const formattedEndAt = endAt ? formatDateTime(endAt) : defaultEndDateISO;
+    
+    console.log("Formatted dates:", {
+      formattedStartAt,
+      formattedEndAt,
+    });
 
-  // Validate date formats
-  if (startAt && !formattedStartAt) {
-    return {
-      error: "Invalid Start Date format. Please ensure the date is valid.",
-      success: false,
-    };
-  }
-  if (endAt && !formattedEndAt) {
-    return {
-      error: "Invalid End Date format. Please ensure the date is valid.",
-      success: false,
-    };
-  }
+    // Validate date formats
+    if (startAt && !formattedStartAt) {
+      return json({
+        error: "Invalid Start Date format. Please ensure the date is valid.",
+        success: false,
+      });
+    }
+    if (endAt && !formattedEndAt) {
+      return json({
+        error: "Invalid End Date format. Please ensure the date is valid.",
+        success: false,
+      });
+    }
 
-  const fields = [
-    { key: "position_id", value: positionId },
-  ];
+    const fields = [
+      { key: "position_id", value: positionId },
+    ];
 
-  // Always include start_at and end_at (using defaults if not provided)
-  fields.push({ key: "start_at", value: formattedStartAt });
-  fields.push({ key: "end_at", value: formattedEndAt });
+    // Always include start_at and end_at (using defaults if not provided)
+    fields.push({ key: "start_at", value: formattedStartAt });
+    fields.push({ key: "end_at", value: formattedEndAt });
 
-  if (title) fields.push({ key: "title", value: title });
-  if (description) fields.push({ key: "description", value: description });
-  // s-media-picker returns file reference IDs directly
-  if (desktopBannerFileId && desktopBannerFileId !== "") {
-    fields.push({ key: "desktop_banner", value: desktopBannerFileId });
-  }
-  if (mobileBannerFileId && mobileBannerFileId !== "") {
-    fields.push({ key: "mobile_banner", value: mobileBannerFileId });
-  }
-  
-  // Validate and format URL - ensure it has a proper scheme
-  if (targetUrl) {
+    if (title) fields.push({ key: "title", value: title });
+    if (description) fields.push({ key: "description", value: description });
+    // s-media-picker returns file reference IDs directly
+    if (desktopBannerFileId && desktopBannerFileId !== "") {
+      fields.push({ key: "desktop_banner", value: desktopBannerFileId });
+    }
+    if (mobileBannerFileId && mobileBannerFileId !== "") {
+      fields.push({ key: "mobile_banner", value: mobileBannerFileId });
+    }
+    
+    // Validate and format URL - ensure it has a proper scheme
+    if (targetUrl) {
     let formattedUrl = targetUrl.trim();
     // Shopify URL fields require a scheme (http, https, mailto, sms, tel)
     // Relative URLs (starting with /) need to be converted to full URLs
@@ -804,22 +804,22 @@ export const action = async ({ request }) => {
       }
     }
     // Only add if URL is valid and not empty
-    if (formattedUrl && formattedUrl !== "https://") {
-      fields.push({ key: "target_url", value: formattedUrl });
+      if (formattedUrl && formattedUrl !== "https://") {
+        fields.push({ key: "target_url", value: formattedUrl });
+      }
     }
-  }
-  
-  if (headline) fields.push({ key: "headline", value: headline });
-  if (buttonText) fields.push({ key: "button_text", value: buttonText });
+    
+    if (headline) fields.push({ key: "headline", value: headline });
+    if (buttonText) fields.push({ key: "button_text", value: buttonText });
 
-  // Convert status to Shopify metaobject publish status
-  const publishStatus = status === "draft" ? "DRAFT" : "ACTIVE";
+    // Convert status to Shopify metaobject publish status
+    const publishStatus = status === "draft" ? "DRAFT" : "ACTIVE";
 
-  console.log("Creating metaobject with fields:", JSON.stringify(fields, null, 2));
-  console.log("Metaobject publish status:", publishStatus);
+    console.log("Creating metaobject with fields:", JSON.stringify(fields, null, 2));
+    console.log("Metaobject publish status:", publishStatus);
 
-  // Create the metaobject with publishable capability
-  const createResponse = await admin.graphql(
+    // Create the metaobject with publishable capability
+    const createResponse = await admin.graphql(
     `#graphql
     mutation CreateSchedulableEntity($metaobject: MetaobjectCreateInput!) {
       metaobjectCreate(metaobject: $metaobject) {
@@ -840,42 +840,42 @@ export const action = async ({ request }) => {
             },
           },
         },
+        },
       },
-    },
-  );
-  const createJson = await createResponse.json();
+    );
+    const createJson = await createResponse.json();
 
-  console.log("Metaobject create response:", JSON.stringify(createJson, null, 2));
+    console.log("Metaobject create response:", JSON.stringify(createJson, null, 2));
 
-  if (createJson?.data?.metaobjectCreate?.userErrors?.length > 0) {
-    const errors = createJson.data.metaobjectCreate.userErrors
-      .map((e) => `${e.field}: ${e.message}`)
-      .join(", ");
-    return {
-      error: `Failed to create entry: ${errors}`,
-      success: false,
-    };
-  }
+    if (createJson?.data?.metaobjectCreate?.userErrors?.length > 0) {
+      const errors = createJson.data.metaobjectCreate.userErrors
+        .map((e) => `${e.field}: ${e.message}`)
+        .join(", ");
+      return json({
+        error: `Failed to create entry: ${errors}`,
+        success: false,
+      });
+    }
 
-  const createdMetaobject = createJson?.data?.metaobjectCreate?.metaobject;
-  if (!createdMetaobject?.id) {
-    return {
-      error: `Unknown error occurred while creating entry. Response: ${JSON.stringify(createJson)}`,
-      success: false,
-    };
-  }
+    const createdMetaobject = createJson?.data?.metaobjectCreate?.metaobject;
+    if (!createdMetaobject?.id) {
+      return json({
+        error: `Unknown error occurred while creating entry. Response: ${JSON.stringify(createJson)}`,
+        success: false,
+      });
+    }
 
-  // For fetcher.Form, we need to return success and let the component handle reload
-  // Using redirect with fetcher doesn't work the same way
-  console.log("[ACTION] Entry created successfully, returning success");
-  return { success: true, message: "Entry created successfully!" };
+    // For fetcher.Form, we need to return success and let the component handle reload
+    // Using redirect with fetcher doesn't work the same way
+    console.log("[ACTION] Entry created successfully, returning success");
+    return json({ success: true, message: "Entry created successfully!" });
   } catch (error) {
-    console.error("[ACTION] Error in action:", error);
+    console.error("[ACTION] Error in action (top-level catch):", error);
     console.error("[ACTION] Error stack:", error.stack);
-    return {
-      error: `Failed to create entry: ${error.message}`,
+    return json({
+      error: `Failed to process request: ${error.message}`,
       success: false,
-    };
+    });
   }
 };
 
