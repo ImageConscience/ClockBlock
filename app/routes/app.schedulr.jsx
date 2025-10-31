@@ -634,32 +634,50 @@ export default function SchedulrPage() {
   const revalidator = useRevalidator();
   const formRef = useRef(null);
   const [showForm, setShowForm] = useState(false);
+  const previousFetcherState = useRef(null);
+  const handledSuccessRef = useRef(false);
 
   useEffect(() => {
     console.log("[CLIENT] Fetcher data changed:", fetcher.data);
     console.log("[CLIENT] Fetcher state:", fetcher.state);
-    if (fetcher.data?.error) {
+    
+    // Only show toast when fetcher transitions from submitting to idle
+    const justCompleted = previousFetcherState.current === "submitting" && fetcher.state === "idle";
+    
+    if (fetcher.data?.error && justCompleted) {
       console.error("[CLIENT] Error in fetcher data:", fetcher.data.error);
       shopify.toast.show(fetcher.data.error, { isError: true });
-    } else if (fetcher.data?.success === false && !fetcher.data?.error) {
+      handledSuccessRef.current = false;
+    } else if (fetcher.data?.success === false && !fetcher.data?.error && justCompleted) {
       console.error("[CLIENT] Failed to create entry");
       shopify.toast.show("Failed to create entry", { isError: true });
-    } else if (fetcher.data?.success === true) {
+      handledSuccessRef.current = false;
+    } else if (fetcher.data?.success === true && justCompleted && !handledSuccessRef.current) {
       console.log("[CLIENT] Entry created successfully, reloading entries");
       shopify.toast.show(fetcher.data.message || "Entry created successfully!", { isError: false });
+      handledSuccessRef.current = true;
       // Reload the entries list
       revalidator.revalidate();
       // Reset the form
       if (formRef.current) {
         formRef.current.reset();
       }
-      setShowForm(false);
+      // Don't close the modal - let user create another entry
+      // setShowForm(false);
     }
+    
+    // Reset handled flag when starting a new submission
+    if (fetcher.state === "submitting") {
+      handledSuccessRef.current = false;
+    }
+    
+    previousFetcherState.current = fetcher.state;
+    
     if (loaderError) {
       console.error("[CLIENT] Loader error:", loaderError);
       shopify.toast.show(loaderError, { isError: true });
     }
-  }, [fetcher.data, loaderError, shopify, revalidator]);
+  }, [fetcher.data, fetcher.state, loaderError, shopify, revalidator]);
 
   const isLoading = navigation.state === "submitting" || fetcher.state === "submitting";
 
