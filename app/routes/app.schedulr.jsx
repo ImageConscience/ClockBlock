@@ -361,29 +361,67 @@ export const action = async ({ request }) => {
           formDataBuffer = await formDataToUpload.getBuffer();
         } else {
           // Fallback: pipe form-data through a PassThrough stream to collect chunks
-          const { PassThrough } = await import("stream");
+          const streamModule = await import("stream");
+          const PassThrough = streamModule.PassThrough || streamModule.default?.PassThrough;
+          
+          if (!PassThrough) {
+            throw new Error("PassThrough stream not available");
+          }
+          
           const passThrough = new PassThrough();
           const chunks = [];
+          let streamEnded = false;
+          let streamError = null;
           
+          // Set up listeners BEFORE piping
           passThrough.on('data', (chunk) => {
+            console.log("[ACTION] Received chunk, size:", chunk.length, "Total chunks:", chunks.length + 1);
             chunks.push(chunk);
           });
           
-          const bufferPromise = new Promise((resolve, reject) => {
-            passThrough.on('end', () => {
-              console.log("[ACTION] Form-data stream ended, total chunks:", chunks.length);
-              resolve(Buffer.concat(chunks));
-            });
-            passThrough.on('error', reject);
-            
-            // Add timeout
-            setTimeout(() => {
-              reject(new Error("FormData stream conversion timeout after 30 seconds"));
-            }, 30000);
+          passThrough.on('end', () => {
+            console.log("[ACTION] PassThrough stream ended, total chunks:", chunks.length);
+            streamEnded = true;
           });
           
-          // Pipe form-data to pass-through stream
+          passThrough.on('error', (err) => {
+            console.error("[ACTION] PassThrough stream error:", err);
+            streamError = err;
+          });
+          
+          const bufferPromise = new Promise((resolve, reject) => {
+            // Check periodically if stream ended
+            const checkInterval = setInterval(() => {
+              if (streamError) {
+                clearInterval(checkInterval);
+                reject(streamError);
+              } else if (streamEnded) {
+                clearInterval(checkInterval);
+                console.log("[ACTION] Stream ended, creating buffer from", chunks.length, "chunks");
+                resolve(Buffer.concat(chunks));
+              }
+            }, 100);
+            
+            // Add timeout
+            const timeout = setTimeout(() => {
+              clearInterval(checkInterval);
+              reject(new Error("FormData stream conversion timeout after 30 seconds"));
+            }, 30000);
+            
+            // Clean up on resolve
+            bufferPromise.then(() => {
+              clearInterval(checkInterval);
+              clearTimeout(timeout);
+            }).catch(() => {
+              clearInterval(checkInterval);
+              clearTimeout(timeout);
+            });
+          });
+          
+          // Now pipe form-data to pass-through stream
+          console.log("[ACTION] Piping form-data to PassThrough stream...");
           formDataToUpload.pipe(passThrough);
+          
           formDataBuffer = await bufferPromise;
         }
       } catch (bufferError) {
