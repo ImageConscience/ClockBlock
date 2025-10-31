@@ -167,6 +167,7 @@ export const action = async ({ request }) => {
                 },
                 onlineStore: {
                   enabled: true,
+                  urlHandle: "{handle}",
                 },
               },
             },

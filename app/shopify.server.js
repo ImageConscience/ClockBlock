@@ -91,6 +91,7 @@ const shopify = shopifyApp({
                     capabilities: {
                       onlineStore: {
                         enabled: true,
+                        urlHandle: "{handle}",
                       },
                     },
                   },
@@ -221,6 +222,7 @@ const shopify = shopifyApp({
                   },
                   onlineStore: {
                     enabled: true,
+                    urlHandle: "{handle}",
                   },
                 },
               },
