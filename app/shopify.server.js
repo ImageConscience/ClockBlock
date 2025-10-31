@@ -175,9 +175,6 @@ const shopify = shopifyApp({
                   publishable: {
                     enabled: true,
                   },
-                  onlineStore: {
-                    enabled: true,
-                  },
                 },
               },
             },
@@ -206,6 +203,8 @@ const shopify = shopifyApp({
         }
       } catch (error) {
         console.error(`[afterAuth] Error in afterAuth hook:`, error);
+        console.error(`[afterAuth] Error message:`, error.message);
+        console.error(`[afterAuth] Error stack:`, error.stack);
         // Don't throw - we don't want to block installation
         // The metaobject can be created manually if needed
       }
