@@ -129,12 +129,8 @@ export const action = async ({ request }) => {
     console.log("[ACTION] File present:", !!file, "Has title:", !!hasTitle, "File type:", file instanceof File ? file.type : typeof file);
     
     if (file && !hasTitle) {
-    console.log("[ACTION] Detected file upload request");
-    // This is a file upload request - use staged uploads with axios
-    // axios handles multipart/form-data correctly for Google Cloud Storage signatures
+    console.log("[ACTION] Detected file upload request - using official Shopify staged upload method");
     try {
-      console.log("[ACTION] File upload request received - using staged uploads with axios");
-      
       const { admin } = await authenticate.admin(request);
       console.log("[ACTION] Admin authenticated successfully for file upload");
       
@@ -166,7 +162,7 @@ export const action = async ({ request }) => {
       
       console.log("[ACTION] File:", fileName, "Type:", fileType, "Size:", fileSize, "bytes");
       
-      // Convert file to Buffer
+      // Convert file to Buffer for upload
       let arrayBuffer;
       if (typeof file.arrayBuffer === "function") {
         arrayBuffer = await file.arrayBuffer();
@@ -191,53 +187,114 @@ export const action = async ({ request }) => {
       }
       const fileBuffer = Buffer.from(arrayBuffer);
       
-      // NEW APPROACH: Save file temporarily and serve via public URL
-      // This bypasses the problematic GCS staged upload signature verification
-      // Step 1: Save file to temp directory
-      const { writeFile, mkdir } = await import("fs/promises");
-      const { join } = await import("path");
-      const crypto = await import("crypto");
+      // Step 1: Create staged upload target using official Shopify method
+      console.log("[ACTION] Step 1: Creating staged upload target...");
+      const stagedUploadResponse = await admin.graphql(
+        `#graphql
+        mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
+          stagedUploadsCreate(input: $input) {
+            stagedTargets {
+              url
+              resourceUrl
+              parameters {
+                name
+                value
+              }
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `,
+        {
+          variables: {
+            input: [
+              {
+                filename: fileName,
+                mimeType: fileType,
+                resource: "IMAGE",
+                httpMethod: "POST",
+              },
+            ],
+          },
+        }
+      );
       
-      // Use absolute path based on app directory (Railway uses /app as working dir)
-      // This ensures consistency between action and route
-      const appDir = process.cwd() || "/app";
-      const TEMP_DIR = join(appDir, "temp", "uploads");
-      console.log("[ACTION] Using TEMP_DIR:", TEMP_DIR);
-      console.log("[ACTION] process.cwd():", process.cwd());
+      const stagedUploadJson = await stagedUploadResponse.json();
+      console.log("[ACTION] Staged upload response received");
       
-      // Ensure temp directory exists
-      try {
-        await mkdir(TEMP_DIR, { recursive: true });
-      } catch (error) {
-        // Directory might already exist
+      if (stagedUploadJson?.errors) {
+        const errors = stagedUploadJson.errors.map((e) => e.message).join(", ");
+        console.error("[ACTION] GraphQL errors creating staged upload:", errors);
+        return json({ error: `Failed to create staged upload: ${errors}`, success: false });
       }
       
-      // Generate unique file ID
-      const fileId = `${crypto.randomUUID()}-${fileName}`;
-      const tempFilePath = join(TEMP_DIR, fileId);
+      if (stagedUploadJson?.data?.stagedUploadsCreate?.userErrors?.length > 0) {
+        const errors = stagedUploadJson.data.stagedUploadsCreate.userErrors
+          .map((e) => e.message)
+          .join(", ");
+        console.error("[ACTION] User errors creating staged upload:", errors);
+        return json({ error: `Failed to create staged upload: ${errors}`, success: false });
+      }
       
-      // Save file to temp directory
-      await writeFile(tempFilePath, fileBuffer);
-      console.log("[ACTION] File saved to temp directory:", tempFilePath);
+      const stagedTarget = stagedUploadJson?.data?.stagedUploadsCreate?.stagedTargets?.[0];
+      if (!stagedTarget?.url || !stagedTarget?.resourceUrl) {
+        console.error("[ACTION] Invalid staged upload response:", JSON.stringify(stagedUploadJson, null, 2));
+        return json({ error: "Failed to create staged upload: Invalid response", success: false });
+      }
       
-      // Get base URL from request
-      // Use /temp-file/ (not /app/temp-file/) since it's a public route outside app prefix
-      const url = new URL(request.url);
-      const baseUrl = `${url.protocol}//${url.host}`;
-      const publicFileUrl = `${baseUrl}/temp-file/${fileId}`;
-      console.log("[ACTION] Public file URL:", publicFileUrl);
+      console.log("[ACTION] Staged upload created. Upload URL:", stagedTarget.url);
+      console.log("[ACTION] Resource URL:", stagedTarget.resourceUrl);
+      console.log("[ACTION] Parameters:", stagedTarget.parameters?.length || 0, "parameters");
       
-      // Step 2: Use fileCreate with the public URL directly (bypasses staged upload)
-      console.log("[ACTION] Creating file using public URL...");
+      // Step 2: Upload file to GCS using multipart/form-data
+      console.log("[ACTION] Step 2: Uploading file to Google Cloud Storage...");
+      const FormData = (await import("form-data")).default;
+      const formData = new FormData();
       
-      try {
-        // Create file directly using the public URL (bypasses staged upload completely)
-        const fileCreateResponse = await admin.graphql(
+      // Add all parameters first (important for signature verification)
+      if (stagedTarget.parameters) {
+        for (const param of stagedTarget.parameters) {
+          formData.append(param.name, param.value);
+          console.log("[ACTION] Added parameter:", param.name);
+        }
+      }
+      
+      // Add file last (required for multipart/form-data)
+      formData.append("file", fileBuffer, {
+        filename: fileName,
+        contentType: fileType,
+      });
+      
+      // Upload to GCS
+      const uploadResponse = await fetch(stagedTarget.url, {
+        method: "POST",
+        body: formData,
+        // Don't set Content-Type - let form-data set it with boundary
+      });
+      
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text();
+        console.error("[ACTION] GCS upload failed:", uploadResponse.status, errorText);
+        return json({ 
+          error: `Failed to upload file to storage: ${uploadResponse.status} ${errorText}`, 
+          success: false 
+        });
+      }
+      
+      console.log("[ACTION] File uploaded successfully to GCS");
+      
+      // Step 3: Create file record in Shopify using resourceUrl
+      console.log("[ACTION] Step 3: Creating file record in Shopify...");
+      const fileCreateResponse = await admin.graphql(
         `#graphql
         mutation fileCreate($files: [FileCreateInput!]!) {
           fileCreate(files: $files) {
             files {
               id
+              fileStatus
               ... on MediaImage {
                 alt
                 image {
@@ -258,8 +315,9 @@ export const action = async ({ request }) => {
           variables: {
             files: [
               {
-                originalSource: publicFileUrl,
+                originalSource: stagedTarget.resourceUrl,
                 filename: fileName,
+                contentType: "IMAGE",
               },
             ],
           },
@@ -268,13 +326,6 @@ export const action = async ({ request }) => {
       
       const fileCreateJson = await fileCreateResponse.json();
       console.log("[ACTION] File create response received");
-      console.log("[ACTION] File create response status:", fileCreateResponse.status);
-      console.log("[ACTION] File create response JSON:", JSON.stringify(fileCreateJson, null, 2));
-      
-      // NOTE: Don't clean up the temp file immediately - Shopify needs to fetch it asynchronously
-      // The file will remain available at the public URL until it's fetched by Shopify
-      // Consider adding a periodic cleanup job for old temp files if needed
-      console.log("[ACTION] Temp file will remain available for Shopify to fetch:", publicFileUrl);
       
       if (fileCreateJson?.errors) {
         const errors = fileCreateJson.errors.map((e) => e.message).join(", ");
@@ -296,52 +347,24 @@ export const action = async ({ request }) => {
       
       console.log("[ACTION] File uploaded successfully, ID:", uploadedFile.id);
       
-        return json({
-          success: true,
-          file: {
-            id: uploadedFile.id,
-            url: uploadedFile.image?.url || "",
-            alt: uploadedFile.alt || fileName || "Uploaded image",
-          },
-        });
-        } catch (uploadError) {
-          // Clean up temp file on error (only if upload fails, not if it succeeds)
-          const { unlink } = await import("fs/promises");
-          try {
-            await unlink(tempFilePath);
-            console.log("[ACTION] Temp file cleaned up after error");
-          } catch (cleanupError) {
-            console.warn("[ACTION] Failed to clean up temp file:", cleanupError);
-          }
-          
-          console.error("[ACTION] File upload error:", uploadError);
-        console.error("[ACTION] Upload error name:", uploadError?.name);
-        console.error("[ACTION] Upload error message:", uploadError?.message);
-        console.error("[ACTION] Upload error stack:", uploadError?.stack);
-        
-        const errorMessage = uploadError.message || 'Unknown error';
-        
-        console.error("[ACTION] Returning JSON error response for upload failure");
-        return json({ 
-          error: `Failed to upload file: ${errorMessage}`, 
-          success: false 
-        });
-      }
+      return json({
+        success: true,
+        file: {
+          id: uploadedFile.id,
+          url: uploadedFile.image?.url || "",
+          alt: uploadedFile.alt || fileName || "Uploaded image",
+        },
+      });
+      
     } catch (error) {
-      console.error("[ACTION] Outer catch - Error uploading file:", error);
-      console.error("[ACTION] Outer catch - Error message:", error.message);
-      console.error("[ACTION] Outer catch - Error stack:", error.stack);
-      const errorResponse = json({
+      console.error("[ACTION] Error uploading file:", error);
+      console.error("[ACTION] Error message:", error.message);
+      console.error("[ACTION] Error stack:", error.stack);
+      return json({
         error: `Failed to upload file: ${error.message}`,
         success: false,
       });
-      console.log("[ACTION] Outer catch - JSON response created, returning now");
-      return errorResponse;
     }
-    // If we handled the file upload, return early (don't continue to entry creation)
-    // This return should never be reached if file upload succeeded or failed (both return above)
-    // But adding it as a safety net
-    return json({ error: "File upload handled", success: false });
   }
   
   // Entry creation logic (only reached if not a file upload)
