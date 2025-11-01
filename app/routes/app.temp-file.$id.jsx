@@ -23,13 +23,18 @@ export const loader = async ({ params, request }) => {
   
   const fileId = params.id;
   if (!fileId) {
+    console.error("[TEMP-FILE] No file ID provided");
     return new Response("File not found", { status: 404 });
   }
   
   const filePath = join(TEMP_DIR, fileId);
+  console.log("[TEMP-FILE] Looking for file:", filePath);
+  console.log("[TEMP-FILE] TEMP_DIR:", TEMP_DIR);
+  console.log("[TEMP-FILE] File ID:", fileId);
   
   try {
     const fileBuffer = await readFile(filePath);
+    console.log("[TEMP-FILE] File found, size:", fileBuffer.length, "bytes");
     
     // Determine content type from file extension
     const ext = fileId.split('.').pop()?.toLowerCase();
@@ -46,10 +51,14 @@ export const loader = async ({ params, request }) => {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "no-cache",
+        "Access-Control-Allow-Origin": "*",
       },
     });
   } catch (error) {
-    return new Response("File not found", { status: 404 });
+    console.error("[TEMP-FILE] Error reading file:", error);
+    console.error("[TEMP-FILE] Error message:", error.message);
+    console.error("[TEMP-FILE] Error code:", error.code);
+    return new Response(`File not found: ${error.message}`, { status: 404 });
   }
 };
 
