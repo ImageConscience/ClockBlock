@@ -38,7 +38,7 @@
           {% comment %} This entry matches - check if it has a more recent start time {% endcomment %}
           {% if start_ts > latest_start_ts or latest_start_ts == 0 %}
             {% assign latest_start_ts = start_ts %}
-            {% assign selected_title = entry.title %}
+            {% assign selected_title = entry.headline %}
             {% assign selected_description = entry.description %}
             {% assign selected_desktop_banner = entry.desktop_banner %}
             {% assign selected_mobile_banner = entry.mobile_banner %}
