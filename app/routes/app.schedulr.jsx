@@ -2352,7 +2352,8 @@ export default function SchedulrPage() {
                       </td>
                     </tr>
                   );
-                })}
+                  });
+                })()}
               </tbody>
             </table>
           </div>
