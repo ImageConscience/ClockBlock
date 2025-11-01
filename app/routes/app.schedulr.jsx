@@ -129,6 +129,118 @@ export const action = async ({ request }) => {
     const isFetcherRequest = acceptHeader.includes("*/*") || acceptHeader.includes("application/json") || !acceptHeader.includes("text/html");
     console.log("[ACTION] Is fetcher request:", isFetcherRequest);
     
+    // Check if this is a JSON request (for update/delete)
+    const contentType = request.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const body = await request.json();
+      const { admin } = await authenticate.admin(request);
+      
+      if (body.intent === "delete") {
+        console.log("[ACTION] Processing delete request for entry:", body.id);
+        const deleteResponse = await admin.graphql(
+          `#graphql
+          mutation DeleteSchedulableEntity($id: ID!) {
+            metaobjectDelete(id: $id) {
+              deletedId
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+          { variables: { id: body.id } }
+        );
+        
+        const deleteJson = await deleteResponse.json();
+        
+        if (deleteJson?.errors) {
+          const errors = deleteJson.errors.map((e) => e.message).join(", ");
+          console.error("[ACTION] GraphQL errors deleting entry:", errors);
+          return json({ error: `Failed to delete entry: ${errors}`, success: false });
+        }
+        
+        if (deleteJson?.data?.metaobjectDelete?.userErrors?.length > 0) {
+          const errors = deleteJson.data.metaobjectDelete.userErrors
+            .map((e) => e.message)
+            .join(", ");
+          console.error("[ACTION] User errors deleting entry:", errors);
+          return json({ error: `Failed to delete entry: ${errors}`, success: false });
+        }
+        
+        console.log("[ACTION] Entry deleted successfully");
+        return json({ success: true, message: "Entry deleted successfully!" });
+      }
+      
+      if (body.intent === "update") {
+        console.log("[ACTION] Processing update request for entry:", body.id);
+        const { admin } = await authenticate.admin(request);
+        
+        // Build fields array similar to create
+        const fields = [];
+        if (body.title) fields.push({ key: "title", value: body.title });
+        if (body.positionId) fields.push({ key: "position_id", value: body.positionId });
+        if (body.description !== undefined) fields.push({ key: "description", value: body.description || "" });
+        if (body.startAt) {
+          const startDate = new Date(body.startAt);
+          if (!isNaN(startDate.getTime())) {
+            fields.push({ key: "start_at", value: startDate.toISOString() });
+          }
+        }
+        if (body.endAt) {
+          const endDate = new Date(body.endAt);
+          if (!isNaN(endDate.getTime())) {
+            fields.push({ key: "end_at", value: endDate.toISOString() });
+          }
+        }
+        if (body.desktopBanner) fields.push({ key: "desktop_banner", value: body.desktopBanner });
+        if (body.mobileBanner) fields.push({ key: "mobile_banner", value: body.mobileBanner });
+        if (body.targetUrl !== undefined) fields.push({ key: "target_url", value: body.targetUrl || "" });
+        if (body.buttonText !== undefined) fields.push({ key: "button_text", value: body.buttonText || "" });
+        
+        const updateResponse = await admin.graphql(
+          `#graphql
+          mutation UpdateSchedulableEntity($id: ID!, $metaobject: MetaobjectUpdateInput!) {
+            metaobjectUpdate(id: $id, metaobject: $metaobject) {
+              metaobject { id handle }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+          {
+            variables: {
+              id: body.id,
+              metaobject: {
+                fields,
+              },
+            },
+          }
+        );
+        
+        const updateJson = await updateResponse.json();
+        
+        if (updateJson?.errors) {
+          const errors = updateJson.errors.map((e) => e.message).join(", ");
+          console.error("[ACTION] GraphQL errors updating entry:", errors);
+          return json({ error: `Failed to update entry: ${errors}`, success: false });
+        }
+        
+        if (updateJson?.data?.metaobjectUpdate?.userErrors?.length > 0) {
+          const errors = updateJson.data.metaobjectUpdate.userErrors
+            .map((e) => e.message)
+            .join(", ");
+          console.error("[ACTION] User errors updating entry:", errors);
+          return json({ error: `Failed to update entry: ${errors}`, success: false });
+        }
+        
+        console.log("[ACTION] Entry updated successfully");
+        return json({ success: true, message: "Entry updated successfully!" });
+      }
+    }
+    
     const formData = await request.formData();
     console.log("[ACTION] FormData received, checking contents...");
     
@@ -1829,6 +1941,9 @@ export default function SchedulrPage() {
   const [showForm, setShowForm] = useState(false);
   const handledResponseRef = useRef(null);
   const [sortConfig, setSortConfig] = useState([]); // Array of {column: string, direction: 'asc'|'desc'}
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState(null);
 
   useEffect(() => {
     // Skip if no fetcher data
@@ -2216,6 +2331,7 @@ export default function SchedulrPage() {
                           padding: "0.75rem", 
                           textAlign: "left", 
                           fontWeight: "600",
+                          borderRight: "1px solid #e1e3e5",
                           cursor: "pointer",
                           userSelect: "none"
                         }}
@@ -2227,6 +2343,9 @@ export default function SchedulrPage() {
                           </span>
                         )}
                       </th>
+                      <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: "600" }}>
+                        Actions
+                      </th>
                     </tr>
                   );
                 })()}
@@ -2235,11 +2354,12 @@ export default function SchedulrPage() {
                 {(() => {
                   // Sort entries based on sortConfig
                   const sortedEntries = [...initialEntries].sort((a, b) => {
+                    // Pre-compute field maps once per comparison
+                    const fieldMapA = Object.fromEntries((a.fields || []).map((f) => [f.key, f.value]));
+                    const fieldMapB = Object.fromEntries((b.fields || []).map((f) => [f.key, f.value]));
+                    
                     // Apply all active sorts in order
                     for (const sort of sortConfig) {
-                      const fieldMapA = Object.fromEntries((a.fields || []).map((f) => [f.key, f.value]));
-                      const fieldMapB = Object.fromEntries((b.fields || []).map((f) => [f.key, f.value]));
-                      
                       let valueA = fieldMapA[sort.column];
                       let valueB = fieldMapB[sort.column];
                       
@@ -2255,8 +2375,8 @@ export default function SchedulrPage() {
                       }
                       
                       // Handle null/undefined
-                      if (valueA == null) valueA = '';
-                      if (valueB == null) valueB = '';
+                      if (valueA == null || valueA === '') valueA = '';
+                      if (valueB == null || valueB === '') valueB = '';
                       
                       // Compare
                       let comparison = 0;
@@ -2266,12 +2386,13 @@ export default function SchedulrPage() {
                         comparison = 1;
                       }
                       
-                      // Apply direction
+                      // Apply direction - if values differ, return the comparison
+                      // Otherwise continue to next sort criterion
                       if (comparison !== 0) {
                         return sort.direction === 'asc' ? comparison : -comparison;
                       }
-                      // If equal, continue to next sort
                     }
+                    // All sorts matched - items are equal
                     return 0;
                   });
                   
@@ -2347,8 +2468,47 @@ export default function SchedulrPage() {
                           "-"
                         )}
                       </td>
-                      <td style={{ padding: "0.75rem", fontSize: "0.8125rem", color: "#666", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <td style={{ padding: "0.75rem", fontSize: "0.8125rem", color: "#666", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderRight: "1px solid #e1e3e5" }}>
                         {fieldMap.target_url || "-"}
+                      </td>
+                      <td style={{ padding: "0.75rem", textAlign: "center" }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedEntry(e);
+                            setEditModalOpen(true);
+                          }}
+                          style={{
+                            padding: "0.375rem 0.75rem",
+                            marginRight: "0.5rem",
+                            fontSize: "0.8125rem",
+                            backgroundColor: "#667eea",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedEntry(e);
+                            setDeleteModalOpen(true);
+                          }}
+                          style={{
+                            padding: "0.375rem 0.75rem",
+                            fontSize: "0.8125rem",
+                            backgroundColor: "#d72c0d",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Delete
+                        </button>
                       </td>
                     </tr>
                   );
