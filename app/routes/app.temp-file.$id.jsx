@@ -33,7 +33,7 @@ export const loader = async ({ params, request }) => {
     
     // Determine content type from file extension
     const ext = fileId.split('.').pop()?.toLowerCase();
-    const contentTypeMap: Record<string, string> = {
+    const contentTypeMap = {
       jpg: "image/jpeg",
       jpeg: "image/jpeg",
       png: "image/png",
