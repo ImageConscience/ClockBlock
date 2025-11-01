@@ -50,6 +50,8 @@
   {% endfor %}
 {% endif %}
 
+{% assign breakpoint = block.settings.breakpoint | default: 768 | plus: 0 %}
+
 <div class="shopschedulr" {{ block.shopify_attributes }}>
   {% if found_match %}
     <div class="shopschedulr__banner-container">
@@ -102,21 +104,21 @@
   
   @media all and (max-width: {{ breakpoint | minus: 1 }}px) {
     .shopschedulr__banner--desktop {
-      display: none!important;
+      display: none !important;
     }
     
     .shopschedulr__banner--mobile {
-      display: block!important;
+      display: block !important;
     }
   }
   
-  @media (min-width: {{ breakpoint }}px) {
+  @media all and (min-width: {{ breakpoint }}px) {
     .shopschedulr__banner--desktop {
-      display: block;
+      display: block !important;
     }
     
     .shopschedulr__banner--mobile {
-      display: none;
+      display: none !important;
     }
   }
   
