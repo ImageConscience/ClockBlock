@@ -2251,16 +2251,22 @@ export default function SchedulrPage() {
                     name="target_url"
                     placeholder="https://example.com"
                   />
-                  <MediaLibraryPicker
-                    name="desktop_banner"
-                    label="Desktop Banner"
-                    mediaFiles={mediaFiles || []}
-                  />
-                  <MediaLibraryPicker
-                    name="mobile_banner"
-                    label="Mobile Banner"
-                    mediaFiles={mediaFiles || []}
-                  />
+                  <div style={{ display: "flex", gap: "15px", marginBottom: "0.5rem" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <MediaLibraryPicker
+                        name="desktop_banner"
+                        label="Desktop Banner"
+                        mediaFiles={mediaFiles || []}
+                      />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <MediaLibraryPicker
+                        name="mobile_banner"
+                        label="Mobile Banner"
+                        mediaFiles={mediaFiles || []}
+                      />
+                    </div>
+                  </div>
                   <s-text-field
                     label="Headline"
                     name="headline"
@@ -2911,6 +2917,7 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
                 padding: "0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
+                boxSizing: "border-box",
               }}
             />
           </div>
@@ -2928,6 +2935,7 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
                 padding: "0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
+                boxSizing: "border-box",
               }}
             />
           </div>
@@ -3001,6 +3009,7 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
                 padding: "0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
+                boxSizing: "border-box",
               }}
             />
           </div>
@@ -3017,6 +3026,7 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
                 padding: "0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
+                boxSizing: "border-box",
               }}
             />
           </div>
@@ -3033,6 +3043,7 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
                 padding: "0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
+                boxSizing: "border-box",
               }}
             />
           </div>
@@ -3049,6 +3060,7 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
                 padding: "0.5rem",
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
+                boxSizing: "border-box",
               }}
             />
           </div>
