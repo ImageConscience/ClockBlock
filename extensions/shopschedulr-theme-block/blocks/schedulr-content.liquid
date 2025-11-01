@@ -53,17 +53,30 @@
     {% if all_entries != blank %}
       <ul>
         {% for entry in all_entries limit: 5 %}
+          {% assign debug_entry_pos = entry.fields.position_id.value | strip %}
+          {% assign debug_start_ts = entry.fields.start_at.value | date: '%s' | plus: 0 %}
+          {% assign debug_end_ts = entry.fields.end_at.value | date: '%s' | plus: 0 %}
+          {% assign debug_pos_matches = false %}
+          {% assign debug_date_matches = false %}
+          {% if debug_entry_pos == position_id %}
+            {% assign debug_pos_matches = true %}
+          {% endif %}
+          {% if now_ts >= debug_start_ts and now_ts < debug_end_ts %}
+            {% assign debug_date_matches = true %}
+          {% endif %}
           <li>
             Entry: {{ entry.handle }}<br>
-            Position ID: "{{ entry.fields.position_id.value | strip }}"<br>
-            Start: {{ entry.fields.start_at.value }} ({{ entry.fields.start_at.value | date: '%s' | plus: 0 }})<br>
-            End: {{ entry.fields.end_at.value }} ({{ entry.fields.end_at.value | date: '%s' | plus: 0 }})<br>
-            Matches: {% if entry.fields.position_id.value | strip == position_id and now_ts >= entry.fields.start_at.value | date: '%s' | plus: 0 and now_ts < entry.fields.end_at.value | date: '%s' | plus: 0 %}YES{% else %}NO{% endif %}
+            Position ID: "{{ debug_entry_pos }}"<br>
+            Start: {{ entry.fields.start_at.value }} ({{ debug_start_ts }})<br>
+            End: {{ entry.fields.end_at.value }} ({{ debug_end_ts }})<br>
+            Position matches: {{ debug_pos_matches }}<br>
+            Date range matches: {{ debug_date_matches }}<br>
+            Overall matches: {% if debug_pos_matches and debug_date_matches %}YES{% else %}NO{% endif %}
           </li>
         {% endfor %}
       </ul>
     {% endif %}
-    <p>Selected entry: {{ selected_entry.handle | default: 'NONE' }}</p>
+    <p>Selected entry: {% if selected_entry != null %}{{ selected_entry.handle }}{% else %}NONE{% endif %}</p>
   </div>
 {% endif %}
 
