@@ -57,30 +57,14 @@
       
       <h3>Desktop Banner:</h3>
       {% if selected_desktop_banner != blank %}
-        <p>Desktop banner exists</p>
-        <p>Type: {{ selected_desktop_banner | json }}</p>
-        {% if selected_desktop_banner.image %}
-          <p>Has image property</p>
-          <img src="{{ selected_desktop_banner.image.url }}" alt="{{ selected_title }}" style="max-width: 100%;">
-        {% else %}
-          <p>No image property</p>
-          <p>Raw value: {{ selected_desktop_banner }}</p>
-        {% endif %}
+        {{ selected_desktop_banner | image_url: width: 1920 | image_tag: alt: selected_title, class: 'shopschedulr__banner-img', loading: 'lazy', style: 'max-width: 100%;' }}
       {% else %}
         <p>Desktop banner is blank</p>
       {% endif %}
       
       <h3>Mobile Banner:</h3>
       {% if selected_mobile_banner != blank %}
-        <p>Mobile banner exists</p>
-        <p>Type: {{ selected_mobile_banner | json }}</p>
-        {% if selected_mobile_banner.image %}
-          <p>Has image property</p>
-          <img src="{{ selected_mobile_banner.image.url }}" alt="{{ selected_title }}" style="max-width: 100%;">
-        {% else %}
-          <p>No image property</p>
-          <p>Raw value: {{ selected_mobile_banner }}</p>
-        {% endif %}
+        {{ selected_mobile_banner | image_url: width: 768 | image_tag: alt: selected_title, class: 'shopschedulr__banner-img', loading: 'lazy', style: 'max-width: 100%;' }}
       {% else %}
         <p>Mobile banner is blank</p>
       {% endif %}
