@@ -53,20 +53,56 @@
 {% assign breakpoint = block.settings.breakpoint | default: 768 | plus: 0 %}
 
 <div class="shopschedulr" {{ block.shopify_attributes }}>
-  {% if found_match %}
-    <div class="shopschedulr__banner-container">
-      {% if selected_desktop_banner != blank %}
-        <div class="shopschedulr__banner shopschedulr__banner--desktop">
-          {{ selected_desktop_banner | image_url: width: 1920 | image_tag: alt: selected_title, class: 'shopschedulr__banner-img', loading: 'lazy' }}
-        </div>
-      {% endif %}
-      
-      {% if selected_mobile_banner != blank %}
-        <div class="shopschedulr__banner shopschedulr__banner--mobile">
-          {{ selected_mobile_banner | image_url: width: 768 | image_tag: alt: selected_title, class: 'shopschedulr__banner-img', loading: 'lazy' }}
-        </div>
-      {% endif %}
-    </div>
+  {% if found_match and selected_target_url != blank %}
+    {% assign mobile_content_below = block.settings.mobile_content_below | default: false %}
+    <a href="{{ selected_target_url }}" class="shopschedulr__link">
+      <div class="shopschedulr__banner-container {% if mobile_content_below %}shopschedulr__banner-container--mobile-below{% endif %}">
+        {% if selected_desktop_banner != blank %}
+          <div class="shopschedulr__banner shopschedulr__banner--desktop">
+            {{ selected_desktop_banner | image_url: width: 1920 | image_tag: alt: selected_title, class: 'shopschedulr__banner-img', loading: 'lazy' }}
+            {% if mobile_content_below == false %}
+              <div class="shopschedulr__banner-content shopschedulr__banner-content--desktop">
+                {% if selected_title != blank %}
+                  <h2 class="shopschedulr__title">{{ selected_title }}</h2>
+                {% endif %}
+                {% if selected_button_text != blank %}
+                  <span class="shopschedulr__button">{{ selected_button_text }}</span>
+                {% endif %}
+              </div>
+            {% endif %}
+          </div>
+        {% endif %}
+        
+        {% if selected_mobile_banner != blank %}
+          <div class="shopschedulr__banner shopschedulr__banner--mobile">
+            {{ selected_mobile_banner | image_url: width: 768 | image_tag: alt: selected_title, class: 'shopschedulr__banner-img', loading: 'lazy' }}
+            {% if mobile_content_below == false %}
+              <div class="shopschedulr__banner-content shopschedulr__banner-content--mobile">
+                {% if selected_title != blank %}
+                  <h2 class="shopschedulr__title">{{ selected_title }}</h2>
+                {% endif %}
+                {% if selected_button_text != blank %}
+                  <span class="shopschedulr__button">{{ selected_button_text }}</span>
+                {% endif %}
+              </div>
+            {% endif %}
+          </div>
+        {% endif %}
+        
+        {% if mobile_content_below %}
+          <div class="shopschedulr__content-below shopschedulr__content-below--mobile-only">
+            {% if selected_title != blank %}
+              <h2 class="shopschedulr__title shopschedulr__title--below">{{ selected_title }}</h2>
+            {% endif %}
+            {% if selected_button_text != blank %}
+              <span class="shopschedulr__button shopschedulr__button--below">{{ selected_button_text }}</span>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+    </a>
+  {% elsif found_match %}
+    {% comment %} Entry found but missing target URL {% endcomment %}
   {% endif %}
 </div>
 
@@ -83,8 +119,10 @@
   }
   
   .shopschedulr__banner {
+    position: relative;
     width: 100%;
     line-height: 0;
+    overflow: hidden;
   }
   
   .shopschedulr__banner-img {
@@ -92,6 +130,39 @@
     width: 100%;
     height: auto;
     object-fit: cover;
+  }
+  
+  .shopschedulr__banner-content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+    color: white;
+    text-align: left;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .shopschedulr__banner-content--desktop {
+    display: flex;
+  }
+  
+  .shopschedulr__banner-content--mobile {
+    display: none;
+  }
+  
+  .shopschedulr__content-below {
+    display: none;
+    padding: 30px 20px;
+    text-align: center;
+    background: #fff;
+  }
+  
+  .shopschedulr__content-below--mobile-only {
+    display: none;
   }
   
   .shopschedulr__banner--desktop {
@@ -110,6 +181,22 @@
     .shopschedulr__banner--mobile {
       display: block !important;
     }
+    
+    .shopschedulr__banner-content--desktop {
+      display: none !important;
+    }
+    
+    .shopschedulr__banner-content--mobile {
+      display: flex !important;
+    }
+    
+    .shopschedulr__banner-container--mobile-below .shopschedulr__banner-content--mobile {
+      display: none !important;
+    }
+    
+    .shopschedulr__content-below--mobile-only {
+      display: block !important;
+    }
   }
   
   @media all and (min-width: {{ breakpoint }}px) {
@@ -118,6 +205,18 @@
     }
     
     .shopschedulr__banner--mobile {
+      display: none !important;
+    }
+    
+    .shopschedulr__banner-content--desktop {
+      display: flex !important;
+    }
+    
+    .shopschedulr__banner-content--mobile {
+      display: none !important;
+    }
+    
+    .shopschedulr__content-below--mobile-only {
       display: none !important;
     }
   }
@@ -153,8 +252,13 @@
     color: white;
     line-height: 1.2;
   }
+  
+  .shopschedulr__title--below {
+    color: #2c3e50;
+    margin-bottom: 15px;
+  }
 
-  @media (max-width: {{ breakpoint }}px) {
+  @media all and (max-width: {{ breakpoint | minus: 1 }}px) {
     .shopschedulr__title {
       font-size: 2em;
     }
@@ -207,13 +311,24 @@
     cursor: pointer;
     align-self: flex-start;
   }
+  
+  .shopschedulr__button--below {
+    background-color: #667eea;
+    color: white !important;
+    align-self: center;
+  }
 
-  .shopschedulr__banner:hover .shopschedulr__button {
+  .shopschedulr__link:hover .shopschedulr__button {
     background-color: #f0f0f0;
     transform: translateY(-2px);
   }
+  
+  .shopschedulr__link:hover .shopschedulr__button--below {
+    background-color: #5568d3;
+    transform: translateY(-2px);
+  }
 
-  .shopschedulr__banner:active .shopschedulr__button {
+  .shopschedulr__link:active .shopschedulr__button {
     transform: translateY(0);
   }
   
