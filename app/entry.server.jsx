@@ -13,20 +13,61 @@ export default async function handleRequest(
   responseHeaders,
   reactRouterContext,
 ) {
+  // Log context structure to understand how React Router passes Response objects
+  console.log("[ENTRY] Context keys:", Object.keys(reactRouterContext || {}));
+  console.log("[ENTRY] Response status code:", responseStatusCode);
+  console.log("[ENTRY] Response headers:", Object.fromEntries(responseHeaders || []));
+  
   // React Router v7: Check if the context already has a Response to return
   // Actions returning Response objects should bypass HTML rendering
-  if (reactRouterContext?.actionData) {
-    for (const [routeId, actionData] of Object.entries(reactRouterContext.actionData)) {
-      if (actionData instanceof Response) {
-        const contentType = actionData.headers.get("content-type") || "";
-        console.log("[ENTRY] Found Response in actionData, Content-Type:", contentType);
-        // If it's a Response with JSON content type, return it directly
-        if (contentType.includes("application/json")) {
-          console.log("[ENTRY] Returning JSON Response directly, bypassing HTML rendering");
-          return actionData;
+  // Check multiple possible locations where Response might be stored
+  if (reactRouterContext) {
+    // Check actionData
+    if (reactRouterContext.actionData) {
+      console.log("[ENTRY] Found actionData:", Object.keys(reactRouterContext.actionData));
+      for (const [routeId, actionData] of Object.entries(reactRouterContext.actionData)) {
+        if (actionData instanceof Response) {
+          const contentType = actionData.headers.get("content-type") || "";
+          console.log("[ENTRY] Found Response in actionData, Content-Type:", contentType);
+          if (contentType.includes("application/json")) {
+            console.log("[ENTRY] Returning JSON Response directly from actionData");
+            return actionData;
+          }
         }
       }
     }
+    
+    // Check if there's a response object directly
+    if (reactRouterContext.response && reactRouterContext.response instanceof Response) {
+      const contentType = reactRouterContext.response.headers.get("content-type") || "";
+      console.log("[ENTRY] Found Response in context.response, Content-Type:", contentType);
+      if (contentType.includes("application/json")) {
+        console.log("[ENTRY] Returning JSON Response directly from context.response");
+        return reactRouterContext.response;
+      }
+    }
+    
+    // Check routeData
+    if (reactRouterContext.routeData) {
+      for (const [routeId, routeData] of Object.entries(reactRouterContext.routeData)) {
+        if (routeData instanceof Response) {
+          const contentType = routeData.headers.get("content-type") || "";
+          console.log("[ENTRY] Found Response in routeData:", routeId, "Content-Type:", contentType);
+          if (contentType.includes("application/json")) {
+            console.log("[ENTRY] Returning JSON Response directly from routeData");
+            return routeData;
+          }
+        }
+      }
+    }
+  }
+  
+  // Check if responseHeaders already indicate JSON (from action response)
+  const existingContentType = responseHeaders.get("content-type");
+  if (existingContentType && existingContentType.includes("application/json")) {
+    console.log("[ENTRY] Response headers already set to JSON, Content-Type:", existingContentType);
+    // Return a JSON response directly without HTML rendering
+    // Note: This won't work if React Router hasn't populated the body yet
   }
   
   addDocumentResponseHeaders(request, responseHeaders);
