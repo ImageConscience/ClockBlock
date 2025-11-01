@@ -262,66 +262,70 @@ export const action = async ({ request }) => {
           },
         }
       );
-        
-        const fileCreateJson = await fileCreateResponse.json();
-        console.log("[ACTION] File create response received");
-        
-        if (fileCreateJson?.errors) {
-          const errors = fileCreateJson.errors.map((e) => e.message).join(", ");
-          console.error("[ACTION] GraphQL errors creating file:", errors);
-          return json({ error: `Failed to create file: ${errors}`, success: false });
+      
+      const fileCreateJson = await fileCreateResponse.json();
+      console.log("[ACTION] File create response received");
+      
+      // Clean up temp file after successful upload
+      const { unlink } = await import("fs/promises");
+      try {
+        await unlink(tempFilePath);
+        console.log("[ACTION] Temp file cleaned up");
+      } catch (cleanupError) {
+        console.warn("[ACTION] Failed to clean up temp file:", cleanupError);
+      }
+      
+      if (fileCreateJson?.errors) {
+        const errors = fileCreateJson.errors.map((e) => e.message).join(", ");
+        console.error("[ACTION] GraphQL errors creating file:", errors);
+        return json({ error: `Failed to create file: ${errors}`, success: false });
+      }
+      
+      if (fileCreateJson?.data?.fileCreate?.userErrors?.length > 0) {
+        const errors = fileCreateJson.data.fileCreate.userErrors.map((e) => e.message).join(", ");
+        console.error("[ACTION] User errors creating file:", errors);
+        return json({ error: `Failed to create file: ${errors}`, success: false });
+      }
+      
+      const uploadedFile = fileCreateJson?.data?.fileCreate?.files?.[0];
+      if (!uploadedFile?.id) {
+        console.error("[ACTION] No file ID returned in response");
+        return json({ error: "File uploaded but no ID returned", success: false });
+      }
+      
+      console.log("[ACTION] File uploaded successfully, ID:", uploadedFile.id);
+      
+      return json({
+        success: true,
+        file: {
+          id: uploadedFile.id,
+          url: uploadedFile.image?.url || "",
+          alt: uploadedFile.alt || fileName || "Uploaded image",
+        },
+      });
+      } catch (uploadError) {
+        // Clean up temp file on error
+        const { unlink } = await import("fs/promises");
+        try {
+          await unlink(tempFilePath);
+          console.log("[ACTION] Temp file cleaned up after error");
+        } catch (cleanupError) {
+          console.warn("[ACTION] Failed to clean up temp file:", cleanupError);
         }
         
-        if (fileCreateJson?.data?.fileCreate?.userErrors?.length > 0) {
-          const errors = fileCreateJson.data.fileCreate.userErrors.map((e) => e.message).join(", ");
-          console.error("[ACTION] User errors creating file:", errors);
-          return json({ error: `Failed to create file: ${errors}`, success: false });
-        }
+        console.error("[ACTION] File upload error:", uploadError);
+        console.error("[ACTION] Upload error name:", uploadError?.name);
+        console.error("[ACTION] Upload error message:", uploadError?.message);
+        console.error("[ACTION] Upload error stack:", uploadError?.stack);
         
-        const uploadedFile = fileCreateJson?.data?.fileCreate?.files?.[0];
-        if (!uploadedFile?.id) {
-          console.error("[ACTION] No file ID returned in response");
-          return json({ error: "File uploaded but no ID returned", success: false });
-        }
+        const errorMessage = uploadError.message || 'Unknown error';
         
-        console.log("[ACTION] File uploaded successfully, ID:", uploadedFile.id);
-        
-        return json({
-          success: true,
-          file: {
-            id: uploadedFile.id,
-            url: uploadedFile.image?.url || "",
-            alt: uploadedFile.alt || fileName || "Uploaded image",
-          },
+        console.error("[ACTION] Returning JSON error response for upload failure");
+        return json({ 
+          error: `Failed to upload file: ${errorMessage}`, 
+          success: false 
         });
-        } catch (uploadError) {
-          console.error("[ACTION] Upload request error:", uploadError);
-          console.error("[ACTION] Upload error name:", uploadError?.name);
-          console.error("[ACTION] Upload error message:", uploadError?.message);
-          console.error("[ACTION] Upload error stack:", uploadError?.stack);
-          
-          // With fetch, network errors are thrown as exceptions
-          // HTTP errors (4xx, 5xx) don't throw - they're returned as Response objects
-          // So if we catch here, it's likely a network error or abort
-          if (uploadError.name === 'AbortError' || uploadError.message?.includes('timeout')) {
-            console.error("[ACTION] Upload request timed out or aborted");
-            return json({ 
-              error: `Upload timed out. The file may be too large or the server is taking too long to process it.`, 
-              success: false 
-            });
-          }
-          
-          // Extract error message
-          const errorMessage = uploadError.message || 'Unknown error';
-          
-          console.error("[ACTION] Returning JSON error response for upload failure");
-          const errorResponse = json({ 
-            error: `Failed to upload file: ${errorMessage}`, 
-            success: false 
-          });
-          console.log("[ACTION] JSON response created, returning now");
-          return errorResponse;
-        }
+      }
     } catch (error) {
       console.error("[ACTION] Outer catch - Error uploading file:", error);
       console.error("[ACTION] Outer catch - Error message:", error.message);
