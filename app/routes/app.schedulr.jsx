@@ -272,14 +272,14 @@ export const action = async ({ request }) => {
       console.log("[ACTION] File buffer size:", fileBuffer.length, "bytes");
       
       // Use undici.request with proper form-data stream handling
-      const { request } = await import("undici");
+      const undici = await import("undici");
       
       // Get headers with boundary
       const uploadHeaders = formData.getHeaders();
       console.log("[ACTION] Upload headers:", Object.keys(uploadHeaders));
       
       // Make request - undici handles form-data streams natively
-      const uploadResponse = await request(stagedTarget.url, {
+      const uploadResponse = await undici.request(stagedTarget.url, {
         method: "POST",
         body: formData,
         headers: uploadHeaders,
