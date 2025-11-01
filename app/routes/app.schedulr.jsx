@@ -2150,44 +2150,29 @@ export default function SchedulrPage() {
               maxHeight: "90vh",
               overflowY: "auto",
               boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
-              position: "relative",
             }}
           >
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={handleCloseForm}
-              style={{
-                position: "absolute",
-                top: "1rem",
-                right: "1rem",
-                background: "transparent",
-                border: "none",
-                fontSize: "1.5rem",
-                cursor: "pointer",
-                width: "32px",
-                height: "32px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: "4px",
-                color: "#666",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "#f0f0f0";
-                e.currentTarget.style.color = "#000";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "transparent";
-                e.currentTarget.style.color = "#666";
-              }}
-            >
-              ×
-            </button>
+            <div style={{ padding: "1.5rem", borderBottom: "1px solid #e1e3e5" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "600" }}>Create New Entry</h2>
+                <button
+                  type="button"
+                  onClick={handleCloseForm}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    fontSize: "1.5rem",
+                    cursor: "pointer",
+                    color: "#666",
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
 
             {/* Modal Content */}
-            <div style={{ padding: "1.25rem" }}>
-              <s-heading size="large" style={{ marginBottom: "1rem", marginTop: 0 }}>Create New Entry</s-heading>
+            <div style={{ padding: "1.5rem" }}>
               <fetcher.Form method="post" ref={formRef} encType="application/x-www-form-urlencoded">
           <s-stack direction="block" gap="base">
             {/* Hidden field to capture user's timezone offset */}
