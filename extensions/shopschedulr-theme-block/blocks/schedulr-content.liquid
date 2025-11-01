@@ -1,41 +1,53 @@
 {% comment %}
-  ShopSchedulr block: Filter entries by position_id and date/time range
+  ShopSchedulr block: Filter entries by position_id and date/time range.
+  Uses Eastern Time (US) for 'now' comparison.
+  If multiple matches, selects the one with the most recent start_at.
 {% endcomment %}
 
 {% assign all_entries = metaobjects.schedulable_entity.values %}
 {% assign position_id = block.settings.position_id | default: '' | strip %}
-{% assign now_ts = 'now' | date: '%s' | plus: 0 %}
 
-<div class="shopschedulr" {{ block.shopify_attributes }}>
-  <h3>Schedulable Entity Entries (filtered by Position ID: "{{ position_id }}" and active date range):</h3>
-  {% if all_entries != blank %}
-    <p>Total entries found: {{ all_entries.size }}</p>
-    <ul>
-      {% for entry in all_entries %}
-        {% assign entry_pos = entry.position_id | strip %}
-        {% if entry_pos == position_id %}
-          {% assign start_at_value = entry.start_at %}
-          {% assign end_at_value = entry.end_at %}
-          
-          {% if start_at_value != blank and end_at_value != blank %}
-            {% assign start_ts = start_at_value | date: '%s' | plus: 0 %}
-            {% assign end_ts = end_at_value | date: '%s' | plus: 0 %}
-            
-            {% comment %} Check if current time is within the scheduled range: start_at <= NOW < end_at {% endcomment %}
-            {% if now_ts >= start_ts and now_ts < end_ts %}
-              <li>
-                <strong>Title:</strong> {{ entry.title }}<br>
-                <strong>Position ID:</strong> {{ entry.position_id }}<br>
-                <strong>Start:</strong> {{ entry.start_at }}<br>
-                <strong>End:</strong> {{ entry.end_at }}
-              </li>
-            {% endif %}
+{% comment %} Get current time in Eastern Time Zone {% endcomment %}
+{% assign now_et = 'now' | date: '%s', 'America/New_York' | plus: 0 %}
+
+{% comment %} Find matching entries and track the one with most recent start_at {% endcomment %}
+{% assign selected_entry = null %}
+{% assign latest_start_ts = 0 %}
+
+{% if all_entries != blank %}
+  {% for entry in all_entries %}
+    {% assign entry_pos = entry.position_id | strip %}
+    {% if entry_pos == position_id %}
+      {% assign start_at_value = entry.start_at %}
+      {% assign end_at_value = entry.end_at %}
+      
+      {% if start_at_value != blank and end_at_value != blank %}
+        {% assign start_ts = start_at_value | date: '%s' | plus: 0 %}
+        {% assign end_ts = end_at_value | date: '%s' | plus: 0 %}
+        
+        {% comment %} Check if current Eastern time is within the scheduled range: start_at <= NOW < end_at {% endcomment %}
+        {% if now_et >= start_ts and now_et < end_ts %}
+          {% comment %} This entry matches - check if it has a more recent start time {% endcomment %}
+          {% if start_ts > latest_start_ts %}
+            {% assign latest_start_ts = start_ts %}
+            {% assign selected_entry = entry %}
           {% endif %}
         {% endif %}
-      {% endfor %}
-    </ul>
+      {% endif %}
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
+<div class="shopschedulr" {{ block.shopify_attributes }}>
+  {% if selected_entry != null %}
+    <div>
+      <strong>Title:</strong> {{ selected_entry.title }}<br>
+      <strong>Position ID:</strong> {{ selected_entry.position_id }}<br>
+      <strong>Start:</strong> {{ selected_entry.start_at }}<br>
+      <strong>End:</strong> {{ selected_entry.end_at }}
+    </div>
   {% else %}
-    <p>No entries found. metaobjects.schedulable_entity.values is blank.</p>
+    <p>No active entries found for Position ID: "{{ position_id }}"</p>
   {% endif %}
 </div>
 
