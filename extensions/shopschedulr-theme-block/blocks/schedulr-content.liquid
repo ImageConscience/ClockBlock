@@ -60,7 +60,6 @@
     {% assign overlay_color = block.settings.overlay_color | default: '#000000' %}
     {% assign overlay_opacity = block.settings.overlay_opacity | default: 70 | divided_by: 100.0 %}
     {% assign vertical_alignment = block.settings.vertical_alignment | default: 'bottom' %}
-    {% assign horizontal_alignment = block.settings.horizontal_alignment | default: 'left' %}
     {% assign content_alignment = block.settings.content_alignment | default: 'left' %}
     {% assign button_padding_top = block.settings.button_padding_top | default: 12 %}
     {% assign button_padding_bottom = block.settings.button_padding_bottom | default: 12 %}
@@ -75,7 +74,7 @@
             {{ selected_desktop_banner | image_url: width: 1920 | image_tag: alt: selected_title, class: 'shopschedulr__banner-img', loading: 'lazy' }}
             {% if mobile_content_below == false %}
               {% capture overlay_rgb %}{% assign color_no_hash = overlay_color | remove: '#' %}{% assign r = color_no_hash | slice: 0, 2 | hex_to_number %}{% assign g = color_no_hash | slice: 2, 2 | hex_to_number %}{% assign b = color_no_hash | slice: 4, 2 | hex_to_number %}{{ r }}, {{ g }}, {{ b }}{% endcapture %}
-              <div class="shopschedulr__banner-content shopschedulr__banner-content--desktop shopschedulr__banner-content--v-{{ vertical_alignment }} shopschedulr__banner-content--h-{{ horizontal_alignment }} shopschedulr__banner-content--align-{{ content_alignment }}" style="background: linear-gradient(to top, rgba({{ overlay_rgb | strip }}, {{ overlay_opacity }}), transparent);">
+              <div class="shopschedulr__banner-content shopschedulr__banner-content--desktop shopschedulr__banner-content--v-{{ vertical_alignment }} shopschedulr__banner-content--align-{{ content_alignment }}" style="background: linear-gradient(to top, rgba({{ overlay_rgb | strip }}, {{ overlay_opacity }}), transparent);">
                 <div class="shopschedulr__content-inner">
                   {% if selected_title != blank %}
                     <h2 class="shopschedulr__title" style="font-size: {{ headline_font_size }}em;">{{ selected_title }}</h2>
@@ -84,7 +83,7 @@
                     <p class="shopschedulr__description">{{ selected_description }}</p>
                   {% endif %}
                   {% if selected_button_text != blank %}
-                    <span class="shopschedulr__button" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px;">{{ selected_button_text }}</span>
+                    <span class="shopschedulr__button shopschedulr__button--overlay" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px;">{{ selected_button_text }}</span>
                   {% endif %}
                 </div>
               </div>
@@ -97,7 +96,7 @@
             {{ selected_mobile_banner | image_url: width: 768 | image_tag: alt: selected_title, class: 'shopschedulr__banner-img', loading: 'lazy' }}
             {% if mobile_content_below == false %}
               {% capture overlay_rgb %}{% assign color_no_hash = overlay_color | remove: '#' %}{% assign r = color_no_hash | slice: 0, 2 | hex_to_number %}{% assign g = color_no_hash | slice: 2, 2 | hex_to_number %}{% assign b = color_no_hash | slice: 4, 2 | hex_to_number %}{{ r }}, {{ g }}, {{ b }}{% endcapture %}
-              <div class="shopschedulr__banner-content shopschedulr__banner-content--mobile shopschedulr__banner-content--v-{{ vertical_alignment }} shopschedulr__banner-content--h-{{ horizontal_alignment }} shopschedulr__banner-content--align-{{ content_alignment }}" style="background: linear-gradient(to top, rgba({{ overlay_rgb | strip }}, {{ overlay_opacity }}), transparent);">
+              <div class="shopschedulr__banner-content shopschedulr__banner-content--mobile shopschedulr__banner-content--v-{{ vertical_alignment }} shopschedulr__banner-content--align-{{ content_alignment }}" style="background: linear-gradient(to top, rgba({{ overlay_rgb | strip }}, {{ overlay_opacity }}), transparent);">
                 <div class="shopschedulr__content-inner">
                   {% if selected_title != blank %}
                     <h2 class="shopschedulr__title" style="font-size: {{ headline_font_size }}em;">{{ selected_title }}</h2>
@@ -106,7 +105,7 @@
                     <p class="shopschedulr__description">{{ selected_description }}</p>
                   {% endif %}
                   {% if selected_button_text != blank %}
-                    <span class="shopschedulr__button" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px;">{{ selected_button_text }}</span>
+                    <span class="shopschedulr__button shopschedulr__button--overlay" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px;">{{ selected_button_text }}</span>
                   {% endif %}
                 </div>
               </div>
@@ -166,6 +165,10 @@
   
   .shopschedulr__banner-content {
     position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     color: white;
     padding: 30px 20px;
     display: flex;
@@ -176,41 +179,15 @@
   }
   
   .shopschedulr__banner-content--v-top {
-    top: 0;
-    bottom: auto;
+    justify-content: flex-start;
   }
   
   .shopschedulr__banner-content--v-center {
-    top: 50%;
-    bottom: auto;
-    transform: translateY(-50%);
+    justify-content: center;
   }
   
   .shopschedulr__banner-content--v-bottom {
-    top: auto;
-    bottom: 0;
-  }
-  
-  .shopschedulr__banner-content--h-left {
-    left: 0;
-    right: auto;
-  }
-  
-  .shopschedulr__banner-content--h-center {
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
-    width: auto;
-    max-width: 100%;
-  }
-  
-  .shopschedulr__banner-content--v-center.shopschedulr__banner-content--h-center {
-    transform: translate(-50%, -50%);
-  }
-  
-  .shopschedulr__banner-content--h-right {
-    left: auto;
-    right: 0;
+    justify-content: flex-end;
   }
   
   .shopschedulr__content-inner {
@@ -407,8 +384,6 @@
   
   .shopschedulr__button {
     display: inline-block;
-    background-color: white;
-    color: #667eea !important;
     text-decoration: none;
     border-radius: 6px;
     font-weight: 600;
@@ -416,6 +391,13 @@
     transition: background-color 0.3s ease, transform 0.2s ease;
     cursor: pointer;
     width: auto;
+    border: none;
+    box-sizing: border-box;
+  }
+  
+  .shopschedulr__button--overlay {
+    background-color: white;
+    color: #667eea !important;
   }
   
   .shopschedulr__button--below {
