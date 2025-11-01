@@ -166,16 +166,75 @@
   
   .shopschedulr__banner-content {
     position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
     color: white;
-    text-align: left;
-    padding: 40px;
+    padding: 30px 20px;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .shopschedulr__banner-content--v-top {
+    top: 0;
+    bottom: auto;
+  }
+  
+  .shopschedulr__banner-content--v-center {
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+  }
+  
+  .shopschedulr__banner-content--v-bottom {
+    top: auto;
+    bottom: 0;
+  }
+  
+  .shopschedulr__banner-content--h-left {
+    left: 0;
+    right: auto;
+  }
+  
+  .shopschedulr__banner-content--h-center {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: auto;
+    max-width: 100%;
+  }
+  
+  .shopschedulr__banner-content--v-center.shopschedulr__banner-content--h-center {
+    transform: translate(-50%, -50%);
+  }
+  
+  .shopschedulr__banner-content--h-right {
+    left: auto;
+    right: 0;
+  }
+  
+  .shopschedulr__content-inner {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+  }
+  
+  .shopschedulr__banner-content--align-left .shopschedulr__content-inner {
+    text-align: left;
+    align-items: flex-start;
+  }
+  
+  .shopschedulr__banner-content--align-center .shopschedulr__content-inner {
+    text-align: center;
+    align-items: center;
+  }
+  
+  .shopschedulr__banner-content--align-right .shopschedulr__content-inner {
+    text-align: right;
+    align-items: flex-end;
   }
   
   .shopschedulr__banner-content--desktop {
