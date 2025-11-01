@@ -377,7 +377,10 @@ export const action = async ({ request }) => {
           url: uploadedFile.image?.url || "",
         },
       }));
+      console.log("[ACTION] Response Content-Type:", successResponse.headers.get("content-type"));
+      console.log("[ACTION] Response status:", successResponse.status);
       
+      // Ensure we return the response directly - don't let React Router wrap it
       return successResponse;
       
     } catch (error) {
