@@ -100,7 +100,7 @@
     display: none;
   }
   
-  @media (max-width: {{ breakpoint | minus: 1 }}px) {
+  @media all and (max-width: {{ breakpoint | minus: 1 }}px) {
     .shopschedulr__banner--desktop {
       display: none;
     }
