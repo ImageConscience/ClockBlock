@@ -1,22 +1,36 @@
 {% comment %}
-  ShopSchedulr block: Filter entries by position_id and display title and position_id
+  ShopSchedulr block: Filter entries by position_id and date/time range
 {% endcomment %}
 
 {% assign all_entries = metaobjects.schedulable_entity.values %}
 {% assign position_id = block.settings.position_id | default: '' | strip %}
+{% assign now_ts = 'now' | date: '%s' | plus: 0 %}
 
 <div class="shopschedulr" {{ block.shopify_attributes }}>
-  <h3>Schedulable Entity Entries (filtered by Position ID: "{{ position_id }}"):</h3>
+  <h3>Schedulable Entity Entries (filtered by Position ID: "{{ position_id }}" and active date range):</h3>
   {% if all_entries != blank %}
     <p>Total entries found: {{ all_entries.size }}</p>
     <ul>
       {% for entry in all_entries %}
         {% assign entry_pos = entry.position_id | strip %}
         {% if entry_pos == position_id %}
-          <li>
-            <strong>Title:</strong> {{ entry.title }}<br>
-            <strong>Position ID:</strong> {{ entry.position_id }}
-          </li>
+          {% assign start_at_value = entry.start_at %}
+          {% assign end_at_value = entry.end_at %}
+          
+          {% if start_at_value != blank and end_at_value != blank %}
+            {% assign start_ts = start_at_value | date: '%s' | plus: 0 %}
+            {% assign end_ts = end_at_value | date: '%s' | plus: 0 %}
+            
+            {% comment %} Check if current time is within the scheduled range: start_at <= NOW < end_at {% endcomment %}
+            {% if now_ts >= start_ts and now_ts < end_ts %}
+              <li>
+                <strong>Title:</strong> {{ entry.title }}<br>
+                <strong>Position ID:</strong> {{ entry.position_id }}<br>
+                <strong>Start:</strong> {{ entry.start_at }}<br>
+                <strong>End:</strong> {{ entry.end_at }}
+              </li>
+            {% endif %}
+          {% endif %}
         {% endif %}
       {% endfor %}
     </ul>
