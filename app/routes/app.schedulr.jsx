@@ -2113,6 +2113,10 @@ export default function SchedulrPage() {
                   const fieldMap = Object.fromEntries(
                     (e.fields || []).map((f) => [f.key, f.value]),
                   );
+                  const referenceMap = Object.fromEntries(
+                    (e.fields || []).map((f) => [f.key, f.reference]),
+                  );
+                  
                   let startDate = "Not set";
                   let endDate = "Not set";
                   try {
@@ -2135,6 +2139,12 @@ export default function SchedulrPage() {
                   } catch (e) {
                     console.error("Error parsing end date:", e);
                   }
+                  
+                  const desktopBanner = referenceMap.desktop_banner;
+                  const mobileBanner = referenceMap.mobile_banner;
+                  const desktopBannerUrl = desktopBanner?.image?.url || null;
+                  const mobileBannerUrl = mobileBanner?.image?.url || null;
+                  
                   return (
                     <tr key={e.id} style={{ borderBottom: "1px solid #e1e3e5" }}>
                       <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontWeight: "500" }}>
@@ -2149,11 +2159,27 @@ export default function SchedulrPage() {
                       <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontSize: "0.8125rem", color: "#666" }}>
                         {endDate}
                       </td>
-                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontSize: "0.8125rem", color: "#666", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {fieldMap.description || "-"}
+                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontSize: "0.8125rem", textAlign: "center" }}>
+                        {desktopBannerUrl ? (
+                          <img 
+                            src={desktopBannerUrl} 
+                            alt="Desktop banner" 
+                            style={{ maxWidth: "100px", maxHeight: "60px", objectFit: "contain", border: "1px solid #e1e3e5", borderRadius: "4px" }}
+                          />
+                        ) : (
+                          "-"
+                        )}
                       </td>
-                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontSize: "0.8125rem", color: "#666" }}>
-                        {fieldMap.button_text || "-"}
+                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontSize: "0.8125rem", textAlign: "center" }}>
+                        {mobileBannerUrl ? (
+                          <img 
+                            src={mobileBannerUrl} 
+                            alt="Mobile banner" 
+                            style={{ maxWidth: "100px", maxHeight: "60px", objectFit: "contain", border: "1px solid #e1e3e5", borderRadius: "4px" }}
+                          />
+                        ) : (
+                          "-"
+                        )}
                       </td>
                       <td style={{ padding: "0.75rem", fontSize: "0.8125rem", color: "#666", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {fieldMap.target_url || "-"}
