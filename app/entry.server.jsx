@@ -132,6 +132,27 @@ export default async function handleRequest(
         }
       }
       
+      // If we didn't find the data but headers indicate JSON,
+      // React Router has already processed the action and set JSON headers
+      // The response body should be in the context, but if we can't find it,
+      // we need to check if React Router stored it in matches/routeData
+      if (!actionResponseData && reactRouterContext?.matches) {
+        console.log("[ENTRY] Checking matches for action response data");
+        for (const match of reactRouterContext.matches) {
+          if (match.route?.module?.action && match.routeData) {
+            console.log("[ENTRY] Checking match routeData:", Object.keys(match.routeData || {}));
+            // Check if routeData contains our action response
+            for (const [key, value] of Object.entries(match.routeData)) {
+              if (value && typeof value === "object" && (value.success !== undefined || value.error !== undefined)) {
+                actionResponseData = value;
+                console.log("[ENTRY] Found action response in match routeData:", key);
+                break;
+              }
+            }
+          }
+        }
+      }
+      
       // If we found the data, return it as JSON
       if (actionResponseData) {
         console.log("[ENTRY] Returning action response data as JSON");
@@ -143,16 +164,21 @@ export default async function handleRequest(
         });
       }
       
-      // If we didn't find the data but headers indicate JSON,
-      // React Router should have already handled it, but we still need to prevent HTML rendering
-      // In this case, we'll return an empty JSON response or re-read from the action
-      console.log("[ENTRY] JSON headers detected but no actionData found, returning empty JSON");
-      return new Response("{}", {
-        status: responseStatusCode || 200,
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-        },
-      });
+      // If we STILL didn't find the data, but headers are JSON,
+      // React Router must have already sent the response body somewhere.
+      // Since we can't access it, we need to return early to prevent HTML rendering.
+      // The actual response should already be in the HTTP response stream.
+      if (!actionResponseData) {
+        console.log("[ENTRY] JSON headers detected but no actionData found - React Router should have handled this");
+        console.log("[ENTRY] Returning empty JSON to prevent HTML rendering (actual response may already be sent)");
+        // Return empty JSON to prevent HTML rendering - React Router should have already sent the real response
+        return new Response(JSON.stringify({}), {
+          status: responseStatusCode || 200,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+          },
+        });
+      }
     }
   }
   
