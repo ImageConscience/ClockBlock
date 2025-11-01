@@ -2087,66 +2087,75 @@ export default function SchedulrPage() {
         {entries.length === 0 ? (
           <s-text>No entries yet. Create your first schedulable entry above.</s-text>
         ) : (
-          <s-stack direction="block" gap="base">
-            {entries.map((e) => {
-              const fieldMap = Object.fromEntries(
-                (e.fields || []).map((f) => [f.key, f.value]),
-              );
-              let startDate = "Not set";
-              let endDate = "Not set";
-              try {
-                if (fieldMap.start_at) {
-                  const start = new Date(fieldMap.start_at);
-                  if (!isNaN(start.getTime())) {
-                    startDate = start.toLocaleString();
+          <div style={{ overflowX: "auto", width: "100%" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+              <thead>
+                <tr style={{ borderBottom: "2px solid #e1e3e5", backgroundColor: "#f6f6f7" }}>
+                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>Title</th>
+                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>Position ID</th>
+                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>Start At</th>
+                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>End At</th>
+                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>Description</th>
+                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>Button Text</th>
+                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600" }}>Target URL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map((e) => {
+                  const fieldMap = Object.fromEntries(
+                    (e.fields || []).map((f) => [f.key, f.value]),
+                  );
+                  let startDate = "Not set";
+                  let endDate = "Not set";
+                  try {
+                    if (fieldMap.start_at) {
+                      const start = new Date(fieldMap.start_at);
+                      if (!isNaN(start.getTime())) {
+                        startDate = start.toLocaleString();
+                      }
+                    }
+                  } catch (e) {
+                    console.error("Error parsing start date:", e);
                   }
-                }
-              } catch (e) {
-                console.error("Error parsing start date:", e);
-              }
-              try {
-                if (fieldMap.end_at) {
-                  const end = new Date(fieldMap.end_at);
-                  if (!isNaN(end.getTime())) {
-                    endDate = end.toLocaleString();
+                  try {
+                    if (fieldMap.end_at) {
+                      const end = new Date(fieldMap.end_at);
+                      if (!isNaN(end.getTime())) {
+                        endDate = end.toLocaleString();
+                      }
+                    }
+                  } catch (e) {
+                    console.error("Error parsing end date:", e);
                   }
-                }
-              } catch (e) {
-                console.error("Error parsing end date:", e);
-              }
-              return (
-                <s-box key={e.id} padding="base" borderWidth="base" borderRadius="base">
-                  <s-heading>{fieldMap.title || "(untitled)"}</s-heading>
-                  {fieldMap.description && (
-                    <s-text variant="subdued" style={{ marginTop: "0.5rem" }}>
-                      {fieldMap.description}
-                    </s-text>
-                  )}
-                  <s-stack direction="inline" gap="base" style={{ marginTop: "0.75rem" }}>
-                    <s-text variant="subdued">Position: {fieldMap.position_id}</s-text>
-                  </s-stack>
-                  <s-text style={{ marginTop: "0.5rem" }}>
-                    {startDate} → {endDate}
-                  </s-text>
-                  {fieldMap.headline && (
-                    <s-text style={{ marginTop: "0.5rem", fontWeight: "600" }}>
-                      {fieldMap.headline}
-                    </s-text>
-                  )}
-                  {fieldMap.target_url && (
-                    <s-text variant="subdued" style={{ marginTop: "0.5rem" }}>
-                      Target: {fieldMap.target_url}
-                    </s-text>
-                  )}
-                  {fieldMap.button_text && (
-                    <s-text variant="subdued" style={{ marginTop: "0.5rem" }}>
-                      Button: {fieldMap.button_text}
-                    </s-text>
-                  )}
-                </s-box>
-              );
-            })}
-          </s-stack>
+                  return (
+                    <tr key={e.id} style={{ borderBottom: "1px solid #e1e3e5" }}>
+                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontWeight: "500" }}>
+                        {fieldMap.title || "(untitled)"}
+                      </td>
+                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5" }}>
+                        {fieldMap.position_id || "-"}
+                      </td>
+                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontSize: "0.8125rem", color: "#666" }}>
+                        {startDate}
+                      </td>
+                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontSize: "0.8125rem", color: "#666" }}>
+                        {endDate}
+                      </td>
+                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontSize: "0.8125rem", color: "#666", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {fieldMap.description || "-"}
+                      </td>
+                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontSize: "0.8125rem", color: "#666" }}>
+                        {fieldMap.button_text || "-"}
+                      </td>
+                      <td style={{ padding: "0.75rem", fontSize: "0.8125rem", color: "#666", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {fieldMap.target_url || "-"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </s-section>
     </s-page>
