@@ -15,6 +15,7 @@
 {% comment %} Find matching entries and track the one with most recent start_at {% endcomment %}
 {% assign latest_start_ts = 0 %}
 {% assign selected_title = blank %}
+{% assign selected_description = blank %}
 {% assign selected_desktop_banner = blank %}
 {% assign selected_mobile_banner = blank %}
 {% assign selected_target_url = blank %}
@@ -38,6 +39,7 @@
           {% if start_ts > latest_start_ts or latest_start_ts == 0 %}
             {% assign latest_start_ts = start_ts %}
             {% assign selected_title = entry.title %}
+            {% assign selected_description = entry.description %}
             {% assign selected_desktop_banner = entry.desktop_banner %}
             {% assign selected_mobile_banner = entry.mobile_banner %}
             {% assign selected_target_url = entry.target_url %}
@@ -55,19 +57,35 @@
 <div class="shopschedulr" {{ block.shopify_attributes }}>
   {% if found_match and selected_target_url != blank %}
     {% assign mobile_content_below = block.settings.mobile_content_below | default: false %}
+    {% assign overlay_color = block.settings.overlay_color | default: '#000000' %}
+    {% assign overlay_opacity = block.settings.overlay_opacity | default: 70 | divided_by: 100.0 %}
+    {% assign vertical_alignment = block.settings.vertical_alignment | default: 'bottom' %}
+    {% assign horizontal_alignment = block.settings.horizontal_alignment | default: 'left' %}
+    {% assign content_alignment = block.settings.content_alignment | default: 'left' %}
+    {% assign button_padding_top = block.settings.button_padding_top | default: 12 %}
+    {% assign button_padding_bottom = block.settings.button_padding_bottom | default: 12 %}
+    {% assign button_padding_left = block.settings.button_padding_left | default: 30 %}
+    {% assign button_padding_right = block.settings.button_padding_right | default: 30 %}
+    {% assign headline_font_size = block.settings.headline_font_size | default: 2.5 %}
+    
     <a href="{{ selected_target_url }}" class="shopschedulr__link">
       <div class="shopschedulr__banner-container {% if mobile_content_below %}shopschedulr__banner-container--mobile-below{% endif %}">
         {% if selected_desktop_banner != blank %}
           <div class="shopschedulr__banner shopschedulr__banner--desktop">
             {{ selected_desktop_banner | image_url: width: 1920 | image_tag: alt: selected_title, class: 'shopschedulr__banner-img', loading: 'lazy' }}
             {% if mobile_content_below == false %}
-              <div class="shopschedulr__banner-content shopschedulr__banner-content--desktop">
-                {% if selected_title != blank %}
-                  <h2 class="shopschedulr__title">{{ selected_title }}</h2>
-                {% endif %}
-                {% if selected_button_text != blank %}
-                  <span class="shopschedulr__button">{{ selected_button_text }}</span>
-                {% endif %}
+              <div class="shopschedulr__banner-content shopschedulr__banner-content--desktop shopschedulr__banner-content--v-{{ vertical_alignment }} shopschedulr__banner-content--h-{{ horizontal_alignment }} shopschedulr__banner-content--align-{{ content_alignment }}" style="--overlay-color: {{ overlay_color }}; --overlay-opacity: {{ overlay_opacity }};">
+                <div class="shopschedulr__content-inner">
+                  {% if selected_title != blank %}
+                    <h2 class="shopschedulr__title" style="font-size: {{ headline_font_size }}em;">{{ selected_title }}</h2>
+                  {% endif %}
+                  {% if selected_description != blank %}
+                    <p class="shopschedulr__description">{{ selected_description }}</p>
+                  {% endif %}
+                  {% if selected_button_text != blank %}
+                    <span class="shopschedulr__button" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px;">{{ selected_button_text }}</span>
+                  {% endif %}
+                </div>
               </div>
             {% endif %}
           </div>
@@ -77,25 +95,33 @@
           <div class="shopschedulr__banner shopschedulr__banner--mobile">
             {{ selected_mobile_banner | image_url: width: 768 | image_tag: alt: selected_title, class: 'shopschedulr__banner-img', loading: 'lazy' }}
             {% if mobile_content_below == false %}
-              <div class="shopschedulr__banner-content shopschedulr__banner-content--mobile">
-                {% if selected_title != blank %}
-                  <h2 class="shopschedulr__title">{{ selected_title }}</h2>
-                {% endif %}
-                {% if selected_button_text != blank %}
-                  <span class="shopschedulr__button">{{ selected_button_text }}</span>
-                {% endif %}
+              <div class="shopschedulr__banner-content shopschedulr__banner-content--mobile shopschedulr__banner-content--v-{{ vertical_alignment }} shopschedulr__banner-content--h-{{ horizontal_alignment }} shopschedulr__banner-content--align-{{ content_alignment }}" style="--overlay-color: {{ overlay_color }}; --overlay-opacity: {{ overlay_opacity }};">
+                <div class="shopschedulr__content-inner">
+                  {% if selected_title != blank %}
+                    <h2 class="shopschedulr__title" style="font-size: {{ headline_font_size | times: 0.8 }}em;">{{ selected_title }}</h2>
+                  {% endif %}
+                  {% if selected_description != blank %}
+                    <p class="shopschedulr__description">{{ selected_description }}</p>
+                  {% endif %}
+                  {% if selected_button_text != blank %}
+                    <span class="shopschedulr__button" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px;">{{ selected_button_text }}</span>
+                  {% endif %}
+                </div>
               </div>
             {% endif %}
           </div>
         {% endif %}
         
         {% if mobile_content_below %}
-          <div class="shopschedulr__content-below shopschedulr__content-below--mobile-only">
+          <div class="shopschedulr__content-below shopschedulr__content-below--mobile-only shopschedulr__content-below--align-{{ content_alignment }}">
             {% if selected_title != blank %}
-              <h2 class="shopschedulr__title shopschedulr__title--below">{{ selected_title }}</h2>
+              <h2 class="shopschedulr__title shopschedulr__title--below" style="font-size: {{ headline_font_size | times: 0.8 }}em;">{{ selected_title }}</h2>
+            {% endif %}
+            {% if selected_description != blank %}
+              <p class="shopschedulr__description shopschedulr__description--below">{{ selected_description }}</p>
             {% endif %}
             {% if selected_button_text != blank %}
-              <span class="shopschedulr__button shopschedulr__button--below">{{ selected_button_text }}</span>
+              <span class="shopschedulr__button shopschedulr__button--below" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px;">{{ selected_button_text }}</span>
             {% endif %}
           </div>
         {% endif %}
@@ -300,7 +326,6 @@
   
   .shopschedulr__button {
     display: inline-block;
-    padding: 12px 30px;
     background-color: white;
     color: #667eea !important;
     text-decoration: none;
@@ -309,13 +334,12 @@
     font-size: 1em;
     transition: background-color 0.3s ease, transform 0.2s ease;
     cursor: pointer;
-    align-self: flex-start;
+    width: auto;
   }
   
   .shopschedulr__button--below {
     background-color: #667eea;
     color: white !important;
-    align-self: center;
   }
 
   .shopschedulr__link:hover .shopschedulr__button {
