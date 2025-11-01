@@ -6,8 +6,9 @@ import { dirname } from "path";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Temporary file directory
-const TEMP_DIR = join(__dirname, "../../../temp/uploads");
+// Temporary file directory - use process.cwd() for consistent path across routes
+// This should match the path used in app.schedulr.jsx
+const TEMP_DIR = join(process.cwd(), "temp", "uploads");
 
 // Ensure temp directory exists
 async function ensureTempDir() {

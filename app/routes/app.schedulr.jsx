@@ -200,9 +200,8 @@ export const action = async ({ request }) => {
       const { dirname } = await import("path");
       const crypto = await import("crypto");
       
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = dirname(__filename);
-      const TEMP_DIR = join(__dirname, "../../temp/uploads");
+      // Use process.cwd() for consistent temp directory path across all routes
+      const TEMP_DIR = join(process.cwd(), "temp", "uploads");
       
       // Ensure temp directory exists
       try {
