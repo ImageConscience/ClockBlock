@@ -2392,23 +2392,6 @@ export default function SchedulrPage() {
                       <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>
                         Mobile Banner
                       </th>
-                      <th 
-                        style={{ 
-                          padding: "0.75rem", 
-                          textAlign: "left", 
-                          fontWeight: "600",
-                          borderRight: "1px solid #e1e3e5",
-                          cursor: "pointer",
-                          userSelect: "none"
-                        }}
-                        onClick={() => handleSort('target_url')}
-                      >
-                        Target URL {getSortDirection('target_url') && (
-                          <span style={{ marginLeft: "0.5rem", fontSize: "0.75rem", color: "#667eea" }}>
-                            {getSortDirection('target_url') === 'asc' ? '↑' : '↓'} {getSortOrder('target_url')}
-                          </span>
-                        )}
-                      </th>
                       <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: "600" }}>
                         Actions
                       </th>
@@ -2531,17 +2514,56 @@ export default function SchedulrPage() {
                   return (
                     <tr key={e.id} style={{ borderBottom: "1px solid #e1e3e5" }}>
                       <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", textAlign: "center" }}>
-                        <label style={{ display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                        <label 
+                          style={{ 
+                            display: "inline-flex", 
+                            alignItems: "center", 
+                            justifyContent: "center", 
+                            cursor: "pointer",
+                            position: "relative",
+                            width: "44px",
+                            height: "24px",
+                          }}
+                        >
                           <input
                             type="checkbox"
                             checked={isActive}
                             onChange={handleToggleStatus}
                             style={{
-                              width: "20px",
-                              height: "20px",
-                              cursor: "pointer",
+                              opacity: 0,
+                              width: 0,
+                              height: 0,
+                              position: "absolute",
                             }}
                           />
+                          <span
+                            style={{
+                              position: "absolute",
+                              cursor: "pointer",
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              backgroundColor: isActive ? "#667eea" : "#c9cccf",
+                              borderRadius: "24px",
+                              transition: "background-color 0.2s",
+                            }}
+                          >
+                            <span
+                              style={{
+                                position: "absolute",
+                                content: '""',
+                                height: "18px",
+                                width: "18px",
+                                left: isActive ? "22px" : "3px",
+                                bottom: "3px",
+                                backgroundColor: "white",
+                                borderRadius: "50%",
+                                transition: "left 0.2s",
+                                boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                              }}
+                            />
+                          </span>
                         </label>
                       </td>
                       <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontWeight: "500" }}>
@@ -2577,9 +2599,6 @@ export default function SchedulrPage() {
                         ) : (
                           "-"
                         )}
-                      </td>
-                      <td style={{ padding: "0.75rem", fontSize: "0.8125rem", color: "#666", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderRight: "1px solid #e1e3e5" }}>
-                        {fieldMap.target_url || "-"}
                       </td>
                       <td style={{ padding: "0.75rem", textAlign: "center" }}>
                         <a
