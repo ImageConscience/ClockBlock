@@ -651,7 +651,9 @@ export const action = async ({ request }) => {
     const targetUrl = String(formData.get("target_url") || "").trim();
     const headline = String(formData.get("headline") || "").trim();
     const buttonText = String(formData.get("button_text") || "").trim();
-    const status = String(formData.get("status") || "active").trim();
+    // Convert checkbox value (on/undefined) to status (active/draft)
+    const statusCheckbox = formData.get("status");
+    const status = statusCheckbox === "on" ? "active" : "draft";
     // Get user's timezone offset in minutes (negative means ahead of UTC, positive means behind)
     const userTimezoneOffset = parseInt(formData.get("timezone_offset") || "0", 10);
 
@@ -2002,6 +2004,7 @@ export default function SchedulrPage() {
   const revalidator = useRevalidator();
   const formRef = useRef(null);
   const [showForm, setShowForm] = useState(false);
+  const [formStatusActive, setFormStatusActive] = useState(false);
   const handledResponseRef = useRef(null);
   const [sortConfig, setSortConfig] = useState([]); // Array of {column: string, direction: 'asc'|'desc'}
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -2047,6 +2050,8 @@ export default function SchedulrPage() {
       if (formRef.current) {
         formRef.current.reset();
       }
+      // Reset toggle state
+      setFormStatusActive(false);
       // Close the modal after successful submission
       setShowForm(false);
     }
@@ -2065,6 +2070,15 @@ export default function SchedulrPage() {
       shopify.toast.show(loaderError, { isError: true });
     }
   }, [loaderError, shopify]);
+
+  // Function to close form and reset toggle
+  const handleCloseForm = () => {
+    setShowForm(false);
+    setFormStatusActive(false);
+    if (formRef.current) {
+      formRef.current.reset();
+    }
+  };
 
   const isLoading = navigation.state === "submitting" || fetcher.state === "submitting";
 
@@ -2099,7 +2113,7 @@ export default function SchedulrPage() {
       {/* Modal Overlay */}
       {showForm && (
         <div
-          onClick={() => setShowForm(false)}
+          onClick={handleCloseForm}
           style={{
             position: "fixed",
             top: 0,
@@ -2132,7 +2146,7 @@ export default function SchedulrPage() {
             {/* Close Button */}
             <button
               type="button"
-              onClick={() => setShowForm(false)}
+              onClick={handleCloseForm}
               style={{
                 position: "absolute",
                 top: "1rem",
@@ -2220,12 +2234,6 @@ export default function SchedulrPage() {
                       />
                     </div>
                   </div>
-                  <s-text-field
-                    label="Description"
-                    name="description"
-                    multiline={3}
-                    placeholder="Short description or summary"
-                  />
                   <s-url-field
                     label="Target URL"
                     name="target_url"
@@ -2247,18 +2255,86 @@ export default function SchedulrPage() {
                     placeholder="Headline text"
                   />
                   <s-text-field
+                    label="Description"
+                    name="description"
+                    multiline={3}
+                    placeholder="Short description or summary"
+                  />
+                  <s-text-field
                     label="Button Text"
                     name="button_text"
                     placeholder="Button text"
                   />
-                  <s-select
-                    label="Entry Status"
-                    name="status"
-                    defaultValue="active"
-                  >
-                    <option value="active">Active (published)</option>
-                    <option value="draft">Draft (not published)</option>
-                  </s-select>
+                  <div style={{ marginBottom: "0.5rem" }}>
+                    <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", fontSize: "0.875rem" }}>
+                      Entry Status
+                    </label>
+                    <label 
+                      style={{ 
+                        display: "inline-flex", 
+                        alignItems: "center", 
+                        gap: "0.5rem",
+                        cursor: "pointer",
+                        position: "relative",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        name="status"
+                        value="on"
+                        checked={formStatusActive}
+                        onChange={(e) => setFormStatusActive(e.target.checked)}
+                        style={{
+                          opacity: 0,
+                          width: 0,
+                          height: 0,
+                          position: "absolute",
+                        }}
+                      />
+                      <span
+                        style={{
+                          position: "relative",
+                          cursor: "pointer",
+                          width: "44px",
+                          height: "24px",
+                        }}
+                      >
+                        <span
+                          style={{
+                            position: "absolute",
+                            cursor: "pointer",
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: formStatusActive ? "#667eea" : "#c9cccf",
+                            borderRadius: "24px",
+                            transition: "background-color 0.2s",
+                          }}
+                          className="toggle-track"
+                        >
+                          <span
+                            style={{
+                              position: "absolute",
+                              content: '""',
+                              height: "18px",
+                              width: "18px",
+                              left: formStatusActive ? "22px" : "3px",
+                              bottom: "3px",
+                              backgroundColor: "white",
+                              borderRadius: "50%",
+                              transition: "left 0.2s",
+                              boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                            }}
+                            className="toggle-thumb"
+                          />
+                        </span>
+                      </span>
+                      <span style={{ fontSize: "0.875rem", color: "#667eea", fontWeight: "500" }}>
+                        Active (published)
+                      </span>
+                    </label>
+                  </div>
                   <s-button type="submit" disabled={isLoading} variant="primary">
                     {isLoading ? "Creating..." : "Create Entry"}
                   </s-button>
