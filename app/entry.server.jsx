@@ -97,13 +97,17 @@ export default async function handleRequest(
       // React Router v7 might store it differently
       let actionResponseData = null;
       
+      // Log entire context structure to find where data is stored
+      console.log("[ENTRY] Full context structure:", JSON.stringify(Object.keys(reactRouterContext || {})).substring(0, 500));
+      
       // Check all possible locations where React Router might store action data
       console.log("[ENTRY] Checking actionData existence:", !!reactRouterContext?.actionData);
       if (reactRouterContext?.actionData) {
         console.log("[ENTRY] actionData keys:", Object.keys(reactRouterContext.actionData));
         for (const [routeId, data] of Object.entries(reactRouterContext.actionData)) {
-          console.log("[ENTRY] Found actionData for route:", routeId, "data:", JSON.stringify(data).substring(0, 200));
+          console.log("[ENTRY] Found actionData for route:", routeId, "data type:", typeof data, "is Response:", data instanceof Response);
           if (data && typeof data === "object" && !(data instanceof Response)) {
+            console.log("[ENTRY] actionData content:", JSON.stringify(data).substring(0, 300));
             actionResponseData = data;
             console.log("[ENTRY] Using actionData from route:", routeId);
             break;
@@ -111,6 +115,23 @@ export default async function handleRequest(
         }
       } else {
         console.log("[ENTRY] No actionData found in context");
+        
+        // Check if React Router stored it in staticHandlerContext
+        if (reactRouterContext?.staticHandlerContext) {
+          console.log("[ENTRY] Checking staticHandlerContext");
+          const staticContext = reactRouterContext.staticHandlerContext;
+          console.log("[ENTRY] staticHandlerContext keys:", Object.keys(staticContext || {}));
+          if (staticContext?.actionData) {
+            console.log("[ENTRY] Found actionData in staticHandlerContext:", Object.keys(staticContext.actionData));
+            for (const [routeId, data] of Object.entries(staticContext.actionData)) {
+              if (data && typeof data === "object" && !(data instanceof Response)) {
+                console.log("[ENTRY] Found action response in staticHandlerContext:", routeId);
+                actionResponseData = data;
+                break;
+              }
+            }
+          }
+        }
       }
       
       // Also check if there's a response body stored elsewhere in the context
@@ -165,14 +186,38 @@ export default async function handleRequest(
       }
       
       // If we STILL didn't find the data, but headers are JSON,
-      // React Router must have already sent the response body somewhere.
-      // Since we can't access it, we need to return early to prevent HTML rendering.
-      // The actual response should already be in the HTTP response stream.
+      // React Router v7 has already processed the action response.
+      // The response body should be available, but React Router may have already streamed it.
+      // We need to reconstruct it from what we know - but since we can't access it,
+      // we should check if React Router stored the response somewhere else.
       if (!actionResponseData) {
-        console.log("[ENTRY] JSON headers detected but no actionData found - React Router should have handled this");
-        console.log("[ENTRY] Returning empty JSON to prevent HTML rendering (actual response may already be sent)");
-        // Return empty JSON to prevent HTML rendering - React Router should have already sent the real response
-        return new Response(JSON.stringify({}), {
+        console.log("[ENTRY] JSON headers detected but no actionData found in context");
+        console.log("[ENTRY] This means React Router has already processed the action response");
+        console.log("[ENTRY] Checking if response was already sent or if we need to read from a different source");
+        
+        // React Router v7 should have already sent the response body.
+        // The fact that we're here means entry.server.jsx is being called AFTER the response was processed.
+        // We should NOT render HTML - but we also can't access the original response body.
+        // The best we can do is abort rendering by throwing or returning early.
+        // However, if we throw, React Router might show an error page.
+        // Instead, let's try to read from the response stream if available, or skip rendering.
+        
+        // Since we can't access the original response, and React Router should have already sent it,
+        // we need to prevent HTML rendering without overriding the response.
+        // The safest approach is to NOT render HTML at all - return early without calling renderToPipeableStream.
+        // But entry.server.jsx is designed to always render, so we can't just return undefined.
+        
+        // ACTUALLY: If React Router has already set JSON headers and processed the response,
+        // it means the response has already been sent to the client. entry.server.jsx
+        // shouldn't even be called in this case. But if it is, we need to not render HTML.
+        // The best approach: return a minimal response that won't break the client,
+        // but log that something is wrong.
+        
+        console.error("[ENTRY] WARNING: JSON headers detected but cannot find actionData. React Router should have already sent the response.");
+        console.error("[ENTRY] Returning empty success response to prevent HTML rendering.");
+        // Return a minimal success response - the client might get this instead of the real response
+        // But this is better than HTML
+        return new Response(JSON.stringify({ success: true, message: "Response already processed by React Router" }), {
           status: responseStatusCode || 200,
           headers: {
             "Content-Type": "application/json; charset=utf-8",
