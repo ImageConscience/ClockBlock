@@ -193,6 +193,7 @@ export const action = async ({ request }) => {
         const fields = [];
         if (body.title) fields.push({ key: "title", value: body.title });
         if (body.positionId) fields.push({ key: "position_id", value: body.positionId });
+        if (body.headline !== undefined) fields.push({ key: "headline", value: body.headline || "" });
         if (body.description !== undefined) fields.push({ key: "description", value: body.description || "" });
         if (body.startAt) {
           const startDate = new Date(body.startAt);
@@ -2208,7 +2209,7 @@ export default function SchedulrPage() {
               placeholder="e.g., homepage_banner"
             />
                   <div style={{ display: "flex", gap: "15px", marginBottom: "0.5rem" }}>
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <label htmlFor="start_at" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>
                         Start Date & Time
                       </label>
@@ -2222,10 +2223,11 @@ export default function SchedulrPage() {
                           border: "1px solid #c9cccf",
                           borderRadius: "4px",
                           fontSize: "0.8125rem",
+                          boxSizing: "border-box",
                         }}
                       />
                     </div>
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <label htmlFor="end_at" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>
                         End Date & Time
                       </label>
@@ -2239,6 +2241,7 @@ export default function SchedulrPage() {
                           border: "1px solid #c9cccf",
                           borderRadius: "4px",
                           fontSize: "0.8125rem",
+                          boxSizing: "border-box",
                         }}
                       />
                     </div>
@@ -2805,6 +2808,7 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
       id: entry.id,
       title: formData.get("title"),
       positionId: formData.get("position_id"),
+      headline: formData.get("headline") || "",
       description: formData.get("description") || "",
       startAt: formData.get("start_at") || null,
       endAt: formData.get("end_at") || null,
@@ -2919,6 +2923,23 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
               name="position_id"
               defaultValue={fieldMap.position_id || ""}
               required
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: "1rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+              Headline
+            </label>
+            <input
+              type="text"
+              name="headline"
+              defaultValue={fieldMap.headline || ""}
+              placeholder="Headline text"
               style={{
                 width: "100%",
                 padding: "0.5rem",
