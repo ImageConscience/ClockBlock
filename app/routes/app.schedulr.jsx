@@ -2519,7 +2519,459 @@ export default function SchedulrPage() {
           </div>
         )}
       </s-section>
+
+      {/* Edit Modal */}
+      {editModalOpen && selectedEntry && (
+        <EditEntryModal
+          entry={selectedEntry}
+          mediaFiles={mediaFiles}
+          onClose={() => {
+            setEditModalOpen(false);
+            setSelectedEntry(null);
+          }}
+          onSuccess={() => {
+            setEditModalOpen(false);
+            setSelectedEntry(null);
+            revalidator.revalidate();
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && selectedEntry && (
+        <DeleteEntryModal
+          entry={selectedEntry}
+          onClose={() => {
+            setDeleteModalOpen(false);
+            setSelectedEntry(null);
+          }}
+          onSuccess={() => {
+            setDeleteModalOpen(false);
+            setSelectedEntry(null);
+            revalidator.revalidate();
+          }}
+        />
+      )}
     </s-page>
+  );
+}
+
+// Edit Entry Modal Component
+function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  
+  const fieldMap = Object.fromEntries(
+    (entry.fields || []).map((f) => [f.key, f.value]),
+  );
+  
+  // Parse dates for datetime-local inputs
+  const getDateTimeLocal = (isoDate) => {
+    if (!isoDate) return "";
+    try {
+      const date = new Date(isoDate);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    } catch (e) {
+      return "";
+    }
+  };
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError("");
+    
+    const formData = new FormData(e.target);
+    const updateData = {
+      id: entry.id,
+      title: formData.get("title"),
+      positionId: formData.get("position_id"),
+      description: formData.get("description") || "",
+      startAt: formData.get("start_at") || null,
+      endAt: formData.get("end_at") || null,
+      desktopBanner: formData.get("desktop_banner") || "",
+      mobileBanner: formData.get("mobile_banner") || "",
+      targetUrl: formData.get("target_url") || "",
+      buttonText: formData.get("button_text") || "",
+    };
+    
+    try {
+      const response = await fetch(window.location.pathname, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          intent: "update",
+          ...updateData,
+        }),
+        credentials: "include",
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        onSuccess();
+      } else {
+        setError(result.error || "Failed to update entry");
+        setIsSubmitting(false);
+      }
+    } catch (err) {
+      setError(err.message || "Failed to update entry");
+      setIsSubmitting(false);
+    }
+  };
+  
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        backdropFilter: "blur(4px)",
+        zIndex: 2000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "2rem",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          backgroundColor: "white",
+          borderRadius: "8px",
+          width: "100%",
+          maxWidth: "600px",
+          maxHeight: "90vh",
+          overflowY: "auto",
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+        }}
+      >
+        <div style={{ padding: "1.5rem", borderBottom: "1px solid #e1e3e5" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "600" }}>Edit Entry</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                background: "transparent",
+                border: "none",
+                fontSize: "1.5rem",
+                cursor: "pointer",
+                color: "#666",
+              }}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        <form onSubmit={handleSubmit} style={{ padding: "1.5rem" }}>
+          {error && (
+            <div style={{ padding: "0.75rem", marginBottom: "1rem", backgroundColor: "#fee", color: "#d72c0d", borderRadius: "4px" }}>
+              {error}
+            </div>
+          )}
+          <div style={{ marginBottom: "1rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+              Title <span style={{ color: "#d72c0d" }}>*</span>
+            </label>
+            <input
+              type="text"
+              name="title"
+              defaultValue={fieldMap.title || ""}
+              required
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: "1rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+              Position ID <span style={{ color: "#d72c0d" }}>*</span>
+            </label>
+            <input
+              type="text"
+              name="position_id"
+              defaultValue={fieldMap.position_id || ""}
+              required
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: "1rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+              Description
+            </label>
+            <input
+              type="text"
+              name="description"
+              defaultValue={fieldMap.description || ""}
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: "1rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+              Start Date & Time
+            </label>
+            <input
+              type="datetime-local"
+              name="start_at"
+              defaultValue={getDateTimeLocal(fieldMap.start_at)}
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: "1rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+              End Date & Time
+            </label>
+            <input
+              type="datetime-local"
+              name="end_at"
+              defaultValue={getDateTimeLocal(fieldMap.end_at)}
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: "1rem" }}>
+            <MediaLibraryPicker
+              name="desktop_banner"
+              label="Desktop Banner"
+              mediaFiles={mediaFiles}
+              defaultValue={fieldMap.desktop_banner || ""}
+            />
+          </div>
+          <div style={{ marginBottom: "1rem" }}>
+            <MediaLibraryPicker
+              name="mobile_banner"
+              label="Mobile Banner"
+              mediaFiles={mediaFiles}
+              defaultValue={fieldMap.mobile_banner || ""}
+            />
+          </div>
+          <div style={{ marginBottom: "1rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+              Target URL
+            </label>
+            <input
+              type="text"
+              name="target_url"
+              defaultValue={fieldMap.target_url || ""}
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: "1rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+              Button Text
+            </label>
+            <input
+              type="text"
+              name="button_text"
+              defaultValue={fieldMap.button_text || ""}
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+              }}
+            />
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1.5rem" }}>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              style={{
+                padding: "0.5rem 1rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+                backgroundColor: "white",
+                cursor: isSubmitting ? "not-allowed" : "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              style={{
+                padding: "0.5rem 1rem",
+                border: "none",
+                borderRadius: "4px",
+                backgroundColor: "#667eea",
+                color: "white",
+                cursor: isSubmitting ? "not-allowed" : "pointer",
+              }}
+            >
+              {isSubmitting ? "Updating..." : "Update Entry"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Delete Confirmation Modal Component
+function DeleteEntryModal({ entry, onClose, onSuccess }) {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState("");
+  
+  const fieldMap = Object.fromEntries(
+    (entry.fields || []).map((f) => [f.key, f.value]),
+  );
+  
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    setError("");
+    
+    try {
+      const response = await fetch(window.location.pathname, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          intent: "delete",
+          id: entry.id,
+        }),
+        credentials: "include",
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        onSuccess();
+      } else {
+        setError(result.error || "Failed to delete entry");
+        setIsDeleting(false);
+      }
+    } catch (err) {
+      setError(err.message || "Failed to delete entry");
+      setIsDeleting(false);
+    }
+  };
+  
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        backdropFilter: "blur(4px)",
+        zIndex: 2000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "2rem",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          backgroundColor: "white",
+          borderRadius: "8px",
+          width: "100%",
+          maxWidth: "500px",
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+        }}
+      >
+        <div style={{ padding: "1.5rem", borderBottom: "1px solid #e1e3e5" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "600" }}>Delete Entry</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                background: "transparent",
+                border: "none",
+                fontSize: "1.5rem",
+                cursor: "pointer",
+                color: "#666",
+              }}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        <div style={{ padding: "1.5rem" }}>
+          {error && (
+            <div style={{ padding: "0.75rem", marginBottom: "1rem", backgroundColor: "#fee", color: "#d72c0d", borderRadius: "4px" }}>
+              {error}
+            </div>
+          )}
+          <p style={{ margin: "0 0 1rem 0" }}>
+            Are you sure you want to delete <strong>"{fieldMap.title || "(untitled)"}"</strong>? This action cannot be undone.
+          </p>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isDeleting}
+              style={{
+                padding: "0.5rem 1rem",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+                backgroundColor: "white",
+                cursor: isDeleting ? "not-allowed" : "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={isDeleting}
+              style={{
+                padding: "0.5rem 1rem",
+                border: "none",
+                borderRadius: "4px",
+                backgroundColor: "#d72c0d",
+                color: "white",
+                cursor: isDeleting ? "not-allowed" : "pointer",
+              }}
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
