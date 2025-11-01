@@ -3,12 +3,10 @@ import { join } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Temporary file directory - use process.cwd() for consistent path across routes
-// This should match the path used in app.schedulr.jsx
-const TEMP_DIR = join(process.cwd(), "temp", "uploads");
+// Temporary file directory - use absolute path based on app directory
+// This ensures consistency between action and route (Railway uses /app as working dir)
+const appDir = process.cwd() || "/app";
+const TEMP_DIR = join(appDir, "temp", "uploads");
 
 // Ensure temp directory exists
 async function ensureTempDir() {

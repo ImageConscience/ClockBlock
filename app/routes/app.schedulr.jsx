@@ -196,12 +196,14 @@ export const action = async ({ request }) => {
       // Step 1: Save file to temp directory
       const { writeFile, mkdir } = await import("fs/promises");
       const { join } = await import("path");
-      const { fileURLToPath } = await import("url");
-      const { dirname } = await import("path");
       const crypto = await import("crypto");
       
-      // Use process.cwd() for consistent temp directory path across all routes
-      const TEMP_DIR = join(process.cwd(), "temp", "uploads");
+      // Use absolute path based on app directory (Railway uses /app as working dir)
+      // This ensures consistency between action and route
+      const appDir = process.cwd() || "/app";
+      const TEMP_DIR = join(appDir, "temp", "uploads");
+      console.log("[ACTION] Using TEMP_DIR:", TEMP_DIR);
+      console.log("[ACTION] process.cwd():", process.cwd());
       
       // Ensure temp directory exists
       try {
