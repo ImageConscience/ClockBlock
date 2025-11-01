@@ -83,12 +83,77 @@ export default async function handleRequest(
     }
   }
   
-  // If this is a fetcher request expecting JSON but we haven't found a Response,
-  // React Router might have already handled it, but we should still check responseHeaders
+  // CRITICAL: If this is a fetcher POST request and headers already indicate JSON,
+  // React Router v7 has already processed the action response.
+  // We MUST bypass HTML rendering and return JSON directly.
   if (isFetcherRequest && request.method === "POST") {
     const existingContentType = responseHeaders.get("content-type");
     console.log("[ENTRY] Fetcher POST request detected, existing Content-Type:", existingContentType);
-    // If headers indicate JSON but we're about to render HTML, something is wrong
+    // If headers indicate JSON, React Router has already processed the action response
+    // We need to get the actual response body from the context
+    if (existingContentType && existingContentType.includes("application/json")) {
+      console.log("[ENTRY] JSON Content-Type detected for fetcher request - must bypass HTML rendering");
+      // Try to find the action response in the context
+      // React Router v7 might store it differently
+      let actionResponseData = null;
+      
+      // Check all possible locations where React Router might store action data
+      console.log("[ENTRY] Checking actionData existence:", !!reactRouterContext?.actionData);
+      if (reactRouterContext?.actionData) {
+        console.log("[ENTRY] actionData keys:", Object.keys(reactRouterContext.actionData));
+        for (const [routeId, data] of Object.entries(reactRouterContext.actionData)) {
+          console.log("[ENTRY] Found actionData for route:", routeId, "data:", JSON.stringify(data).substring(0, 200));
+          if (data && typeof data === "object" && !(data instanceof Response)) {
+            actionResponseData = data;
+            console.log("[ENTRY] Using actionData from route:", routeId);
+            break;
+          }
+        }
+      } else {
+        console.log("[ENTRY] No actionData found in context");
+      }
+      
+      // Also check if there's a response body stored elsewhere in the context
+      // React Router might serialize it differently
+      if (!actionResponseData && reactRouterContext) {
+        // Check for any data that looks like our action response
+        for (const [key, value] of Object.entries(reactRouterContext)) {
+          if (key.includes("action") || key.includes("data")) {
+            console.log("[ENTRY] Checking context key:", key, "type:", typeof value);
+            if (value && typeof value === "object" && !Array.isArray(value)) {
+              // Check if it looks like our JSON response (has success, error, file, etc.)
+              if (value.success !== undefined || value.error !== undefined || value.file !== undefined) {
+                actionResponseData = value;
+                console.log("[ENTRY] Found action response data in key:", key);
+                break;
+              }
+            }
+          }
+        }
+      }
+      
+      // If we found the data, return it as JSON
+      if (actionResponseData) {
+        console.log("[ENTRY] Returning action response data as JSON");
+        return new Response(JSON.stringify(actionResponseData), {
+          status: responseStatusCode || 200,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+          },
+        });
+      }
+      
+      // If we didn't find the data but headers indicate JSON,
+      // React Router should have already handled it, but we still need to prevent HTML rendering
+      // In this case, we'll return an empty JSON response or re-read from the action
+      console.log("[ENTRY] JSON headers detected but no actionData found, returning empty JSON");
+      return new Response("{}", {
+        status: responseStatusCode || 200,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+        },
+      });
+    }
   }
   
   addDocumentResponseHeaders(request, responseHeaders);
