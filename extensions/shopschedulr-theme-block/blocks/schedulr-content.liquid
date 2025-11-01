@@ -7,11 +7,8 @@
 {% assign now_ts = 'now' | date: '%s' | plus: 0 %}
 {% assign position_id = block.settings.position_id | default: '' | strip %}
 
-{% comment %} Get all metaobjects of type schedulable_entity - try different access methods {% endcomment %}
-{% assign all_entries = shop.metaobjects.schedulable_entity.values %}
-{% if all_entries == blank %}
-  {% assign all_entries = shop.metaobjects['schedulable_entity'].values %}
-{% endif %}
+{% comment %} Get all metaobjects of type schedulable_entity {% endcomment %}
+{% assign all_entries = metaobjects.schedulable_entity.values %}
 
 {% comment %} Find matching entries: position_id matches, start_at <= NOW, end_at > NOW {% endcomment %}
 {% assign selected_entry = null %}
