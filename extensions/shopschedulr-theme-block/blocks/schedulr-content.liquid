@@ -1,19 +1,23 @@
 {% comment %}
-  ShopSchedulr block: Simple test - list all title values from schedulable_entity metaobjects
+  ShopSchedulr block: Filter entries by position_id and display title and position_id
 {% endcomment %}
 
 {% assign all_entries = metaobjects.schedulable_entity.values %}
+{% assign position_id = block.settings.position_id | default: '' | strip %}
 
 <div class="shopschedulr" {{ block.shopify_attributes }}>
-  <h3>All Schedulable Entity Entries:</h3>
+  <h3>Schedulable Entity Entries (filtered by Position ID: "{{ position_id }}"):</h3>
   {% if all_entries != blank %}
     <p>Total entries found: {{ all_entries.size }}</p>
     <ul>
       {% for entry in all_entries %}
-        <li>
-          <strong>Title:</strong> {{ entry.title }}<br>
-          <strong>Position ID:</strong> {{ entry.position_id }}
-        </li>
+        {% assign entry_pos = entry.position_id | strip %}
+        {% if entry_pos == position_id %}
+          <li>
+            <strong>Title:</strong> {{ entry.title }}<br>
+            <strong>Position ID:</strong> {{ entry.position_id }}
+          </li>
+        {% endif %}
       {% endfor %}
     </ul>
   {% else %}
@@ -177,7 +181,15 @@
 {
   "name": "ShopSchedulr Banner",
   "target": "section",
-  "settings": []
+  "settings": [
+    {
+      "type": "text",
+      "id": "position_id",
+      "label": "Position ID",
+      "info": "The position ID to filter scheduled content by",
+      "default": "homepage_banner"
+    }
+  ]
 }
 {% endschema %}
 
