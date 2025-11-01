@@ -340,7 +340,7 @@ export const action = async ({ request }) => {
             files: [
               {
                 originalSource: stagedTarget.resourceUrl,
-                filename: fileName,
+                alt: fileName, // Set the alt text to the filename
                 contentType: "IMAGE",
               },
             ],
@@ -350,6 +350,7 @@ export const action = async ({ request }) => {
       
       const fileCreateJson = await fileCreateResponse.json();
       console.log("[ACTION] File create response received");
+      console.log("[ACTION] File create response:", JSON.stringify(fileCreateJson, null, 2));
       
       if (fileCreateJson?.errors) {
         const errors = fileCreateJson.errors.map((e) => e.message).join(", ");
@@ -370,13 +371,60 @@ export const action = async ({ request }) => {
       }
       
       console.log("[ACTION] File uploaded successfully, ID:", uploadedFile.id);
+      console.log("[ACTION] File status:", uploadedFile.fileStatus);
+      console.log("[ACTION] File alt:", uploadedFile.alt);
+      console.log("[ACTION] File image URL:", uploadedFile.image?.url);
+      
+      // If the file is still processing and URL is not available, poll for it
+      let fileUrl = uploadedFile.image?.url || "";
+      let fileAlt = uploadedFile.alt || fileName;
+      
+      if (!fileUrl && uploadedFile.fileStatus !== "READY") {
+        console.log("[ACTION] File is still processing, waiting for URL...");
+        // Poll up to 5 times with 1 second delay
+        for (let i = 0; i < 5; i++) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          const checkResponse = await admin.graphql(
+            `#graphql
+            query getFile($id: ID!) {
+              node(id: $id) {
+                ... on MediaImage {
+                  id
+                  fileStatus
+                  alt
+                  image {
+                    url
+                    width
+                    height
+                  }
+                }
+              }
+            }
+          `,
+            { variables: { id: uploadedFile.id } }
+          );
+          
+          const checkJson = await checkResponse.json();
+          const fileNode = checkJson?.data?.node;
+          
+          if (fileNode?.image?.url) {
+            fileUrl = fileNode.image.url;
+            fileAlt = fileNode.alt || fileName;
+            console.log("[ACTION] File URL now available:", fileUrl);
+            break;
+          }
+          
+          console.log("[ACTION] Still processing, attempt", i + 1, "of 5");
+        }
+      }
       
       const successResponse = json({
         success: true,
         file: {
           id: uploadedFile.id,
-          url: uploadedFile.image?.url || "",
-          alt: uploadedFile.alt || fileName || "Uploaded image",
+          url: fileUrl,
+          alt: fileAlt,
         },
       });
       
