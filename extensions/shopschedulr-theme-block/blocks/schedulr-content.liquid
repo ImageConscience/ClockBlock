@@ -81,39 +81,37 @@
     margin: 20px 0;
   }
   
-  .shopschedulr__banner {
+  .shopschedulr__banner-container {
     position: relative;
-    overflow: hidden;
-    border-radius: 8px;
+    width: 100%;
   }
   
-  .shopschedulr__banner-image {
-    position: relative;
+  .shopschedulr__banner {
     width: 100%;
     line-height: 0;
   }
   
-  .shopschedulr__image {
+  .shopschedulr__banner-img {
     display: block;
     width: 100%;
     height: auto;
     object-fit: cover;
   }
   
-  .shopschedulr__image--desktop {
+  .shopschedulr__banner--desktop {
     display: block;
   }
   
-  .shopschedulr__image--mobile {
+  .shopschedulr__banner--mobile {
     display: none;
   }
   
-  @media (max-width: {{ breakpoint }}px) {
-    .shopschedulr__image--desktop {
+  @media (max-width: {{ breakpoint | minus: 1 }}px) {
+    .shopschedulr__banner--desktop {
       display: none;
     }
     
-    .shopschedulr__image--mobile {
+    .shopschedulr__banner--mobile {
       display: block;
     }
   }
