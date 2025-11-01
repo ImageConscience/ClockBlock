@@ -15,9 +15,10 @@
 {% comment %} Find matching entries and track the one with most recent start_at {% endcomment %}
 {% assign latest_start_ts = 0 %}
 {% assign selected_title = blank %}
-{% assign selected_position_id = blank %}
-{% assign selected_start_at = blank %}
-{% assign selected_end_at = blank %}
+{% assign selected_desktop_banner = blank %}
+{% assign selected_mobile_banner = blank %}
+{% assign selected_target_url = blank %}
+{% assign selected_button_text = blank %}
 {% assign found_match = false %}
 
 {% if all_entries != blank %}
@@ -37,9 +38,10 @@
           {% if start_ts > latest_start_ts or latest_start_ts == 0 %}
             {% assign latest_start_ts = start_ts %}
             {% assign selected_title = entry.title %}
-            {% assign selected_position_id = entry.position_id %}
-            {% assign selected_start_at = entry.start_at %}
-            {% assign selected_end_at = entry.end_at %}
+            {% assign selected_desktop_banner = entry.desktop_banner %}
+            {% assign selected_mobile_banner = entry.mobile_banner %}
+            {% assign selected_target_url = entry.target_url %}
+            {% assign selected_button_text = entry.button_text %}
             {% assign found_match = true %}
           {% endif %}
         {% endif %}
@@ -48,16 +50,63 @@
   {% endfor %}
 {% endif %}
 
+{% assign breakpoint = block.settings.breakpoint | default: 768 | plus: 0 %}
+
 <div class="shopschedulr" {{ block.shopify_attributes }}>
-  {% if found_match %}
-    <div>
-      <strong>Title:</strong> {{ selected_title }}<br>
-      <strong>Position ID:</strong> {{ selected_position_id }}<br>
-      <strong>Start:</strong> {{ selected_start_at }}<br>
-      <strong>End:</strong> {{ selected_end_at }}
+  {% if found_match and selected_target_url != blank %}
+    <a href="{{ selected_target_url }}" class="shopschedulr__link">
+      <div class="shopschedulr__banner shopschedulr__banner--overlay">
+        <div class="shopschedulr__banner-image">
+          {% if selected_desktop_banner != blank %}
+            {% assign desktop_image_url = selected_desktop_banner %}
+            {% comment %} Handle file_reference type - it might be a URL string or an object {% endcomment %}
+            {% if selected_desktop_banner.image %}
+              {% assign desktop_image_url = selected_desktop_banner.image.url %}
+            {% elsif selected_desktop_banner.url %}
+              {% assign desktop_image_url = selected_desktop_banner.url %}
+            {% endif %}
+            <img 
+              src="{{ desktop_image_url }}" 
+              alt="{{ selected_title }}" 
+              class="shopschedulr__image shopschedulr__image--desktop"
+              loading="lazy"
+            >
+          {% endif %}
+          {% if selected_mobile_banner != blank %}
+            {% assign mobile_image_url = selected_mobile_banner %}
+            {% comment %} Handle file_reference type {% endcomment %}
+            {% if selected_mobile_banner.image %}
+              {% assign mobile_image_url = selected_mobile_banner.image.url %}
+            {% elsif selected_mobile_banner.url %}
+              {% assign mobile_image_url = selected_mobile_banner.url %}
+            {% endif %}
+            <img 
+              src="{{ mobile_image_url }}" 
+              alt="{{ selected_title }}" 
+              class="shopschedulr__image shopschedulr__image--mobile"
+              loading="lazy"
+            >
+          {% endif %}
+        </div>
+        <div class="shopschedulr__banner-content">
+          {% if selected_title != blank %}
+            <h2 class="shopschedulr__title">{{ selected_title }}</h2>
+          {% endif %}
+          {% if selected_button_text != blank %}
+            <span class="shopschedulr__button">{{ selected_button_text }}</span>
+          {% endif %}
+        </div>
+      </div>
+    </a>
+  {% elsif found_match %}
+    {% comment %} Entry found but missing required fields {% endcomment %}
+    <div class="shopschedulr__empty">
+      <p>Active entry found but missing banner images or target URL.</p>
     </div>
   {% else %}
-    <p>No active entries found for Position ID: "{{ position_id }}"</p>
+    <div class="shopschedulr__empty">
+      <p>No active entries found for Position ID: "{{ position_id }}"</p>
+    </div>
   {% endif %}
 </div>
 
@@ -95,7 +144,7 @@
     display: none;
   }
   
-  @media (max-width: 768px) {
+  @media (max-width: {{ breakpoint }}px) {
     .shopschedulr__image--desktop {
       display: none;
     }
@@ -105,23 +154,45 @@
     }
   }
   
+  .shopschedulr__link {
+    text-decoration: none;
+    display: block;
+    color: inherit;
+  }
+
+  .shopschedulr__link:hover {
+    text-decoration: none;
+  }
+
   .shopschedulr__banner-content {
-    padding: 30px 20px;
-    text-align: center;
-    background: rgba(255, 255, 255, 0.95);
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+    color: white;
+    text-align: left;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
   }
   
   .shopschedulr__title {
-    margin: 0 0 10px 0;
+    margin: 0;
     font-size: 2.5em;
     font-weight: bold;
-    color: #2c3e50;
+    color: white;
     line-height: 1.2;
   }
-  
-  @media (max-width: 768px) {
+
+  @media (max-width: {{ breakpoint }}px) {
     .shopschedulr__title {
       font-size: 2em;
+    }
+
+    .shopschedulr__banner-content {
+      padding: 30px 20px;
     }
   }
   
@@ -158,23 +229,23 @@
   .shopschedulr__button {
     display: inline-block;
     padding: 12px 30px;
-    background-color: #667eea;
-    color: white !important;
+    background-color: white;
+    color: #667eea !important;
     text-decoration: none;
     border-radius: 6px;
     font-weight: 600;
     font-size: 1em;
     transition: background-color 0.3s ease, transform 0.2s ease;
     cursor: pointer;
+    align-self: flex-start;
   }
-  
-  .shopschedulr__button:hover {
-    background-color: #5568d3;
+
+  .shopschedulr__banner:hover .shopschedulr__button {
+    background-color: #f0f0f0;
     transform: translateY(-2px);
-    text-decoration: none;
   }
-  
-  .shopschedulr__button:active {
+
+  .shopschedulr__banner:active .shopschedulr__button {
     transform: translateY(0);
   }
   
@@ -185,32 +256,6 @@
     font-style: italic;
   }
   
-  /* Overlay content on image variant */
-  .shopschedulr__banner--overlay .shopschedulr__banner-content {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
-    color: white;
-    text-align: left;
-    padding: 40px;
-  }
-  
-  .shopschedulr__banner--overlay .shopschedulr__title,
-  .shopschedulr__banner--overlay .shopschedulr__headline,
-  .shopschedulr__banner--overlay .shopschedulr__description {
-    color: white;
-  }
-  
-  .shopschedulr__banner--overlay .shopschedulr__button {
-    background-color: white;
-    color: #667eea !important;
-  }
-  
-  .shopschedulr__banner--overlay .shopschedulr__button:hover {
-    background-color: #f0f0f0;
-  }
 </style>
 
 {% schema %}
@@ -224,6 +269,13 @@
       "label": "Position ID",
       "info": "The position ID to filter scheduled content by",
       "default": "homepage_banner"
+    },
+    {
+      "type": "number",
+      "id": "breakpoint",
+      "label": "Mobile Breakpoint (px)",
+      "info": "Screen width below which mobile banner is shown",
+      "default": 768
     }
   ]
 }
