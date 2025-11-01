@@ -2095,8 +2095,8 @@ export default function SchedulrPage() {
                   <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>Position ID</th>
                   <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>Start At</th>
                   <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>End At</th>
-                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>Description</th>
-                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>Button Text</th>
+                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>Desktop Banner</th>
+                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>Mobile Banner</th>
                   <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600" }}>Target URL</th>
                 </tr>
               </thead>
