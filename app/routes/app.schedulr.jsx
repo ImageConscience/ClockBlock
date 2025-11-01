@@ -191,23 +191,57 @@ export const action = async ({ request }) => {
       }
       const fileBuffer = Buffer.from(arrayBuffer);
       
-      // Step 1: Create staged upload target
-      // Try IMAGE resource type instead of FILE - IMAGE might handle uploads better
-      // Since we're uploading images (jpeg, png), IMAGE resource type should work
-      // and might have different (working) signature verification
-      const resourceType = "IMAGE";
+      // NEW APPROACH: Save file temporarily and serve via public URL
+      // This bypasses the problematic GCS staged upload signature verification
+      // Step 1: Save file to temp directory
+      const { writeFile, mkdir } = await import("fs/promises");
+      const { join } = await import("path");
+      const { fileURLToPath } = await import("url");
+      const { dirname } = await import("path");
+      const crypto = await import("crypto");
       
-      // Use Promise-based approach to catch errors before React Router intercepts them
-      const stagedUploadResult = await admin.graphql(
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = dirname(__filename);
+      const TEMP_DIR = join(__dirname, "../../temp/uploads");
+      
+      // Ensure temp directory exists
+      try {
+        await mkdir(TEMP_DIR, { recursive: true });
+      } catch (error) {
+        // Directory might already exist
+      }
+      
+      // Generate unique file ID
+      const fileId = `${crypto.randomUUID()}-${fileName}`;
+      const tempFilePath = join(TEMP_DIR, fileId);
+      
+      // Save file to temp directory
+      await writeFile(tempFilePath, fileBuffer);
+      console.log("[ACTION] File saved to temp directory:", tempFilePath);
+      
+      // Get base URL from request
+      const url = new URL(request.url);
+      const baseUrl = `${url.protocol}//${url.host}`;
+      const publicFileUrl = `${baseUrl}/app/temp-file/${fileId}`;
+      console.log("[ACTION] Public file URL:", publicFileUrl);
+      
+      // Step 2: Use fileCreate with the public URL directly (bypasses staged upload)
+      console.log("[ACTION] Creating file using public URL...");
+      
+      // Create file directly using the public URL (bypasses staged upload completely)
+      const fileCreateResponse = await admin.graphql(
         `#graphql
-        mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
-          stagedUploadsCreate(input: $input) {
-            stagedTargets {
-              resourceUrl
-              url
-              parameters {
-                name
-                value
+        mutation fileCreate($files: [FileCreateInput!]!) {
+          fileCreate(files: $files) {
+            files {
+              id
+              ... on MediaImage {
+                alt
+                image {
+                  url
+                  width
+                  height
+                }
               }
             }
             userErrors {
@@ -219,235 +253,15 @@ export const action = async ({ request }) => {
       `,
         {
           variables: {
-            input: [
+            files: [
               {
-                resource: resourceType,
+                originalSource: publicFileUrl,
                 filename: fileName,
-                mimeType: fileType,
-                fileSize: fileSize.toString(),
               },
             ],
           },
         }
-      ).then(async (response) => {
-        const json = await response.json();
-        console.log("[ACTION] Staged upload response received");
-        return { success: true, json };
-      }).catch((error) => {
-        console.error("[ACTION] Error calling stagedUploadsCreate:", error);
-        console.error("[ACTION] Error message:", error?.message);
-        return { success: false, error };
-      });
-      
-      if (!stagedUploadResult.success) {
-        const graphqlError = stagedUploadResult.error;
-        console.log("[ACTION] Handling staged upload error");
-        
-        // Build error response
-        let errorMessage = "Access denied: The app needs write_files scope. Please reinstall the app to update permissions.";
-        if (!graphqlError?.message?.includes("Access denied") && !graphqlError?.message?.includes("stagedUploadsCreate")) {
-          errorMessage = `Failed to create staged upload: ${graphqlError?.message || 'Unknown error'}`;
-        }
-        
-        console.log("[ACTION] Returning JSON error response");
-        // Return JSON error response directly
-        return json({ 
-          error: errorMessage, 
-          success: false 
-        });
-      }
-      
-      const stagedJson = stagedUploadResult.json;
-      
-      // Check if stagedUploadsCreate returned null (permissions issue) BEFORE checking for errors
-      // This happens when the GraphQL mutation succeeds but returns null due to permissions
-      if (!stagedJson?.data?.stagedUploadsCreate) {
-        console.error("[ACTION] stagedUploadsCreate returned null - checking for errors in response");
-        console.error("[ACTION] Full stagedJson:", JSON.stringify(stagedJson, null, 2));
-        
-        // Check if there are GraphQL errors
-        if (stagedJson?.errors) {
-          const errors = stagedJson.errors.map((e) => e.message).join(", ");
-          console.error("[ACTION] GraphQL errors in null response:", errors);
-          return json({ 
-            error: `Failed to create staged upload: ${errors}`, 
-            success: false 
-          });
-        }
-        
-        return json({ 
-          error: "Access denied: The app needs write_files scope. Please reinstall the app to update permissions.", 
-          success: false 
-        });
-      }
-      
-      if (stagedJson?.errors) {
-        const errors = stagedJson.errors.map((e) => e.message).join(", ");
-        console.error("[ACTION] GraphQL errors creating staged upload:", errors);
-        return json({ error: `Failed to create staged upload: ${errors}`, success: false });
-      }
-      
-      if (stagedJson?.data?.stagedUploadsCreate?.userErrors?.length > 0) {
-        const errors = stagedJson.data.stagedUploadsCreate.userErrors.map((e) => e.message).join(", ");
-        console.error("[ACTION] User errors creating staged upload:", errors);
-        return json({ error: `Failed to create staged upload: ${errors}`, success: false });
-      }
-      
-      // Check if stagedUploadsCreate returned null (permissions issue)
-      if (!stagedJson?.data?.stagedUploadsCreate) {
-        console.error("[ACTION] stagedUploadsCreate returned null - likely a permissions issue");
-        return json({ 
-          error: "Access denied: The app needs write_files scope. Please reinstall the app to update permissions.", 
-          success: false 
-        });
-      }
-      
-      const stagedTarget = stagedJson?.data?.stagedUploadsCreate?.stagedTargets?.[0];
-      if (!stagedTarget?.url || !stagedTarget?.resourceUrl) {
-        console.error("[ACTION] No staged upload target returned");
-        return json({ error: "Failed to create staged upload target", success: false });
-      }
-      
-      console.log("[ACTION] Staged upload target created, uploading file...");
-      
-      // Step 2: Upload file to staged URL using undici for better form-data stream handling
-      // Node's native fetch doesn't handle form-data streams correctly
-      // undici is what Node uses internally and handles streams better
-      let FormDataClass;
-      let undiciRequest;
-      
-      try {
-        console.log("[ACTION] Importing form-data and undici...");
-        const formDataModule = await import("form-data");
-        FormDataClass = formDataModule.default;
-        const undiciModule = await import("undici");
-        undiciRequest = undiciModule.request;
-        console.log("[ACTION] Successfully imported form-data and undici");
-      } catch (importError) {
-        console.error("[ACTION] Failed to import form-data or undici:", importError);
-        return json({ 
-          error: `Failed to load upload libraries: ${importError.message}`, 
-          success: false 
-        });
-      }
-      
-      const formDataToUpload = new FormDataClass();
-      
-      // Add all parameters in exact order provided by Shopify
-      // DO NOT modify parameter names or values - they're signed
-      // Log parameters for debugging
-      console.log("[ACTION] Staged upload parameters:", JSON.stringify(stagedTarget.parameters, null, 2));
-      console.log("[ACTION] Parameter names:", stagedTarget.parameters.map(p => p.name).join(", "));
-      
-      // According to Shopify docs, parameters must be added EXACTLY as provided
-      // For FILE resource type, parameters should include authentication details
-      // Check if we have the required parameters
-      if (stagedTarget.parameters.length === 0) {
-        console.error("[ACTION] ERROR: No parameters returned from staged upload!");
-        return json({ 
-          error: "No upload parameters received from Shopify. Please try again.", 
-          success: false 
-        });
-      }
-      
-      for (const param of stagedTarget.parameters) {
-        // Keep parameter values exactly as provided - don't modify quotes
-        // The signature depends on the exact value format
-        console.log(`[ACTION] Adding parameter: ${param.name} = ${param.value.substring(0, 50)}...`);
-        formDataToUpload.append(param.name, param.value);
-      }
-      
-      // File MUST be appended last (critical for signature verification)
-      // For Google Cloud Storage, the file field name must be exactly "file"
-      // The filename option ensures proper Content-Disposition header
-      formDataToUpload.append("file", fileBuffer, {
-        filename: fileName,
-        contentType: fileType,
-      });
-      
-      console.log("[ACTION] Form data constructed:");
-      console.log("[ACTION]   - Parameters added:", stagedTarget.parameters.length);
-      console.log("[ACTION]   - File appended last: true");
-      console.log("[ACTION]   - File name:", fileName);
-      console.log("[ACTION]   - File size:", fileBuffer.length, "bytes");
-      
-      // Get headers from form-data (includes multipart boundary)
-      // DO NOT manually set Content-Type - let form-data/axios handle it
-      const headers = formDataToUpload.getHeaders();
-      
-      // Use the FULL URL as provided by Shopify - it contains signed query parameters
-      // These query parameters are the authentication for Google Cloud Storage
-      const uploadUrl = stagedTarget.url;
-      
-      console.log("[ACTION] Uploading to staged URL (full):", uploadUrl);
-      console.log("[ACTION] Number of parameters in array:", stagedTarget.parameters.length);
-      console.log("[ACTION] Form data headers:", JSON.stringify(headers, null, 2));
-      
-      try {
-        // Use undici directly for better form-data stream handling
-        // undici handles form-data streams correctly and preserves the multipart format
-        // Critical for GCS signature verification - the exact format matters
-        const uploadResponse = await undiciRequest(uploadUrl, {
-          method: 'POST',
-          body: formDataToUpload,
-          headers: headers, // form-data provides correct Content-Type with boundary
-          // undici handles the stream correctly
-        });
-        
-        console.log("[ACTION] Staged upload response status:", uploadResponse.statusCode);
-        
-        // Read response body
-        const responseBody = await uploadResponse.body.text();
-        
-        if (uploadResponse.statusCode !== 200 && uploadResponse.statusCode !== 204) {
-          console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.statusCode);
-          console.error("[ACTION] Error response:", responseBody);
-          return json({ 
-            error: `Failed to upload file: HTTP ${uploadResponse.statusCode}`, 
-            success: false 
-          });
-        }
-        
-        console.log("[ACTION] File uploaded to staged URL successfully");
-        
-        // Wait a moment for Shopify to process the staged upload
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Step 3: Create file record using resourceUrl
-        console.log("[ACTION] Creating file record using resourceUrl");
-        const fileCreateResponse = await admin.graphql(
-          `#graphql
-          mutation fileCreate($files: [FileCreateInput!]!) {
-            fileCreate(files: $files) {
-              files {
-                id
-                ... on MediaImage {
-                  alt
-                  image {
-                    url
-                    width
-                    height
-                  }
-                }
-              }
-              userErrors {
-                field
-                message
-              }
-            }
-          }
-        `,
-          {
-            variables: {
-              files: [
-                {
-                  originalSource: stagedTarget.resourceUrl,
-                  filename: fileName,
-                },
-              ],
-            },
-          }
-        );
+      );
         
         const fileCreateJson = await fileCreateResponse.json();
         console.log("[ACTION] File create response received");
