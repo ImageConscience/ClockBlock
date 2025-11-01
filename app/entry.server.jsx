@@ -13,6 +13,22 @@ export default async function handleRequest(
   responseHeaders,
   reactRouterContext,
 ) {
+  // React Router v7: Check if the context already has a Response to return
+  // Actions returning Response objects should bypass HTML rendering
+  if (reactRouterContext?.actionData) {
+    for (const [routeId, actionData] of Object.entries(reactRouterContext.actionData)) {
+      if (actionData instanceof Response) {
+        const contentType = actionData.headers.get("content-type") || "";
+        console.log("[ENTRY] Found Response in actionData, Content-Type:", contentType);
+        // If it's a Response with JSON content type, return it directly
+        if (contentType.includes("application/json")) {
+          console.log("[ENTRY] Returning JSON Response directly, bypassing HTML rendering");
+          return actionData;
+        }
+      }
+    }
+  }
+  
   addDocumentResponseHeaders(request, responseHeaders);
   const userAgent = request.headers.get("user-agent");
   const callbackName = isbot(userAgent ?? "") ? "onAllReady" : "onShellReady";
