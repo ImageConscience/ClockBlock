@@ -1,156 +1,28 @@
 {% comment %}
-  ShopSchedulr block: Automatically finds and displays the active schedulable entity
-  that matches the Position ID and is currently within its scheduled date/time range.
-  If multiple matches, displays the one with the most recent start date/time.
+  ShopSchedulr block: Simple test - list all title values from schedulable_entity metaobjects
 {% endcomment %}
 
-{% assign now_ts = 'now' | date: '%s' | plus: 0 %}
-{% assign position_id = block.settings.position_id | default: '' | strip %}
-
-{% comment %} Get all metaobjects of type schedulable_entity {% endcomment %}
 {% assign all_entries = metaobjects.schedulable_entity.values %}
 
-{% comment %} Find matching entries: position_id matches, start_at <= NOW, end_at > NOW {% endcomment %}
-{% assign selected_entry = null %}
-{% assign latest_start_ts = 0 %}
-
-{% if all_entries != blank %}
-  {% for entry in all_entries %}
-    {% assign fields = entry.fields %}
-    {% assign entry_pos = fields.position_id.value | default: '' | strip %}
-    {% assign start_at_value = fields.start_at.value %}
-    {% assign end_at_value = fields.end_at.value %}
-    
-    {% if start_at_value != blank and end_at_value != blank %}
-      {% assign start_ts = start_at_value | date: '%s' | plus: 0 %}
-      {% assign end_ts = end_at_value | date: '%s' | plus: 0 %}
-      
-      {% comment %} Check if position_id matches and dates are valid {% endcomment %}
-      {% if entry_pos == position_id %}
-        {% comment %} Check if current time is within the scheduled range: start_at <= NOW < end_at {% endcomment %}
-        {% if now_ts >= start_ts and now_ts < end_ts %}
-          {% comment %} This entry matches - check if it has a more recent start time {% endcomment %}
-          {% if start_ts > latest_start_ts %}
-            {% assign latest_start_ts = start_ts %}
-            {% assign selected_entry = entry %}
+<div class="shopschedulr" {{ block.shopify_attributes }}>
+  <h3>All Schedulable Entity Titles:</h3>
+  {% if all_entries != blank %}
+    <p>Total entries found: {{ all_entries.size }}</p>
+    <ul>
+      {% for entry in all_entries %}
+        <li>
+          {% if entry.fields.title.value != blank %}
+            {{ entry.fields.title.value }}
+          {% else %}
+            (No title)
           {% endif %}
-        {% endif %}
-      {% endif %}
-    {% endif %}
-  {% endfor %}
-{% endif %}
-
-{% comment %} Display the selected entry or debug info {% endcomment %}
-{% if block.settings.debug_mode %}
-  <div style="padding: 20px; background: #f0f0f0; border: 2px solid #ccc; margin: 10px 0;">
-    <h4>Debug Info:</h4>
-    <p>Position ID setting: "{{ position_id }}"</p>
-    <p>Current timestamp: {{ now_ts }}</p>
-    <p>All entries found: {{ all_entries.size | default: 0 }}</p>
-    {% if all_entries != blank %}
-      <ul>
-        {% for entry in all_entries limit: 5 %}
-          {% assign debug_entry_pos = entry.fields.position_id.value | strip %}
-          {% assign debug_start_ts = entry.fields.start_at.value | date: '%s' | plus: 0 %}
-          {% assign debug_end_ts = entry.fields.end_at.value | date: '%s' | plus: 0 %}
-          {% assign debug_pos_matches = false %}
-          {% assign debug_date_matches = false %}
-          {% if debug_entry_pos == position_id %}
-            {% assign debug_pos_matches = true %}
-          {% endif %}
-          {% if now_ts >= debug_start_ts and now_ts < debug_end_ts %}
-            {% assign debug_date_matches = true %}
-          {% endif %}
-          <li>
-            Entry: {{ entry.handle }}<br>
-            Position ID: "{{ debug_entry_pos }}"<br>
-            Start: {{ entry.fields.start_at.value }} ({{ debug_start_ts }})<br>
-            End: {{ entry.fields.end_at.value }} ({{ debug_end_ts }})<br>
-            Position matches: {{ debug_pos_matches }}<br>
-            Date range matches: {{ debug_date_matches }}<br>
-            Overall matches: {% if debug_pos_matches and debug_date_matches %}YES{% else %}NO{% endif %}
-          </li>
-        {% endfor %}
-      </ul>
-    {% endif %}
-    <p>Selected entry: {% if selected_entry != null %}{{ selected_entry.handle }}{% else %}NONE{% endif %}</p>
-  </div>
-{% endif %}
-
-{% if selected_entry != null %}
-  {% assign fields = selected_entry.fields %}
-  {% assign desktop_banner = fields.desktop_banner.value %}
-  {% assign mobile_banner = fields.mobile_banner.value %}
-  {% assign target_url = fields.target_url.value %}
-  {% assign headline = fields.headline.value %}
-  {% assign button_text = fields.button_text.value %}
-  {% assign description = fields.description.value %}
-  
-  <div class="shopschedulr" {{ block.shopify_attributes }}>
-    <div class="shopschedulr__banner shopschedulr__banner--{{ block.settings.display_style | default: 'below' }}" data-handle="{{ selected_entry.handle }}">
-          {% if desktop_banner or mobile_banner %}
-            <div class="shopschedulr__banner-image">
-              {% if desktop_banner %}
-                <img 
-                  src="{{ desktop_banner.url }}" 
-                  alt="{{ desktop_banner.alt | default: fields.title.value }}"
-                  class="shopschedulr__image shopschedulr__image--desktop"
-                  width="{{ desktop_banner.width }}"
-                  height="{{ desktop_banner.height }}"
-                  loading="lazy"
-                >
-              {% endif %}
-              {% if mobile_banner %}
-                <img 
-                  src="{{ mobile_banner.url }}" 
-                  alt="{{ mobile_banner.alt | default: fields.title.value }}"
-                  class="shopschedulr__image shopschedulr__image--mobile"
-                  width="{{ mobile_banner.width }}"
-                  height="{{ mobile_banner.height }}"
-                  loading="lazy"
-                >
-              {% elsif desktop_banner %}
-                {% comment %}Fallback to desktop image on mobile if no mobile banner{% endcomment %}
-                <img 
-                  src="{{ desktop_banner.url }}" 
-                  alt="{{ desktop_banner.alt | default: fields.title.value }}"
-                  class="shopschedulr__image shopschedulr__image--mobile shopschedulr__image--fallback"
-                  width="{{ desktop_banner.width }}"
-                  height="{{ desktop_banner.height }}"
-                  loading="lazy"
-                >
-              {% endif %}
-            </div>
-          {% endif %}
-          
-          <div class="shopschedulr__banner-content">
-            {% if fields.title.value != blank %}
-              <h2 class="shopschedulr__title">{{ fields.title.value }}</h2>
-            {% endif %}
-            
-            {% if headline != blank %}
-              <h3 class="shopschedulr__headline">{{ headline }}</h3>
-            {% endif %}
-            
-            {% if description != blank %}
-              <div class="shopschedulr__description">{{ description }}</div>
-            {% endif %}
-            
-            {% if target_url != blank and button_text != blank %}
-              <a href="{{ target_url }}" class="shopschedulr__button">{{ button_text }}</a>
-            {% elsif target_url != blank %}
-              <a href="{{ target_url }}" class="shopschedulr__button">{{ block.settings.default_button_text | default: 'Learn More' }}</a>
-            {% endif %}
-          </div>
-        </div>
-    </div>
-{% else %}
-  {% if block.settings.show_empty_state %}
-    <div class="shopschedulr" {{ block.shopify_attributes }}>
-      <div class="shopschedulr__empty">{{ block.settings.empty_state_text }}</div>
-    </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No entries found. metaobjects.schedulable_entity.values is blank.</p>
   {% endif %}
-{% endif %}
+</div>
 
 
 <style>
@@ -308,58 +180,7 @@
 {
   "name": "ShopSchedulr Banner",
   "target": "section",
-  "settings": [
-    {
-      "type": "text",
-      "id": "position_id",
-      "label": "Position ID",
-      "info": "The position ID to filter scheduled content by",
-      "default": "homepage_banner"
-    },
-    {
-      "type": "checkbox",
-      "id": "debug_mode",
-      "label": "Enable debug mode",
-      "info": "Show debug information to troubleshoot matching issues",
-      "default": false
-    },
-    {
-      "type": "select",
-      "id": "display_style",
-      "label": "Display style",
-      "options": [
-        {
-          "value": "below",
-          "label": "Content below image"
-        },
-        {
-          "value": "overlay",
-          "label": "Content overlay on image"
-        }
-      ],
-      "default": "below"
-    },
-    {
-      "type": "text",
-      "id": "default_button_text",
-      "label": "Default button text",
-      "info": "Text to show on button if no button text is set in the entry",
-      "default": "Learn More"
-    },
-    {
-      "type": "checkbox",
-      "id": "show_empty_state",
-      "label": "Show empty state",
-      "info": "Show a message when no entries match",
-      "default": false
-    },
-    {
-      "type": "text",
-      "id": "empty_state_text",
-      "label": "Empty state text",
-      "default": "Nothing is scheduled for this spot."
-    }
-  ]
+  "settings": []
 }
 {% endschema %}
 
