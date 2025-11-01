@@ -1,30 +1,63 @@
 {% comment %}
-  ShopSchedulr block: filters selected metaobjects by position_id and current date/time.
-  Displays responsive banners with images, headline, description, and call-to-action button.
+  ShopSchedulr block: Automatically finds and displays the active schedulable entity
+  that matches the Position ID and is currently within its scheduled date/time range.
+  If multiple matches, displays the one with the most recent start date/time.
 {% endcomment %}
 
 {% assign now_ts = 'now' | date: '%s' %}
 {% assign position_id = block.settings.position_id | default: '' %}
 
-{% if block.settings.entries != blank %}
-  {% assign matched = false %}
-  <div class="shopschedulr" {{ block.shopify_attributes }}>
-    {% for entry in block.settings.entries %}
-      {% assign fields = entry.fields %}
-      {% assign entry_pos = fields.position_id.value | default: '' %}
-      {% assign start_ts = fields.start_at.value | date: '%s' %}
-      {% assign end_ts = fields.end_at.value | date: '%s' %}
+{% comment %} Get all metaobjects of type schedulable_entity {% endcomment %}
+{% assign all_entries = shop.metaobjects.schedulable_entity.values %}
 
-      {% if entry_pos == position_id and now_ts >= start_ts and now_ts <= end_ts %}
-        {% assign matched = true %}
-        {% assign desktop_banner = fields.desktop_banner.value %}
-        {% assign mobile_banner = fields.mobile_banner.value %}
-        {% assign target_url = fields.target_url.value %}
-        {% assign headline = fields.headline.value %}
-        {% assign button_text = fields.button_text.value %}
-        {% assign description = fields.description.value %}
-        
-        <div class="shopschedulr__banner shopschedulr__banner--{{ block.settings.display_style | default: 'below' }}" data-handle="{{ entry.handle }}">
+{% comment %} Find matching entries: position_id matches, start_at <= NOW, end_at > NOW {% endcomment %}
+{% assign matching_entries = blank | split: ',' %}
+{% for entry in all_entries %}
+  {% assign fields = entry.fields %}
+  {% assign entry_pos = fields.position_id.value | default: '' %}
+  {% assign start_at_value = fields.start_at.value %}
+  {% assign end_at_value = fields.end_at.value %}
+  
+  {% if start_at_value != blank and end_at_value != blank %}
+    {% assign start_ts = start_at_value | date: '%s' %}
+    {% assign end_ts = end_at_value | date: '%s' %}
+    
+    {% if entry_pos == position_id and now_ts >= start_ts and now_ts < end_ts %}
+      {% assign matching_entries = matching_entries | push: entry %}
+    {% endif %}
+  {% endif %}
+{% endfor %}
+
+{% comment %} If multiple matches, sort by start_at descending and take the first (most recent start) {% endcomment %}
+{% assign selected_entry = null %}
+{% if matching_entries.size > 0 %}
+  {% if matching_entries.size == 1 %}
+    {% assign selected_entry = matching_entries[0] %}
+  {% else %}
+    {% comment %} Sort by start_at descending - find the one with the most recent start {% endcomment %}
+    {% assign latest_start_ts = 0 %}
+    {% for entry in matching_entries %}
+      {% assign entry_start_ts = entry.fields.start_at.value | date: '%s' %}
+      {% if entry_start_ts > latest_start_ts %}
+        {% assign latest_start_ts = entry_start_ts %}
+        {% assign selected_entry = entry %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+{% endif %}
+
+{% comment %} Display the selected entry {% endcomment %}
+{% if selected_entry != null %}
+  {% assign fields = selected_entry.fields %}
+  {% assign desktop_banner = fields.desktop_banner.value %}
+  {% assign mobile_banner = fields.mobile_banner.value %}
+  {% assign target_url = fields.target_url.value %}
+  {% assign headline = fields.headline.value %}
+  {% assign button_text = fields.button_text.value %}
+  {% assign description = fields.description.value %}
+  
+  <div class="shopschedulr" {{ block.shopify_attributes }}>
+    <div class="shopschedulr__banner shopschedulr__banner--{{ block.settings.display_style | default: 'below' }}" data-handle="{{ selected_entry.handle }}">
           {% if desktop_banner or mobile_banner %}
             <div class="shopschedulr__banner-image">
               {% if desktop_banner %}
@@ -78,17 +111,12 @@
             {% endif %}
           </div>
         </div>
-      {% endif %}
-    {% endfor %}
-    {% unless matched %}
-      {% if block.settings.show_empty_state %}
-        <div class="shopschedulr__empty">{{ block.settings.empty_state_text }}</div>
-      {% endif %}
-    {% endunless %}
-  </div>
+    </div>
 {% else %}
   {% if block.settings.show_empty_state %}
-    <div class="shopschedulr__empty">{{ block.settings.empty_state_text }}</div>
+    <div class="shopschedulr" {{ block.shopify_attributes }}>
+      <div class="shopschedulr__empty">{{ block.settings.empty_state_text }}</div>
+    </div>
   {% endif %}
 {% endif %}
 
@@ -240,13 +268,6 @@
       "label": "Position ID",
       "info": "The position ID to filter scheduled content by",
       "default": "homepage_banner"
-    },
-    {
-      "type": "metaobject_list",
-      "id": "entries",
-      "label": "Schedulable entries",
-      "info": "Select the schedulable entries to display. Only entries matching the Position ID and current date/time will be shown.",
-      "metaobject_type": "schedulable_entity"
     },
     {
       "type": "select",
