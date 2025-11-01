@@ -54,7 +54,7 @@
 
 {% assign breakpoint = block.settings.breakpoint | default: 768 | plus: 0 %}
 
-<div class="shopschedulr" {{ block.shopify_attributes }}>
+<div class="shopschedulr {% unless found_match and selected_target_url != blank %}shopschedulr--hidden{% endunless %}" {{ block.shopify_attributes }}>
   {% if found_match and selected_target_url != blank %}
     {% assign mobile_content_below = block.settings.mobile_content_below | default: false %}
     {% assign overlay_color = block.settings.overlay_color | default: '#000000' %}
@@ -139,6 +139,10 @@
   .shopschedulr {
     width: 100%;
     margin: 20px 0;
+  }
+  
+  .shopschedulr--hidden {
+    display: none !important;
   }
   
   .shopschedulr__banner-container {
