@@ -13,7 +13,16 @@ export default async function handleRequest(
   responseHeaders,
   reactRouterContext,
 ) {
+  // Check if this is a fetcher request (from useFetcher) that expects JSON
+  const acceptHeader = request.headers.get("accept") || "";
+  const isFetcherRequest = acceptHeader.includes("*/*") || 
+                          acceptHeader.includes("application/json") || 
+                          (!acceptHeader.includes("text/html") && request.method !== "GET");
+  
   // Log context structure to understand how React Router passes Response objects
+  console.log("[ENTRY] Request method:", request.method);
+  console.log("[ENTRY] Accept header:", acceptHeader);
+  console.log("[ENTRY] Is fetcher request:", isFetcherRequest);
   console.log("[ENTRY] Context keys:", Object.keys(reactRouterContext || {}));
   console.log("[ENTRY] Response status code:", responseStatusCode);
   console.log("[ENTRY] Response headers:", Object.fromEntries(responseHeaders || []));
@@ -22,10 +31,11 @@ export default async function handleRequest(
   // Actions returning Response objects should bypass HTML rendering
   // Check multiple possible locations where Response might be stored
   if (reactRouterContext) {
-    // Check actionData
+    // Check actionData - React Router might serialize Response data here
     if (reactRouterContext.actionData) {
       console.log("[ENTRY] Found actionData:", Object.keys(reactRouterContext.actionData));
       for (const [routeId, actionData] of Object.entries(reactRouterContext.actionData)) {
+        console.log("[ENTRY] actionData for route:", routeId, "type:", typeof actionData, "is Response:", actionData instanceof Response);
         if (actionData instanceof Response) {
           const contentType = actionData.headers.get("content-type") || "";
           console.log("[ENTRY] Found Response in actionData, Content-Type:", contentType);
@@ -33,6 +43,17 @@ export default async function handleRequest(
             console.log("[ENTRY] Returning JSON Response directly from actionData");
             return actionData;
           }
+        } else if (isFetcherRequest && typeof actionData === "object" && actionData !== null) {
+          // If it's a fetcher request and actionData is an object (not a Response),
+          // React Router has already serialized the Response body
+          // Return JSON directly
+          console.log("[ENTRY] Returning serialized actionData as JSON for fetcher request");
+          return new Response(JSON.stringify(actionData), {
+            status: responseStatusCode || 200,
+            headers: {
+              "Content-Type": "application/json; charset=utf-8",
+            },
+          });
         }
       }
     }
@@ -62,12 +83,12 @@ export default async function handleRequest(
     }
   }
   
-  // Check if responseHeaders already indicate JSON (from action response)
-  const existingContentType = responseHeaders.get("content-type");
-  if (existingContentType && existingContentType.includes("application/json")) {
-    console.log("[ENTRY] Response headers already set to JSON, Content-Type:", existingContentType);
-    // Return a JSON response directly without HTML rendering
-    // Note: This won't work if React Router hasn't populated the body yet
+  // If this is a fetcher request expecting JSON but we haven't found a Response,
+  // React Router might have already handled it, but we should still check responseHeaders
+  if (isFetcherRequest && request.method === "POST") {
+    const existingContentType = responseHeaders.get("content-type");
+    console.log("[ENTRY] Fetcher POST request detected, existing Content-Type:", existingContentType);
+    // If headers indicate JSON but we're about to render HTML, something is wrong
   }
   
   addDocumentResponseHeaders(request, responseHeaders);
