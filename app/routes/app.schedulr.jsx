@@ -43,6 +43,11 @@ export const loader = async ({ request }) => {
                 }
               }
             }
+            capabilities {
+              publishable {
+                status
+              }
+            }
             updatedAt
           }
         }
@@ -238,6 +243,64 @@ export const action = async ({ request }) => {
         
         console.log("[ACTION] Entry updated successfully");
         return json({ success: true, message: "Entry updated successfully!" });
+      }
+      
+      if (body.intent === "toggleStatus") {
+        console.log("[ACTION] Processing toggle status request for entry:", body.id, "to status:", body.status);
+        const { admin } = await authenticate.admin(request);
+        
+        const toggleResponse = await admin.graphql(
+          `#graphql
+          mutation ToggleEntryStatus($id: ID!, $metaobject: MetaobjectUpdateInput!) {
+            metaobjectUpdate(id: $id, metaobject: $metaobject) {
+              metaobject { 
+                id 
+                handle
+                capabilities {
+                  publishable {
+                    status
+                  }
+                }
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+          {
+            variables: {
+              id: body.id,
+              metaobject: {
+                capabilities: {
+                  publishable: {
+                    status: body.status,
+                  },
+                },
+              },
+            },
+          }
+        );
+        
+        const toggleJson = await toggleResponse.json();
+        
+        if (toggleJson?.errors) {
+          const errors = toggleJson.errors.map((e) => e.message).join(", ");
+          console.error("[ACTION] GraphQL errors toggling status:", errors);
+          return json({ error: `Failed to toggle status: ${errors}`, success: false });
+        }
+        
+        if (toggleJson?.data?.metaobjectUpdate?.userErrors?.length > 0) {
+          const errors = toggleJson.data.metaobjectUpdate.userErrors
+            .map((e) => e.message)
+            .join(", ");
+          console.error("[ACTION] User errors toggling status:", errors);
+          return json({ error: `Failed to toggle status: ${errors}`, success: false });
+        }
+        
+        console.log("[ACTION] Status toggled successfully");
+        return json({ success: true, message: "Status updated successfully!" });
       }
     }
     
@@ -2251,6 +2314,9 @@ export default function SchedulrPage() {
                   
                   return (
                     <tr style={{ borderBottom: "2px solid #e1e3e5", backgroundColor: "#f6f6f7" }}>
+                      <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: "600", borderRight: "1px solid #e1e3e5", width: "80px" }}>
+                        Active
+                      </th>
                       <th 
                         style={{ 
                           padding: "0.75rem", 
@@ -2432,8 +2498,52 @@ export default function SchedulrPage() {
                   const desktopBannerUrl = desktopBanner?.image?.url || null;
                   const mobileBannerUrl = mobileBanner?.image?.url || null;
                   
+                  // Get publishable status
+                  const isActive = e.capabilities?.publishable?.status === "ACTIVE";
+                  
+                  // Handler for toggle status
+                  const handleToggleStatus = async () => {
+                    const newStatus = isActive ? "DRAFT" : "ACTIVE";
+                    try {
+                      const response = await fetch(window.location.pathname, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          intent: "toggleStatus",
+                          id: e.id,
+                          status: newStatus,
+                        }),
+                        credentials: "include",
+                      });
+                      
+                      const result = await response.json();
+                      
+                      if (result.success) {
+                        revalidator.revalidate();
+                      } else {
+                        console.error("Failed to toggle status:", result.error);
+                      }
+                    } catch (err) {
+                      console.error("Error toggling status:", err);
+                    }
+                  };
+                  
                   return (
                     <tr key={e.id} style={{ borderBottom: "1px solid #e1e3e5" }}>
+                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", textAlign: "center" }}>
+                        <label style={{ display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={isActive}
+                            onChange={handleToggleStatus}
+                            style={{
+                              width: "20px",
+                              height: "20px",
+                              cursor: "pointer",
+                            }}
+                          />
+                        </label>
+                      </td>
                       <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontWeight: "500" }}>
                         {fieldMap.title || "(untitled)"}
                       </td>
@@ -2472,9 +2582,10 @@ export default function SchedulrPage() {
                         {fieldMap.target_url || "-"}
                       </td>
                       <td style={{ padding: "0.75rem", textAlign: "center" }}>
-                        <button
-                          type="button"
-                          onClick={() => {
+                        <a
+                          href="#"
+                          onClick={(event) => {
+                            event.preventDefault();
                             setSelectedEntry(e);
                             setEditModalOpen(true);
                           }}
@@ -2482,33 +2593,30 @@ export default function SchedulrPage() {
                             padding: "0.375rem 0.75rem",
                             marginRight: "0.5rem",
                             fontSize: "0.8125rem",
-                            backgroundColor: "#667eea",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "4px",
+                            color: "#667eea",
+                            textDecoration: "underline",
                             cursor: "pointer",
                           }}
                         >
                           Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
+                        </a>
+                        <a
+                          href="#"
+                          onClick={(event) => {
+                            event.preventDefault();
                             setSelectedEntry(e);
                             setDeleteModalOpen(true);
                           }}
                           style={{
                             padding: "0.375rem 0.75rem",
                             fontSize: "0.8125rem",
-                            backgroundColor: "#d72c0d",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "4px",
+                            color: "#d72c0d",
+                            textDecoration: "underline",
                             cursor: "pointer",
                           }}
                         >
                           Delete
-                        </button>
+                        </a>
                       </td>
                     </tr>
                   );
