@@ -2931,6 +2931,62 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
               }}
             />
           </div>
+          <div style={{ display: "flex", gap: "15px", marginBottom: "1rem" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <label htmlFor="edit_start_at" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+                Start Date & Time
+              </label>
+              <input
+                type="datetime-local"
+                id="edit_start_at"
+                name="start_at"
+                defaultValue={getDateTimeLocal(fieldMap.start_at)}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  border: "1px solid #c9cccf",
+                  borderRadius: "4px",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <label htmlFor="edit_end_at" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+                End Date & Time
+              </label>
+              <input
+                type="datetime-local"
+                id="edit_end_at"
+                name="end_at"
+                defaultValue={getDateTimeLocal(fieldMap.end_at)}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem",
+                  border: "1px solid #c9cccf",
+                  borderRadius: "4px",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "15px", marginBottom: "1rem" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <MediaLibraryPicker
+                name="desktop_banner"
+                label="Desktop Banner"
+                mediaFiles={mediaFiles}
+                defaultValue={fieldMap.desktop_banner || ""}
+              />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <MediaLibraryPicker
+                name="mobile_banner"
+                label="Mobile Banner"
+                mediaFiles={mediaFiles}
+                defaultValue={fieldMap.mobile_banner || ""}
+              />
+            </div>
+          </div>
           <div style={{ marginBottom: "1rem" }}>
             <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
               Headline
@@ -2962,54 +3018,6 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
                 border: "1px solid #c9cccf",
                 borderRadius: "4px",
               }}
-            />
-          </div>
-          <div style={{ marginBottom: "1rem" }}>
-            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
-              Start Date & Time
-            </label>
-            <input
-              type="datetime-local"
-              name="start_at"
-              defaultValue={getDateTimeLocal(fieldMap.start_at)}
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                border: "1px solid #c9cccf",
-                borderRadius: "4px",
-              }}
-            />
-          </div>
-          <div style={{ marginBottom: "1rem" }}>
-            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
-              End Date & Time
-            </label>
-            <input
-              type="datetime-local"
-              name="end_at"
-              defaultValue={getDateTimeLocal(fieldMap.end_at)}
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                border: "1px solid #c9cccf",
-                borderRadius: "4px",
-              }}
-            />
-          </div>
-          <div style={{ marginBottom: "1rem" }}>
-            <MediaLibraryPicker
-              name="desktop_banner"
-              label="Desktop Banner"
-              mediaFiles={mediaFiles}
-              defaultValue={fieldMap.desktop_banner || ""}
-            />
-          </div>
-          <div style={{ marginBottom: "1rem" }}>
-            <MediaLibraryPicker
-              name="mobile_banner"
-              label="Mobile Banner"
-              mediaFiles={mediaFiles}
-              defaultValue={fieldMap.mobile_banner || ""}
             />
           </div>
           <div style={{ marginBottom: "1rem" }}>
