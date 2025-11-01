@@ -77,8 +77,8 @@
     {% assign title_color_overlay = block.settings.title_color_overlay | default: '#ffffff' %}
     {% assign title_color_below = block.settings.title_color_below | default: '#2c3e50' %}
     {% assign description_color_overlay = block.settings.description_color_overlay | default: '#ffffff' %}
-    {% assign description_color_overlay_opacity = block.settings.description_color_overlay_opacity | default: 0.9 %}
     {% assign description_color_below = block.settings.description_color_below | default: '#666666' %}
+    {% assign button_text_uppercase = block.settings.button_text_uppercase | default: false %}
     {% assign button_bg_overlay = block.settings.button_bg_overlay | default: '#ffffff' %}
     {% assign button_text_overlay = block.settings.button_text_overlay | default: '#667eea' %}
     {% assign button_bg_below = block.settings.button_bg_below | default: '#667eea' %}
@@ -96,7 +96,7 @@
                   <h2 class="shopschedulr__title" style="font-size: {{ headline_font_size }}em; color: {{ title_color_overlay }};{% if title_font != blank %}font-family: {{ title_font.family }}, {{ title_font.fallback_families }}; font-weight: {{ title_font.weight }}; font-style: {{ title_font.style }};{% endif %}">{{ selected_title }}</h2>
                 {% endif %}
                 {% if selected_description != blank %}
-                  <p class="shopschedulr__description" style="font-size: {{ description_font_size }}em; color: {{ description_color_overlay }}; opacity: {{ description_color_overlay_opacity }};{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
+                  <p class="shopschedulr__description" style="font-size: {{ description_font_size }}em; color: {{ description_color_overlay }};{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
                 {% endif %}
                 {% if selected_button_text != blank %}
                   <span class="shopschedulr__button shopschedulr__button--overlay" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; border-radius: {{ button_border_radius }}px; background-color: {{ button_bg_overlay }}; color: {{ button_text_overlay }};">{{ selected_button_text }}</span>
@@ -137,7 +137,7 @@
               <p class="shopschedulr__description shopschedulr__description--below" style="font-size: {{ description_font_size }}em; color: {{ description_color_below }};{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
             {% endif %}
             {% if selected_button_text != blank %}
-              <span class="shopschedulr__button shopschedulr__button--below" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; margin: 0; border-radius: {{ button_border_radius }}px; background-color: {{ button_bg_below }}; color: {{ button_text_below }};">{{ selected_button_text }}</span>
+              <span class="shopschedulr__button shopschedulr__button--below" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; margin: 0; border-radius: {{ button_border_radius }}px; background-color: {{ button_bg_below }}; color: {{ button_text_below }};{% if button_text_uppercase %}text-transform: uppercase;{% endif %}">{{ selected_button_text }}</span>
             {% endif %}
           </div>
         {% endif %}
@@ -471,15 +471,6 @@
       "id": "description_color_overlay",
       "label": "Description Color (Overlay)",
       "default": "#ffffff"
-    },
-    {
-      "type": "range",
-      "id": "description_color_overlay_opacity",
-      "label": "Description Opacity (Overlay)",
-      "min": 0.0,
-      "max": 1.0,
-      "step": 0.1,
-      "default": 0.9
     },
     {
       "type": "color",
