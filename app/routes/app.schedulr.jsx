@@ -83,6 +83,7 @@ export const loader = async ({ request }) => {
             edges {
               node {
                 id
+                createdAt
                 ... on MediaImage {
                   alt
                   image {
@@ -103,7 +104,14 @@ export const loader = async ({ request }) => {
         id: edge.node.id,
         url: edge.node.image?.url || "",
         alt: edge.node.alt || "",
+        createdAt: edge.node.createdAt,
       })) || [];
+      // Sort by newest first (already sorted by GraphQL query, but ensure it here too)
+      mediaFiles.sort((a, b) => {
+        const dateA = new Date(a.createdAt || 0);
+        const dateB = new Date(b.createdAt || 0);
+        return dateB.getTime() - dateA.getTime(); // Newest first
+      });
     } catch (error) {
       console.error("Error loading media files:", error);
     }
@@ -1272,6 +1280,7 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
             id: result.file.id,
             url: result.file.url,
             alt: result.file.alt || "Uploaded image",
+            createdAt: result.file.createdAt || new Date().toISOString(), // Use current timestamp if not provided
           };
           console.log("[MediaLibraryPicker] Upload successful, file:", newFile);
           setLocalMediaFiles((prev) => [newFile, ...prev]);
