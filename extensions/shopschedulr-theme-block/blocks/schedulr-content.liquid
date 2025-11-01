@@ -5,17 +5,21 @@
 {% assign all_entries = metaobjects.schedulable_entity.values %}
 
 <div class="shopschedulr" {{ block.shopify_attributes }}>
-  <h3>All Schedulable Entity Titles:</h3>
+  <h3>Schedulable Entity Entry Handles:</h3>
   {% if all_entries != blank %}
     <p>Total entries found: {{ all_entries.size }}</p>
     <ul>
       {% for entry in all_entries %}
         <li>
-          {% if entry.fields.title.value != blank %}
-            {{ entry.fields.title.value }}
-          {% else %}
-            (No title)
-          {% endif %}
+          <strong>Handle:</strong> {{ entry.handle }}<br>
+          <strong>Title field access attempts:</strong><br>
+          - entry.fields.title.value: "{{ entry.fields.title.value }}"<br>
+          - entry.fields.title: "{{ entry.fields.title }}"<br>
+          - entry.title: "{{ entry.title }}"<br>
+          <strong>All field keys:</strong>
+          {% for field in entry.fields %}
+            {{ field.key }}{% unless forloop.last %}, {% endunless %}
+          {% endfor %}
         </li>
       {% endfor %}
     </ul>
