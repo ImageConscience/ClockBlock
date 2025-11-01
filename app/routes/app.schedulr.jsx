@@ -2392,8 +2392,8 @@ export default function SchedulrPage() {
                       <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>
                         Mobile Banner
                       </th>
-                      <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: "600" }}>
-                        Actions
+                      <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: "600", width: "80px" }}>
+                        Delete
                       </th>
                     </tr>
                   );
@@ -2566,6 +2566,24 @@ export default function SchedulrPage() {
                           </span>
                         </label>
                       </td>
+                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", textAlign: "center" }}>
+                        <a
+                          href="#"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setSelectedEntry(e);
+                            setEditModalOpen(true);
+                          }}
+                          style={{
+                            fontSize: "0.8125rem",
+                            color: "#667eea",
+                            textDecoration: "underline",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Edit
+                        </a>
+                      </td>
                       <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontWeight: "500" }}>
                         {fieldMap.title || "(untitled)"}
                       </td>
@@ -2606,28 +2624,9 @@ export default function SchedulrPage() {
                           onClick={(event) => {
                             event.preventDefault();
                             setSelectedEntry(e);
-                            setEditModalOpen(true);
-                          }}
-                          style={{
-                            padding: "0.375rem 0.75rem",
-                            marginRight: "0.5rem",
-                            fontSize: "0.8125rem",
-                            color: "#667eea",
-                            textDecoration: "underline",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Edit
-                        </a>
-                        <a
-                          href="#"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            setSelectedEntry(e);
                             setDeleteModalOpen(true);
                           }}
                           style={{
-                            padding: "0.375rem 0.75rem",
                             fontSize: "0.8125rem",
                             color: "#d72c0d",
                             textDecoration: "underline",
