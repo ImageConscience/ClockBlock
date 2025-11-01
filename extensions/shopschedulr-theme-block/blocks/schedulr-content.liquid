@@ -74,28 +74,34 @@
     {% assign description_font_size = block.settings.description_font_size | default: 0.9 %}
     {% assign button_font_size = block.settings.button_font_size | default: 1.0 %}
     {% assign button_border_radius = block.settings.button_border_radius | default: 6 %}
+    {% assign title_color_overlay = block.settings.title_color_overlay | default: '#ffffff' %}
+    {% assign title_color_below = block.settings.title_color_below | default: '#2c3e50' %}
+    {% assign description_color_overlay = block.settings.description_color_overlay | default: 'rgba(255, 255, 255, 0.9)' %}
+    {% assign description_color_below = block.settings.description_color_below | default: '#666666' %}
+    {% assign button_bg_overlay = block.settings.button_bg_overlay | default: '#ffffff' %}
+    {% assign button_text_overlay = block.settings.button_text_overlay | default: '#667eea' %}
+    {% assign button_bg_below = block.settings.button_bg_below | default: '#667eea' %}
+    {% assign button_text_below = block.settings.button_text_below | default: '#ffffff' %}
     
     <a href="{{ selected_target_url }}" class="shopschedulr__link">
       <div class="shopschedulr__banner-container {% if mobile_content_below %}shopschedulr__banner-container--mobile-below{% endif %}">
         {% if selected_desktop_banner != blank %}
           <div class="shopschedulr__banner shopschedulr__banner--desktop">
             {{ selected_desktop_banner | image_url: width: 1920 | image_tag: alt: selected_title, class: 'shopschedulr__banner-img', loading: 'lazy' }}
-            {% if mobile_content_below == false %}
-              {% capture overlay_rgb %}{% assign color_no_hash = overlay_color | remove: '#' %}{% assign r = color_no_hash | slice: 0, 2 | hex_to_number %}{% assign g = color_no_hash | slice: 2, 2 | hex_to_number %}{% assign b = color_no_hash | slice: 4, 2 | hex_to_number %}{{ r }}, {{ g }}, {{ b }}{% endcapture %}
-              <div class="shopschedulr__banner-content shopschedulr__banner-content--desktop shopschedulr__banner-content--v-{{ vertical_alignment }} shopschedulr__banner-content--align-{{ content_alignment_desktop }}" style="background: linear-gradient(to top, rgba({{ overlay_rgb | strip }}, {{ overlay_opacity }}), transparent);">
-                <div class="shopschedulr__content-inner">
-                  {% if selected_title != blank %}
-                    <h2 class="shopschedulr__title" style="font-size: {{ headline_font_size }}em;{% if title_font != blank %}font-family: {{ title_font.family }}, {{ title_font.fallback_families }}; font-weight: {{ title_font.weight }}; font-style: {{ title_font.style }};{% endif %}">{{ selected_title }}</h2>
-                  {% endif %}
-                  {% if selected_description != blank %}
-                    <p class="shopschedulr__description" style="font-size: {{ description_font_size }}em;{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
-                  {% endif %}
-                  {% if selected_button_text != blank %}
-                    <span class="shopschedulr__button shopschedulr__button--overlay" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; border-radius: {{ button_border_radius }}px;">{{ selected_button_text }}</span>
-                  {% endif %}
-                </div>
+            {% capture overlay_rgb %}{% assign color_no_hash = overlay_color | remove: '#' %}{% assign r = color_no_hash | slice: 0, 2 | hex_to_number %}{% assign g = color_no_hash | slice: 2, 2 | hex_to_number %}{% assign b = color_no_hash | slice: 4, 2 | hex_to_number %}{{ r }}, {{ g }}, {{ b }}{% endcapture %}
+            <div class="shopschedulr__banner-content shopschedulr__banner-content--desktop shopschedulr__banner-content--v-{{ vertical_alignment }} shopschedulr__banner-content--align-{{ content_alignment_desktop }}" style="background: linear-gradient(to top, rgba({{ overlay_rgb | strip }}, {{ overlay_opacity }}), transparent);">
+              <div class="shopschedulr__content-inner">
+                {% if selected_title != blank %}
+                  <h2 class="shopschedulr__title" style="font-size: {{ headline_font_size }}em; color: {{ title_color_overlay }};{% if title_font != blank %}font-family: {{ title_font.family }}, {{ title_font.fallback_families }}; font-weight: {{ title_font.weight }}; font-style: {{ title_font.style }};{% endif %}">{{ selected_title }}</h2>
+                {% endif %}
+                {% if selected_description != blank %}
+                  <p class="shopschedulr__description" style="font-size: {{ description_font_size }}em; color: {{ description_color_overlay }};{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
+                {% endif %}
+                {% if selected_button_text != blank %}
+                  <span class="shopschedulr__button shopschedulr__button--overlay" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; border-radius: {{ button_border_radius }}px; background-color: {{ button_bg_overlay }}; color: {{ button_text_overlay }};">{{ selected_button_text }}</span>
+                {% endif %}
               </div>
-            {% endif %}
+            </div>
           </div>
         {% endif %}
         
@@ -107,13 +113,13 @@
               <div class="shopschedulr__banner-content shopschedulr__banner-content--mobile shopschedulr__banner-content--v-{{ vertical_alignment }} shopschedulr__banner-content--align-{{ content_alignment_mobile }}" style="background: linear-gradient(to top, rgba({{ overlay_rgb | strip }}, {{ overlay_opacity }}), transparent);">
                 <div class="shopschedulr__content-inner">
                   {% if selected_title != blank %}
-                    <h2 class="shopschedulr__title" style="font-size: {{ headline_font_size }}em;{% if title_font != blank %}font-family: {{ title_font.family }}, {{ title_font.fallback_families }}; font-weight: {{ title_font.weight }}; font-style: {{ title_font.style }};{% endif %}">{{ selected_title }}</h2>
+                    <h2 class="shopschedulr__title" style="font-size: {{ headline_font_size }}em; color: {{ title_color_overlay }};{% if title_font != blank %}font-family: {{ title_font.family }}, {{ title_font.fallback_families }}; font-weight: {{ title_font.weight }}; font-style: {{ title_font.style }};{% endif %}">{{ selected_title }}</h2>
                   {% endif %}
                   {% if selected_description != blank %}
-                    <p class="shopschedulr__description" style="font-size: {{ description_font_size }}em;{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
+                    <p class="shopschedulr__description" style="font-size: {{ description_font_size }}em; color: {{ description_color_overlay }};{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
                   {% endif %}
                   {% if selected_button_text != blank %}
-                    <span class="shopschedulr__button shopschedulr__button--overlay" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; border-radius: {{ button_border_radius }}px;">{{ selected_button_text }}</span>
+                    <span class="shopschedulr__button shopschedulr__button--overlay" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; border-radius: {{ button_border_radius }}px; background-color: {{ button_bg_overlay }}; color: {{ button_text_overlay }};">{{ selected_button_text }}</span>
                   {% endif %}
                 </div>
               </div>
@@ -124,13 +130,13 @@
         {% if mobile_content_below %}
           <div class="shopschedulr__content-below shopschedulr__content-below--mobile-only shopschedulr__content-below--align-{{ content_alignment_mobile }}">
             {% if selected_title != blank %}
-              <h2 class="shopschedulr__title shopschedulr__title--below" style="font-size: {{ headline_font_size | times: 0.8 }}em;{% if title_font != blank %}font-family: {{ title_font.family }}, {{ title_font.fallback_families }}; font-weight: {{ title_font.weight }}; font-style: {{ title_font.style }};{% endif %}">{{ selected_title }}</h2>
+              <h2 class="shopschedulr__title shopschedulr__title--below" style="font-size: {{ headline_font_size | times: 0.8 }}em; color: {{ title_color_below }};{% if title_font != blank %}font-family: {{ title_font.family }}, {{ title_font.fallback_families }}; font-weight: {{ title_font.weight }}; font-style: {{ title_font.style }};{% endif %}">{{ selected_title }}</h2>
             {% endif %}
             {% if selected_description != blank %}
-              <p class="shopschedulr__description shopschedulr__description--below" style="font-size: {{ description_font_size }}em;{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
+              <p class="shopschedulr__description shopschedulr__description--below" style="font-size: {{ description_font_size }}em; color: {{ description_color_below }};{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
             {% endif %}
             {% if selected_button_text != blank %}
-              <span class="shopschedulr__button shopschedulr__button--below" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; margin: 0; border-radius: {{ button_border_radius }}px;">{{ selected_button_text }}</span>
+              <span class="shopschedulr__button shopschedulr__button--below" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; margin: 0; border-radius: {{ button_border_radius }}px; background-color: {{ button_bg_below }}; color: {{ button_text_below }};">{{ selected_button_text }}</span>
             {% endif %}
           </div>
         {% endif %}
@@ -404,23 +410,7 @@
         box-sizing: border-box;
       }
   
-  .shopschedulr__button--overlay {
-    background-color: white;
-    color: #667eea !important;
-  }
-  
-  .shopschedulr__button--below {
-    background-color: #667eea;
-    color: white !important;
-  }
-
   .shopschedulr__link:hover .shopschedulr__button {
-    background-color: #f0f0f0;
-    transform: translateY(-2px);
-  }
-  
-  .shopschedulr__link:hover .shopschedulr__button--below {
-    background-color: #5568d3;
     transform: translateY(-2px);
   }
 
