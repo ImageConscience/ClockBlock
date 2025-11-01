@@ -50,53 +50,43 @@
   {% endfor %}
 {% endif %}
 
-{% assign breakpoint = block.settings.breakpoint | default: 768 | plus: 0 %}
-
 <div class="shopschedulr" {{ block.shopify_attributes }}>
-  {% if found_match and selected_target_url != blank %}
-    <a href="{{ selected_target_url }}" class="shopschedulr__link">
-      <div class="shopschedulr__banner shopschedulr__banner--overlay">
-        <div class="shopschedulr__banner-image">
-          {% if selected_desktop_banner != blank and selected_desktop_banner.image != blank %}
-            <img 
-              src="{{ selected_desktop_banner.image.url }}" 
-              alt="{{ selected_title }}" 
-              class="shopschedulr__image shopschedulr__image--desktop"
-              width="{{ selected_desktop_banner.image.width }}"
-              height="{{ selected_desktop_banner.image.height }}"
-              loading="lazy"
-            >
-          {% endif %}
-          {% if selected_mobile_banner != blank and selected_mobile_banner.image != blank %}
-            <img 
-              src="{{ selected_mobile_banner.image.url }}" 
-              alt="{{ selected_title }}" 
-              class="shopschedulr__image shopschedulr__image--mobile"
-              width="{{ selected_mobile_banner.image.width }}"
-              height="{{ selected_mobile_banner.image.height }}"
-              loading="lazy"
-            >
-          {% endif %}
-        </div>
-        <div class="shopschedulr__banner-content">
-          {% if selected_title != blank %}
-            <h2 class="shopschedulr__title">{{ selected_title }}</h2>
-          {% endif %}
-          {% if selected_button_text != blank %}
-            <span class="shopschedulr__button">{{ selected_button_text }}</span>
-          {% endif %}
-        </div>
-      </div>
-    </a>
-  {% elsif found_match %}
-    {% comment %} Entry found but missing required fields {% endcomment %}
-    <div class="shopschedulr__empty">
-      <p>Active entry found but missing banner images or target URL.</p>
+  {% if found_match %}
+    <div>
+      <h2>Title: {{ selected_title }}</h2>
+      
+      <h3>Desktop Banner:</h3>
+      {% if selected_desktop_banner != blank %}
+        <p>Desktop banner exists</p>
+        <p>Type: {{ selected_desktop_banner | json }}</p>
+        {% if selected_desktop_banner.image %}
+          <p>Has image property</p>
+          <img src="{{ selected_desktop_banner.image.url }}" alt="{{ selected_title }}" style="max-width: 100%;">
+        {% else %}
+          <p>No image property</p>
+          <p>Raw value: {{ selected_desktop_banner }}</p>
+        {% endif %}
+      {% else %}
+        <p>Desktop banner is blank</p>
+      {% endif %}
+      
+      <h3>Mobile Banner:</h3>
+      {% if selected_mobile_banner != blank %}
+        <p>Mobile banner exists</p>
+        <p>Type: {{ selected_mobile_banner | json }}</p>
+        {% if selected_mobile_banner.image %}
+          <p>Has image property</p>
+          <img src="{{ selected_mobile_banner.image.url }}" alt="{{ selected_title }}" style="max-width: 100%;">
+        {% else %}
+          <p>No image property</p>
+          <p>Raw value: {{ selected_mobile_banner }}</p>
+        {% endif %}
+      {% else %}
+        <p>Mobile banner is blank</p>
+      {% endif %}
     </div>
   {% else %}
-    <div class="shopschedulr__empty">
-      <p>No active entries found for Position ID: "{{ position_id }}"</p>
-    </div>
+    <p>No active entries found for Position ID: "{{ position_id }}"</p>
   {% endif %}
 </div>
 
