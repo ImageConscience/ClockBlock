@@ -310,19 +310,23 @@ export const action = async ({ request }) => {
       
       console.log("[ACTION] Staged upload target created, uploading file...");
       
-      // Step 2: Upload file to staged URL using Node's native fetch with form-data
-      // Node's fetch preserves form-data streams better for signature verification
+      // Step 2: Upload file to staged URL using undici for better form-data stream handling
+      // Node's native fetch doesn't handle form-data streams correctly
+      // undici is what Node uses internally and handles streams better
       let FormDataClass;
+      let undiciRequest;
       
       try {
-        console.log("[ACTION] Importing form-data...");
+        console.log("[ACTION] Importing form-data and undici...");
         const formDataModule = await import("form-data");
         FormDataClass = formDataModule.default;
-        console.log("[ACTION] Successfully imported form-data");
+        const undiciModule = await import("undici");
+        undiciRequest = undiciModule.request;
+        console.log("[ACTION] Successfully imported form-data and undici");
       } catch (importError) {
-        console.error("[ACTION] Failed to import form-data:", importError);
+        console.error("[ACTION] Failed to import form-data or undici:", importError);
         return json({ 
-          error: `Failed to load upload library: ${importError.message}`, 
+          error: `Failed to load upload libraries: ${importError.message}`, 
           success: false 
         });
       }
@@ -380,25 +384,26 @@ export const action = async ({ request }) => {
       console.log("[ACTION] Form data headers:", JSON.stringify(headers, null, 2));
       
       try {
-        // Use Node's native fetch instead of axios for better form-data stream handling
-        // The signature verification is very sensitive to the exact multipart format
-        // Node's fetch preserves the form-data stream format better than axios
-        // Critical: Use form-data's headers which include the correct multipart boundary
-        const uploadResponse = await fetch(uploadUrl, {
+        // Use undici directly for better form-data stream handling
+        // undici handles form-data streams correctly and preserves the multipart format
+        // Critical for GCS signature verification - the exact format matters
+        const uploadResponse = await undiciRequest(uploadUrl, {
           method: 'POST',
           body: formDataToUpload,
           headers: headers, // form-data provides correct Content-Type with boundary
-          // Don't set timeout in fetch options - use AbortController if needed
+          // undici handles the stream correctly
         });
         
-        console.log("[ACTION] Staged upload response status:", uploadResponse.status);
+        console.log("[ACTION] Staged upload response status:", uploadResponse.statusCode);
         
-        if (!uploadResponse.ok && uploadResponse.status !== 200 && uploadResponse.status !== 204) {
-          const errorText = await uploadResponse.text();
-          console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.status);
-          console.error("[ACTION] Error response:", errorText);
+        // Read response body
+        const responseBody = await uploadResponse.body.text();
+        
+        if (uploadResponse.statusCode !== 200 && uploadResponse.statusCode !== 204) {
+          console.error("[ACTION] Failed to upload file to staged URL, status:", uploadResponse.statusCode);
+          console.error("[ACTION] Error response:", responseBody);
           return json({ 
-            error: `Failed to upload file: HTTP ${uploadResponse.status}`, 
+            error: `Failed to upload file: HTTP ${uploadResponse.statusCode}`, 
             success: false 
           });
         }
