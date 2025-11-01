@@ -34,6 +34,14 @@ export const loader = async ({ request }) => {
             fields {
               key
               value
+              reference {
+                ... on MediaImage {
+                  id
+                  image {
+                    url
+                  }
+                }
+              }
             }
             updatedAt
           }
