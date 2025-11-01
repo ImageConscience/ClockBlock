@@ -268,11 +268,16 @@ export const action = async ({ request }) => {
         contentType: fileType,
       });
       
+      // CRITICAL: Get the headers from form-data, which includes the boundary
+      // Node.js fetch does not automatically read the boundary from form-data
+      const uploadHeaders = formData.getHeaders();
+      console.log("[ACTION] Upload headers calculated:", JSON.stringify(uploadHeaders));
+      
       // Upload to GCS
       const uploadResponse = await fetch(stagedTarget.url, {
         method: "POST",
         body: formData,
-        // Don't set Content-Type - let form-data set it with boundary
+        headers: uploadHeaders, // Must explicitly pass headers with boundary
       });
       
       if (!uploadResponse.ok) {
