@@ -268,14 +268,10 @@ export const action = async ({ request }) => {
       const fileCreateJson = await fileCreateResponse.json();
       console.log("[ACTION] File create response received");
       
-      // Clean up temp file after successful upload
-      const { unlink } = await import("fs/promises");
-      try {
-        await unlink(tempFilePath);
-        console.log("[ACTION] Temp file cleaned up");
-      } catch (cleanupError) {
-        console.warn("[ACTION] Failed to clean up temp file:", cleanupError);
-      }
+      // NOTE: Don't clean up the temp file immediately - Shopify needs to fetch it asynchronously
+      // The file will remain available at the public URL until it's fetched by Shopify
+      // Consider adding a periodic cleanup job for old temp files if needed
+      console.log("[ACTION] Temp file will remain available for Shopify to fetch:", publicFileUrl);
       
       if (fileCreateJson?.errors) {
         const errors = fileCreateJson.errors.map((e) => e.message).join(", ");
@@ -297,25 +293,25 @@ export const action = async ({ request }) => {
       
       console.log("[ACTION] File uploaded successfully, ID:", uploadedFile.id);
       
-      return json({
-        success: true,
-        file: {
-          id: uploadedFile.id,
-          url: uploadedFile.image?.url || "",
-          alt: uploadedFile.alt || fileName || "Uploaded image",
-        },
-      });
-      } catch (uploadError) {
-        // Clean up temp file on error
-        const { unlink } = await import("fs/promises");
-        try {
-          await unlink(tempFilePath);
-          console.log("[ACTION] Temp file cleaned up after error");
-        } catch (cleanupError) {
-          console.warn("[ACTION] Failed to clean up temp file:", cleanupError);
-        }
-        
-        console.error("[ACTION] File upload error:", uploadError);
+        return json({
+          success: true,
+          file: {
+            id: uploadedFile.id,
+            url: uploadedFile.image?.url || "",
+            alt: uploadedFile.alt || fileName || "Uploaded image",
+          },
+        });
+        } catch (uploadError) {
+          // Clean up temp file on error (only if upload fails, not if it succeeds)
+          const { unlink } = await import("fs/promises");
+          try {
+            await unlink(tempFilePath);
+            console.log("[ACTION] Temp file cleaned up after error");
+          } catch (cleanupError) {
+            console.warn("[ACTION] Failed to clean up temp file:", cleanupError);
+          }
+          
+          console.error("[ACTION] File upload error:", uploadError);
         console.error("[ACTION] Upload error name:", uploadError?.name);
         console.error("[ACTION] Upload error message:", uploadError?.message);
         console.error("[ACTION] Upload error stack:", uploadError?.stack);
