@@ -57,33 +57,23 @@
     <a href="{{ selected_target_url }}" class="shopschedulr__link">
       <div class="shopschedulr__banner shopschedulr__banner--overlay">
         <div class="shopschedulr__banner-image">
-          {% if selected_desktop_banner != blank %}
-            {% assign desktop_image_url = selected_desktop_banner %}
-            {% comment %} Handle file_reference type - it might be a URL string or an object {% endcomment %}
-            {% if selected_desktop_banner.image %}
-              {% assign desktop_image_url = selected_desktop_banner.image.url %}
-            {% elsif selected_desktop_banner.url %}
-              {% assign desktop_image_url = selected_desktop_banner.url %}
-            {% endif %}
+          {% if selected_desktop_banner != blank and selected_desktop_banner.image != blank %}
             <img 
-              src="{{ desktop_image_url }}" 
+              src="{{ selected_desktop_banner.image.url }}" 
               alt="{{ selected_title }}" 
               class="shopschedulr__image shopschedulr__image--desktop"
+              width="{{ selected_desktop_banner.image.width }}"
+              height="{{ selected_desktop_banner.image.height }}"
               loading="lazy"
             >
           {% endif %}
-          {% if selected_mobile_banner != blank %}
-            {% assign mobile_image_url = selected_mobile_banner %}
-            {% comment %} Handle file_reference type {% endcomment %}
-            {% if selected_mobile_banner.image %}
-              {% assign mobile_image_url = selected_mobile_banner.image.url %}
-            {% elsif selected_mobile_banner.url %}
-              {% assign mobile_image_url = selected_mobile_banner.url %}
-            {% endif %}
+          {% if selected_mobile_banner != blank and selected_mobile_banner.image != blank %}
             <img 
-              src="{{ mobile_image_url }}" 
+              src="{{ selected_mobile_banner.image.url }}" 
               alt="{{ selected_title }}" 
               class="shopschedulr__image shopschedulr__image--mobile"
+              width="{{ selected_mobile_banner.image.width }}"
+              height="{{ selected_mobile_banner.image.height }}"
               loading="lazy"
             >
           {% endif %}
