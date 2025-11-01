@@ -7,12 +7,18 @@
 {% assign all_entries = metaobjects.schedulable_entity.values %}
 {% assign position_id = block.settings.position_id | default: '' | strip %}
 
-{% comment %} Get current time in Eastern Time Zone {% endcomment %}
-{% assign now_et = 'now' | date: '%s', 'America/New_York' | plus: 0 %}
+{% comment %} Get current time in UTC, then adjust to Eastern Time (UTC-5 or UTC-4 depending on DST) {% endcomment %}
+{% assign now_utc = 'now' | date: '%s' | plus: 0 %}
+{% comment %} Eastern Time is UTC-5 (EST) or UTC-4 (EDT). Use -18000 seconds (5 hours) as base offset. {% endcomment %}
+{% assign now_et = now_utc | minus: 18000 %}
 
 {% comment %} Find matching entries and track the one with most recent start_at {% endcomment %}
-{% assign selected_entry = null %}
 {% assign latest_start_ts = 0 %}
+{% assign selected_title = blank %}
+{% assign selected_position_id = blank %}
+{% assign selected_start_at = blank %}
+{% assign selected_end_at = blank %}
+{% assign found_match = false %}
 
 {% if all_entries != blank %}
   {% for entry in all_entries %}
@@ -28,9 +34,13 @@
         {% comment %} Check if current Eastern time is within the scheduled range: start_at <= NOW < end_at {% endcomment %}
         {% if now_et >= start_ts and now_et < end_ts %}
           {% comment %} This entry matches - check if it has a more recent start time {% endcomment %}
-          {% if start_ts > latest_start_ts %}
+          {% if start_ts > latest_start_ts or latest_start_ts == 0 %}
             {% assign latest_start_ts = start_ts %}
-            {% assign selected_entry = entry %}
+            {% assign selected_title = entry.title %}
+            {% assign selected_position_id = entry.position_id %}
+            {% assign selected_start_at = entry.start_at %}
+            {% assign selected_end_at = entry.end_at %}
+            {% assign found_match = true %}
           {% endif %}
         {% endif %}
       {% endif %}
@@ -39,12 +49,12 @@
 {% endif %}
 
 <div class="shopschedulr" {{ block.shopify_attributes }}>
-  {% if selected_entry != null %}
+  {% if found_match %}
     <div>
-      <strong>Title:</strong> {{ selected_entry.title }}<br>
-      <strong>Position ID:</strong> {{ selected_entry.position_id }}<br>
-      <strong>Start:</strong> {{ selected_entry.start_at }}<br>
-      <strong>End:</strong> {{ selected_entry.end_at }}
+      <strong>Title:</strong> {{ selected_title }}<br>
+      <strong>Position ID:</strong> {{ selected_position_id }}<br>
+      <strong>Start:</strong> {{ selected_start_at }}<br>
+      <strong>End:</strong> {{ selected_end_at }}
     </div>
   {% else %}
     <p>No active entries found for Position ID: "{{ position_id }}"</p>
