@@ -251,8 +251,6 @@ export const action = async ({ request }) => {
       
       // Step 2: Upload file to GCS using multipart/form-data
       console.log("[ACTION] Step 2: Uploading file to Google Cloud Storage...");
-      // Use axios for better form-data handling with streams
-      const axios = (await import("axios")).default;
       const FormData = (await import("form-data")).default;
       const formData = new FormData();
       
@@ -260,7 +258,7 @@ export const action = async ({ request }) => {
       if (stagedTarget.parameters) {
         for (const param of stagedTarget.parameters) {
           formData.append(param.name, param.value);
-          console.log("[ACTION] Added parameter:", param.name);
+          console.log("[ACTION] Added parameter:", param.name, "=", param.value.substring(0, 50) + (param.value.length > 50 ? "..." : ""));
         }
       }
       
@@ -271,23 +269,34 @@ export const action = async ({ request }) => {
       });
       
       console.log("[ACTION] Uploading to:", stagedTarget.url);
+      console.log("[ACTION] FormData has", formData.getBuffer().length, "bytes");
       
-      // Use axios which handles form-data streams correctly
-      const uploadResponse = await axios.post(stagedTarget.url, formData, {
-        headers: formData.getHeaders(),
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-        validateStatus: (status) => status >= 200 && status < 400, // Accept 2xx and 3xx
+      // Use undici.request with proper form-data stream handling
+      const { request } = await import("undici");
+      
+      // Get headers with boundary
+      const uploadHeaders = formData.getHeaders();
+      console.log("[ACTION] Upload headers:", Object.keys(uploadHeaders));
+      
+      // Make request - undici handles form-data streams natively
+      const uploadResponse = await request(stagedTarget.url, {
+        method: "POST",
+        body: formData,
+        headers: uploadHeaders,
       });
       
-      if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
-        const errorText = uploadResponse.data || uploadResponse.statusText;
-        console.error("[ACTION] GCS upload failed:", uploadResponse.status, errorText);
+      const responseBody = await uploadResponse.body.text();
+      
+      if (uploadResponse.statusCode < 200 || uploadResponse.statusCode >= 300) {
+        console.error("[ACTION] GCS upload failed:", uploadResponse.statusCode);
+        console.error("[ACTION] Response body:", responseBody);
         return json({ 
-          error: `Failed to upload file to storage: ${uploadResponse.status} ${errorText}`, 
+          error: `Failed to upload file to storage: ${uploadResponse.statusCode} ${responseBody}`, 
           success: false 
         });
       }
+      
+      console.log("[ACTION] GCS upload response:", uploadResponse.statusCode, responseBody.substring(0, 200));
       
       console.log("[ACTION] File uploaded successfully to GCS");
       
