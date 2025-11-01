@@ -74,7 +74,8 @@
           <div class="shopschedulr__banner shopschedulr__banner--desktop">
             {{ selected_desktop_banner | image_url: width: 1920 | image_tag: alt: selected_title, class: 'shopschedulr__banner-img', loading: 'lazy' }}
             {% if mobile_content_below == false %}
-              <div class="shopschedulr__banner-content shopschedulr__banner-content--desktop shopschedulr__banner-content--v-{{ vertical_alignment }} shopschedulr__banner-content--h-{{ horizontal_alignment }} shopschedulr__banner-content--align-{{ content_alignment }}" style="--overlay-color: {{ overlay_color }}; --overlay-opacity: {{ overlay_opacity }};">
+              {% capture overlay_rgb %}{% assign color_no_hash = overlay_color | remove: '#' %}{% assign r = color_no_hash | slice: 0, 2 | hex_to_number %}{% assign g = color_no_hash | slice: 2, 2 | hex_to_number %}{% assign b = color_no_hash | slice: 4, 2 | hex_to_number %}{{ r }}, {{ g }}, {{ b }}{% endcapture %}
+              <div class="shopschedulr__banner-content shopschedulr__banner-content--desktop shopschedulr__banner-content--v-{{ vertical_alignment }} shopschedulr__banner-content--h-{{ horizontal_alignment }} shopschedulr__banner-content--align-{{ content_alignment }}" style="background: linear-gradient(to top, rgba({{ overlay_rgb | strip }}, {{ overlay_opacity }}), transparent);">
                 <div class="shopschedulr__content-inner">
                   {% if selected_title != blank %}
                     <h2 class="shopschedulr__title" style="font-size: {{ headline_font_size }}em;">{{ selected_title }}</h2>
@@ -95,7 +96,8 @@
           <div class="shopschedulr__banner shopschedulr__banner--mobile">
             {{ selected_mobile_banner | image_url: width: 768 | image_tag: alt: selected_title, class: 'shopschedulr__banner-img', loading: 'lazy' }}
             {% if mobile_content_below == false %}
-              <div class="shopschedulr__banner-content shopschedulr__banner-content--mobile shopschedulr__banner-content--v-{{ vertical_alignment }} shopschedulr__banner-content--h-{{ horizontal_alignment }} shopschedulr__banner-content--align-{{ content_alignment }}" style="--overlay-color: {{ overlay_color }}; --overlay-opacity: {{ overlay_opacity }};">
+              {% capture overlay_rgb %}{% assign color_no_hash = overlay_color | remove: '#' %}{% assign r = color_no_hash | slice: 0, 2 | hex_to_number %}{% assign g = color_no_hash | slice: 2, 2 | hex_to_number %}{% assign b = color_no_hash | slice: 4, 2 | hex_to_number %}{{ r }}, {{ g }}, {{ b }}{% endcapture %}
+              <div class="shopschedulr__banner-content shopschedulr__banner-content--mobile shopschedulr__banner-content--v-{{ vertical_alignment }} shopschedulr__banner-content--h-{{ horizontal_alignment }} shopschedulr__banner-content--align-{{ content_alignment }}" style="background: linear-gradient(to top, rgba({{ overlay_rgb | strip }}, {{ overlay_opacity }}), transparent);">
                 <div class="shopschedulr__content-inner">
                   {% if selected_title != blank %}
                     <h2 class="shopschedulr__title" style="font-size: {{ headline_font_size | times: 0.8 }}em;">{{ selected_title }}</h2>
@@ -273,7 +275,6 @@
   
   .shopschedulr__title {
     margin: 0;
-    font-size: 2.5em;
     font-weight: bold;
     color: white;
     line-height: 1.2;
@@ -281,7 +282,43 @@
   
   .shopschedulr__title--below {
     color: #2c3e50;
+    margin-bottom: 10px;
+  }
+  
+  .shopschedulr__description {
+    margin: 0;
+    font-size: 0.85em;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.5;
+  }
+  
+  .shopschedulr__description--below {
+    color: #666;
     margin-bottom: 15px;
+  }
+  
+  .shopschedulr__content-below--align-left {
+    text-align: left;
+  }
+  
+  .shopschedulr__content-below--align-center {
+    text-align: center;
+  }
+  
+  .shopschedulr__content-below--align-right {
+    text-align: right;
+  }
+  
+  .shopschedulr__content-below--align-left .shopschedulr__button--below {
+    align-self: flex-start;
+  }
+  
+  .shopschedulr__content-below--align-center .shopschedulr__button--below {
+    align-self: center;
+  }
+  
+  .shopschedulr__content-below--align-right .shopschedulr__button--below {
+    align-self: flex-end;
   }
 
   @media all and (max-width: {{ breakpoint | minus: 1 }}px) {
@@ -308,21 +345,6 @@
     }
   }
   
-  .shopschedulr__description {
-    margin: 0 0 20px 0;
-    font-size: 1.1em;
-    color: #555;
-    line-height: 1.6;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  
-  @media (max-width: 768px) {
-    .shopschedulr__description {
-      font-size: 1em;
-    }
-  }
   
   .shopschedulr__button {
     display: inline-block;
@@ -390,6 +412,144 @@
       "label": "Show content below image on mobile",
       "info": "When enabled, title and button will appear below the image on mobile instead of as an overlay",
       "default": false
+    },
+    {
+      "type": "header",
+      "content": "Overlay Settings"
+    },
+    {
+      "type": "color",
+      "id": "overlay_color",
+      "label": "Overlay Color",
+      "default": "#000000"
+    },
+    {
+      "type": "range",
+      "id": "overlay_opacity",
+      "label": "Overlay Opacity",
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "default": 70
+    },
+    {
+      "type": "header",
+      "content": "Content Positioning"
+    },
+    {
+      "type": "select",
+      "id": "vertical_alignment",
+      "label": "Vertical Alignment",
+      "options": [
+        {
+          "value": "top",
+          "label": "Top"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "bottom",
+          "label": "Bottom"
+        }
+      ],
+      "default": "bottom"
+    },
+    {
+      "type": "select",
+      "id": "horizontal_alignment",
+      "label": "Horizontal Alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "select",
+      "id": "content_alignment",
+      "label": "Content Text Alignment",
+      "options": [
+        {
+          "value": "left",
+          "label": "Left"
+        },
+        {
+          "value": "center",
+          "label": "Center"
+        },
+        {
+          "value": "right",
+          "label": "Right"
+        }
+      ],
+      "default": "left"
+    },
+    {
+      "type": "header",
+      "content": "Typography & Button"
+    },
+    {
+      "type": "range",
+      "id": "headline_font_size",
+      "label": "Headline Font Size",
+      "min": 1.0,
+      "max": 5.0,
+      "step": 0.1,
+      "unit": "em",
+      "default": 2.5
+    },
+    {
+      "type": "range",
+      "id": "button_padding_top",
+      "label": "Button Padding Top",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "button_padding_bottom",
+      "label": "Button Padding Bottom",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "button_padding_left",
+      "label": "Button Padding Left",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 30
+    },
+    {
+      "type": "range",
+      "id": "button_padding_right",
+      "label": "Button Padding Right",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "unit": "px",
+      "default": 30
     }
   ]
 }
