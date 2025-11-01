@@ -99,7 +99,7 @@
                   <p class="shopschedulr__description" style="font-size: {{ description_font_size }}em; color: {{ description_color_overlay }};{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
                 {% endif %}
                 {% if selected_button_text != blank %}
-                  <span class="shopschedulr__button shopschedulr__button--overlay" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; border-radius: {{ button_border_radius }}px; background-color: {{ button_bg_overlay }}; color: {{ button_text_overlay }};">{{ selected_button_text }}</span>
+                  <span class="shopschedulr__button shopschedulr__button--overlay" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; border-radius: {{ button_border_radius }}px; background-color: {{ button_bg_overlay }}; color: {{ button_text_overlay }};{% if button_text_uppercase %}text-transform: uppercase;{% endif %}">{{ selected_button_text }}</span>
                 {% endif %}
               </div>
             </div>
@@ -120,7 +120,7 @@
                     <p class="shopschedulr__description" style="font-size: {{ description_font_size }}em; color: {{ description_color_overlay }};{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
                   {% endif %}
                   {% if selected_button_text != blank %}
-                    <span class="shopschedulr__button shopschedulr__button--overlay" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; border-radius: {{ button_border_radius }}px; background-color: {{ button_bg_overlay }}; color: {{ button_text_overlay }};">{{ selected_button_text }}</span>
+                    <span class="shopschedulr__button shopschedulr__button--overlay" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; border-radius: {{ button_border_radius }}px; background-color: {{ button_bg_overlay }}; color: {{ button_text_overlay }};{% if button_text_uppercase %}text-transform: uppercase;{% endif %}">{{ selected_button_text }}</span>
                   {% endif %}
                 </div>
               </div>
