@@ -100,7 +100,7 @@
               <div class="shopschedulr__banner-content shopschedulr__banner-content--mobile shopschedulr__banner-content--v-{{ vertical_alignment }} shopschedulr__banner-content--h-{{ horizontal_alignment }} shopschedulr__banner-content--align-{{ content_alignment }}" style="background: linear-gradient(to top, rgba({{ overlay_rgb | strip }}, {{ overlay_opacity }}), transparent);">
                 <div class="shopschedulr__content-inner">
                   {% if selected_title != blank %}
-                    <h2 class="shopschedulr__title" style="font-size: {{ headline_font_size | times: 0.8 }}em;">{{ selected_title }}</h2>
+                    <h2 class="shopschedulr__title" style="font-size: {{ headline_font_size }}em;">{{ selected_title }}</h2>
                   {% endif %}
                   {% if selected_description != blank %}
                     <p class="shopschedulr__description">{{ selected_description }}</p>
