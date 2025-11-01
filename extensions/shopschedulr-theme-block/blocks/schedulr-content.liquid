@@ -53,8 +53,10 @@
 {% endif %}
 
 {% assign breakpoint = block.settings.breakpoint | default: 768 | plus: 0 %}
+{% assign margin_top = block.settings.margin_top | default: 20 %}
+{% assign margin_bottom = block.settings.margin_bottom | default: 20 %}
 
-<div class="shopschedulr {% unless found_match and selected_target_url != blank %}shopschedulr--hidden{% endunless %}" {{ block.shopify_attributes }}>
+<div class="shopschedulr {% unless found_match and selected_target_url != blank %}shopschedulr--hidden{% endunless %}" style="margin-top: {{ margin_top }}px; margin-bottom: {{ margin_bottom }}px;" {{ block.shopify_attributes }}>
   {% if found_match and selected_target_url != blank %}
     {% assign mobile_content_below = block.settings.mobile_content_below | default: false %}
     {% assign overlay_color = block.settings.overlay_color | default: '#000000' %}
@@ -137,7 +139,6 @@
 <style>
   .shopschedulr {
     width: 100%;
-    margin: 20px 0;
   }
   
   .shopschedulr--hidden {
