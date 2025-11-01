@@ -2317,9 +2317,6 @@ export default function SchedulrPage() {
                       <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: "600", borderRight: "1px solid #e1e3e5", width: "60px" }}>
                         Active
                       </th>
-                      <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: "600", borderRight: "1px solid #e1e3e5", width: "80px" }}>
-                        Edit
-                      </th>
                       <th 
                         style={{ 
                           padding: "0.75rem", 
@@ -2355,6 +2352,12 @@ export default function SchedulrPage() {
                           </span>
                         )}
                       </th>
+                      <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>
+                        Desktop Banner
+                      </th>
+                      <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>
+                        Mobile Banner
+                      </th>
                       <th 
                         style={{ 
                           padding: "0.75rem", 
@@ -2389,11 +2392,8 @@ export default function SchedulrPage() {
                           </span>
                         )}
                       </th>
-                      <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>
-                        Desktop Banner
-                      </th>
-                      <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>
-                        Mobile Banner
+                      <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: "600", borderRight: "1px solid #e1e3e5", width: "80px" }}>
+                        Edit
                       </th>
                       <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: "600", width: "80px" }}>
                         Delete
@@ -2569,35 +2569,11 @@ export default function SchedulrPage() {
                           </span>
                         </label>
                       </td>
-                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", textAlign: "center" }}>
-                        <a
-                          href="#"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            setSelectedEntry(e);
-                            setEditModalOpen(true);
-                          }}
-                          style={{
-                            fontSize: "0.8125rem",
-                            color: "#667eea",
-                            textDecoration: "underline",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Edit
-                        </a>
-                      </td>
                       <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontWeight: "500" }}>
                         {fieldMap.title || "(untitled)"}
                       </td>
                       <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5" }}>
                         {fieldMap.position_id || "-"}
-                      </td>
-                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontSize: "0.8125rem", color: "#666" }}>
-                        {startDate}
-                      </td>
-                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontSize: "0.8125rem", color: "#666" }}>
-                        {endDate}
                       </td>
                       <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontSize: "0.8125rem", textAlign: "center" }}>
                         {desktopBannerUrl ? (
@@ -2620,6 +2596,30 @@ export default function SchedulrPage() {
                         ) : (
                           "-"
                         )}
+                      </td>
+                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontSize: "0.8125rem", color: "#666" }}>
+                        {startDate}
+                      </td>
+                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", fontSize: "0.8125rem", color: "#666" }}>
+                        {endDate}
+                      </td>
+                      <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", textAlign: "center" }}>
+                        <a
+                          href="#"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setSelectedEntry(e);
+                            setEditModalOpen(true);
+                          }}
+                          style={{
+                            fontSize: "0.8125rem",
+                            color: "#667eea",
+                            textDecoration: "underline",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Edit
+                        </a>
                       </td>
                       <td style={{ padding: "0.75rem", textAlign: "center" }}>
                         <a
