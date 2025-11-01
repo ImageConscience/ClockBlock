@@ -268,6 +268,8 @@ export const action = async ({ request }) => {
       
       const fileCreateJson = await fileCreateResponse.json();
       console.log("[ACTION] File create response received");
+      console.log("[ACTION] File create response status:", fileCreateResponse.status);
+      console.log("[ACTION] File create response JSON:", JSON.stringify(fileCreateJson, null, 2));
       
       // NOTE: Don't clean up the temp file immediately - Shopify needs to fetch it asynchronously
       // The file will remain available at the public URL until it's fetched by Shopify
