@@ -269,22 +269,23 @@ export const action = async ({ request }) => {
       });
       
       // CRITICAL: Get the headers from form-data, which includes the boundary
-      // Node.js fetch does not automatically read the boundary from form-data
+      // Use undici.request for proper stream handling with form-data
       const uploadHeaders = formData.getHeaders();
       console.log("[ACTION] Upload headers calculated:", JSON.stringify(uploadHeaders));
       
-      // Upload to GCS
-      const uploadResponse = await fetch(stagedTarget.url, {
+      // Use undici.request for better form-data stream handling
+      const { request } = await import("undici");
+      const uploadResponse = await request(stagedTarget.url, {
         method: "POST",
         body: formData,
-        headers: uploadHeaders, // Must explicitly pass headers with boundary
+        headers: uploadHeaders,
       });
       
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text();
-        console.error("[ACTION] GCS upload failed:", uploadResponse.status, errorText);
+      if (uploadResponse.statusCode < 200 || uploadResponse.statusCode >= 300) {
+        const errorText = await uploadResponse.body.text();
+        console.error("[ACTION] GCS upload failed:", uploadResponse.statusCode, errorText);
         return json({ 
-          error: `Failed to upload file to storage: ${uploadResponse.status} ${errorText}`, 
+          error: `Failed to upload file to storage: ${uploadResponse.statusCode} ${errorText}`, 
           success: false 
         });
       }
