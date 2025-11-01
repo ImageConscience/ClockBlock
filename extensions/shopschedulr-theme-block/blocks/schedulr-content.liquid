@@ -76,7 +76,8 @@
     {% assign button_border_radius = block.settings.button_border_radius | default: 6 %}
     {% assign title_color_overlay = block.settings.title_color_overlay | default: '#ffffff' %}
     {% assign title_color_below = block.settings.title_color_below | default: '#2c3e50' %}
-    {% assign description_color_overlay = block.settings.description_color_overlay | default: 'rgba(255, 255, 255, 0.9)' %}
+    {% assign description_color_overlay = block.settings.description_color_overlay | default: '#ffffff' %}
+    {% assign description_color_overlay_opacity = block.settings.description_color_overlay_opacity | default: 0.9 %}
     {% assign description_color_below = block.settings.description_color_below | default: '#666666' %}
     {% assign button_bg_overlay = block.settings.button_bg_overlay | default: '#ffffff' %}
     {% assign button_text_overlay = block.settings.button_text_overlay | default: '#667eea' %}
@@ -470,6 +471,15 @@
       "id": "description_color_overlay",
       "label": "Description Color (Overlay)",
       "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "description_color_overlay_opacity",
+      "label": "Description Opacity (Overlay)",
+      "min": 0.0,
+      "max": 1.0,
+      "step": 0.1,
+      "default": 0.9
     },
     {
       "type": "color",
