@@ -221,9 +221,10 @@ export const action = async ({ request }) => {
       console.log("[ACTION] File saved to temp directory:", tempFilePath);
       
       // Get base URL from request
+      // Use /temp-file/ (not /app/temp-file/) since it's a public route outside app prefix
       const url = new URL(request.url);
       const baseUrl = `${url.protocol}//${url.host}`;
-      const publicFileUrl = `${baseUrl}/app/temp-file/${fileId}`;
+      const publicFileUrl = `${baseUrl}/temp-file/${fileId}`;
       console.log("[ACTION] Public file URL:", publicFileUrl);
       
       // Step 2: Use fileCreate with the public URL directly (bypasses staged upload)

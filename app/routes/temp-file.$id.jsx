@@ -1,7 +1,5 @@
-import { writeFile, readFile, mkdir, unlink } from "fs/promises";
+import { readFile, mkdir } from "fs/promises";
 import { join } from "path";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
 
 // Temporary file directory - use absolute path based on app directory
 // This ensures consistency between action and route (Railway uses /app as working dir)
@@ -17,6 +15,7 @@ async function ensureTempDir() {
   }
 }
 
+// Public route - NO authentication required (Shopify servers need to fetch files)
 export const loader = async ({ params, request }) => {
   await ensureTempDir();
   
@@ -30,6 +29,8 @@ export const loader = async ({ params, request }) => {
   console.log("[TEMP-FILE] Looking for file:", filePath);
   console.log("[TEMP-FILE] TEMP_DIR:", TEMP_DIR);
   console.log("[TEMP-FILE] File ID:", fileId);
+  console.log("[TEMP-FILE] Request URL:", request.url);
+  console.log("[TEMP-FILE] User-Agent:", request.headers.get("user-agent"));
   
   try {
     const fileBuffer = await readFile(filePath);
@@ -43,6 +44,7 @@ export const loader = async ({ params, request }) => {
       png: "image/png",
       gif: "image/gif",
       webp: "image/webp",
+      svg: "image/svg+xml",
     };
     const contentType = contentTypeMap[ext || ""] || "application/octet-stream";
     
