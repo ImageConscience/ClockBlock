@@ -269,7 +269,7 @@ export const action = async ({ request }) => {
       });
       
       console.log("[ACTION] Uploading to:", stagedTarget.url);
-      console.log("[ACTION] FormData has", formData.getBuffer().length, "bytes");
+      console.log("[ACTION] File buffer size:", fileBuffer.length, "bytes");
       
       // Use undici.request with proper form-data stream handling
       const { request } = await import("undici");
