@@ -192,10 +192,10 @@ export const action = async ({ request }) => {
       const fileBuffer = Buffer.from(arrayBuffer);
       
       // Step 1: Create staged upload target
-      // Use FILE for generic files that will be added to the Files page via fileCreate
-      // FILE only requires write_files scope (as per Shopify docs)
-      // This is the correct resource type for metaobject file_reference fields
-      const resourceType = "FILE";
+      // Try IMAGE resource type instead of FILE - IMAGE might handle uploads better
+      // Since we're uploading images (jpeg, png), IMAGE resource type should work
+      // and might have different (working) signature verification
+      const resourceType = "IMAGE";
       
       // Use Promise-based approach to catch errors before React Router intercepts them
       const stagedUploadResult = await admin.graphql(
