@@ -121,11 +121,46 @@ export default async function handleRequest(
           console.log("[ENTRY] Checking staticHandlerContext");
           const staticContext = reactRouterContext.staticHandlerContext;
           console.log("[ENTRY] staticHandlerContext keys:", Object.keys(staticContext || {}));
+          
+          // Check actionData first
           if (staticContext?.actionData) {
             console.log("[ENTRY] Found actionData in staticHandlerContext:", Object.keys(staticContext.actionData));
             for (const [routeId, data] of Object.entries(staticContext.actionData)) {
+              console.log("[ENTRY] staticHandlerContext.actionData for route:", routeId, "type:", typeof data);
               if (data && typeof data === "object" && !(data instanceof Response)) {
-                console.log("[ENTRY] Found action response in staticHandlerContext:", routeId);
+                console.log("[ENTRY] Found action response in staticHandlerContext.actionData:", routeId);
+                console.log("[ENTRY] Data preview:", JSON.stringify(data).substring(0, 300));
+                actionResponseData = data;
+                break;
+              }
+            }
+          }
+          
+          // Check if there's a response object directly in staticHandlerContext
+          if (!actionResponseData && staticContext?.response && staticContext.response instanceof Response) {
+            console.log("[ENTRY] Found Response object in staticHandlerContext.response");
+            try {
+              // Try to clone and read the response body
+              const clonedResponse = staticContext.response.clone();
+              const responseText = await clonedResponse.text();
+              console.log("[ENTRY] Response body from staticHandlerContext:", responseText.substring(0, 300));
+              try {
+                actionResponseData = JSON.parse(responseText);
+                console.log("[ENTRY] Successfully parsed response as JSON");
+              } catch (e) {
+                console.log("[ENTRY] Response is not JSON, cannot parse:", e.message);
+              }
+            } catch (e) {
+              console.log("[ENTRY] Could not read response body:", e.message);
+            }
+          }
+          
+          // Also check loaderData in case action response was stored there
+          if (!actionResponseData && staticContext?.loaderData) {
+            console.log("[ENTRY] Checking loaderData in staticHandlerContext");
+            for (const [routeId, data] of Object.entries(staticContext.loaderData)) {
+              if (data && typeof data === "object" && (data.success !== undefined || data.error !== undefined)) {
+                console.log("[ENTRY] Found action-like data in loaderData:", routeId);
                 actionResponseData = data;
                 break;
               }
