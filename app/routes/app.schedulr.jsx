@@ -361,7 +361,7 @@ export const action = async ({ request }) => {
       
       console.log("[ACTION] File uploaded successfully, ID:", uploadedFile.id);
       
-      return json({
+      const successResponse = json({
         success: true,
         file: {
           id: uploadedFile.id,
@@ -369,6 +369,16 @@ export const action = async ({ request }) => {
           alt: uploadedFile.alt || fileName || "Uploaded image",
         },
       });
+      
+      console.log("[ACTION] Returning success response:", JSON.stringify({
+        success: true,
+        file: {
+          id: uploadedFile.id,
+          url: uploadedFile.image?.url || "",
+        },
+      }));
+      
+      return successResponse;
       
     } catch (error) {
       console.error("[ACTION] Error uploading file:", error);
