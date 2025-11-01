@@ -1820,7 +1820,7 @@ function UrlPicker({ name, label, defaultValue = "" }) {
 }*/
 
 export default function SchedulrPage() {
-  const { entries, mediaFiles, error: loaderError } = useLoaderData();
+  const { entries: initialEntries, mediaFiles, error: loaderError } = useLoaderData();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
   const navigation = useNavigation();
@@ -1828,6 +1828,7 @@ export default function SchedulrPage() {
   const formRef = useRef(null);
   const [showForm, setShowForm] = useState(false);
   const handledResponseRef = useRef(null);
+  const [sortConfig, setSortConfig] = useState([]); // Array of {column: string, direction: 'asc'|'desc'}
 
   useEffect(() => {
     // Skip if no fetcher data
@@ -2092,24 +2093,189 @@ export default function SchedulrPage() {
 
       <s-section>
         <h2 style={{ fontSize: "1.2rem", lineHeight: 1.1, margin: "0 0 10px 0" }}>Existing Entries</h2>
-        {entries.length === 0 ? (
+        {initialEntries.length === 0 ? (
           <s-text>No entries yet. Create your first schedulable entry above.</s-text>
         ) : (
           <div style={{ overflowX: "auto", width: "100%" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
               <thead>
-                <tr style={{ borderBottom: "2px solid #e1e3e5", backgroundColor: "#f6f6f7" }}>
-                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>Title</th>
-                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>Position ID</th>
-                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>Start At</th>
-                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>End At</th>
-                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>Desktop Banner</th>
-                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>Mobile Banner</th>
-                  <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600" }}>Target URL</th>
-                </tr>
+                {(() => {
+                  // Sort handler function
+                  const handleSort = (column) => {
+                    setSortConfig((prev) => {
+                      const existingIndex = prev.findIndex((s) => s.column === column);
+                      
+                      if (existingIndex >= 0) {
+                        // Column already in sort - toggle direction
+                        const updated = [...prev];
+                        if (updated[existingIndex].direction === 'asc') {
+                          updated[existingIndex] = { column, direction: 'desc' };
+                        } else {
+                          // Remove from sort if going from desc to nothing
+                          updated.splice(existingIndex, 1);
+                        }
+                        return updated;
+                      } else {
+                        // New column - add with ascending
+                        return [...prev, { column, direction: 'asc' }];
+                      }
+                    });
+                  };
+                  
+                  // Get sort direction for a column
+                  const getSortDirection = (column) => {
+                    const sort = sortConfig.find((s) => s.column === column);
+                    return sort ? sort.direction : null;
+                  };
+                  
+                  // Get sort order (priority) for a column
+                  const getSortOrder = (column) => {
+                    const index = sortConfig.findIndex((s) => s.column === column);
+                    return index >= 0 ? index + 1 : null;
+                  };
+                  
+                  return (
+                    <tr style={{ borderBottom: "2px solid #e1e3e5", backgroundColor: "#f6f6f7" }}>
+                      <th 
+                        style={{ 
+                          padding: "0.75rem", 
+                          textAlign: "left", 
+                          fontWeight: "600", 
+                          borderRight: "1px solid #e1e3e5",
+                          cursor: "pointer",
+                          userSelect: "none",
+                          position: "relative"
+                        }}
+                        onClick={() => handleSort('title')}
+                      >
+                        Title {getSortDirection('title') && (
+                          <span style={{ marginLeft: "0.5rem", fontSize: "0.75rem", color: "#667eea" }}>
+                            {getSortDirection('title') === 'asc' ? '↑' : '↓'} {getSortOrder('title')}
+                          </span>
+                        )}
+                      </th>
+                      <th 
+                        style={{ 
+                          padding: "0.75rem", 
+                          textAlign: "left", 
+                          fontWeight: "600", 
+                          borderRight: "1px solid #e1e3e5",
+                          cursor: "pointer",
+                          userSelect: "none"
+                        }}
+                        onClick={() => handleSort('position_id')}
+                      >
+                        Position ID {getSortDirection('position_id') && (
+                          <span style={{ marginLeft: "0.5rem", fontSize: "0.75rem", color: "#667eea" }}>
+                            {getSortDirection('position_id') === 'asc' ? '↑' : '↓'} {getSortOrder('position_id')}
+                          </span>
+                        )}
+                      </th>
+                      <th 
+                        style={{ 
+                          padding: "0.75rem", 
+                          textAlign: "left", 
+                          fontWeight: "600", 
+                          borderRight: "1px solid #e1e3e5",
+                          cursor: "pointer",
+                          userSelect: "none"
+                        }}
+                        onClick={() => handleSort('start_at')}
+                      >
+                        Start At {getSortDirection('start_at') && (
+                          <span style={{ marginLeft: "0.5rem", fontSize: "0.75rem", color: "#667eea" }}>
+                            {getSortDirection('start_at') === 'asc' ? '↑' : '↓'} {getSortOrder('start_at')}
+                          </span>
+                        )}
+                      </th>
+                      <th 
+                        style={{ 
+                          padding: "0.75rem", 
+                          textAlign: "left", 
+                          fontWeight: "600", 
+                          borderRight: "1px solid #e1e3e5",
+                          cursor: "pointer",
+                          userSelect: "none"
+                        }}
+                        onClick={() => handleSort('end_at')}
+                      >
+                        End At {getSortDirection('end_at') && (
+                          <span style={{ marginLeft: "0.5rem", fontSize: "0.75rem", color: "#667eea" }}>
+                            {getSortDirection('end_at') === 'asc' ? '↑' : '↓'} {getSortOrder('end_at')}
+                          </span>
+                        )}
+                      </th>
+                      <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>
+                        Desktop Banner
+                      </th>
+                      <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: "600", borderRight: "1px solid #e1e3e5" }}>
+                        Mobile Banner
+                      </th>
+                      <th 
+                        style={{ 
+                          padding: "0.75rem", 
+                          textAlign: "left", 
+                          fontWeight: "600",
+                          cursor: "pointer",
+                          userSelect: "none"
+                        }}
+                        onClick={() => handleSort('target_url')}
+                      >
+                        Target URL {getSortDirection('target_url') && (
+                          <span style={{ marginLeft: "0.5rem", fontSize: "0.75rem", color: "#667eea" }}>
+                            {getSortDirection('target_url') === 'asc' ? '↑' : '↓'} {getSortOrder('target_url')}
+                          </span>
+                        )}
+                      </th>
+                    </tr>
+                  );
+                })()}
               </thead>
               <tbody>
-                {entries.map((e) => {
+                {(() => {
+                  // Sort entries based on sortConfig
+                  const sortedEntries = [...initialEntries].sort((a, b) => {
+                    // Apply all active sorts in order
+                    for (const sort of sortConfig) {
+                      const fieldMapA = Object.fromEntries((a.fields || []).map((f) => [f.key, f.value]));
+                      const fieldMapB = Object.fromEntries((b.fields || []).map((f) => [f.key, f.value]));
+                      
+                      let valueA = fieldMapA[sort.column];
+                      let valueB = fieldMapB[sort.column];
+                      
+                      // Handle date fields
+                      if (sort.column === 'start_at' || sort.column === 'end_at') {
+                        valueA = valueA ? new Date(valueA).getTime() : 0;
+                        valueB = valueB ? new Date(valueB).getTime() : 0;
+                      } else if (typeof valueA === 'string') {
+                        valueA = valueA.toLowerCase();
+                      }
+                      if (typeof valueB === 'string') {
+                        valueB = valueB.toLowerCase();
+                      }
+                      
+                      // Handle null/undefined
+                      if (valueA == null) valueA = '';
+                      if (valueB == null) valueB = '';
+                      
+                      // Compare
+                      let comparison = 0;
+                      if (valueA < valueB) {
+                        comparison = -1;
+                      } else if (valueA > valueB) {
+                        comparison = 1;
+                      }
+                      
+                      // Apply direction
+                      if (comparison !== 0) {
+                        return sort.direction === 'asc' ? comparison : -comparison;
+                      }
+                      // If equal, continue to next sort
+                    }
+                    return 0;
+                  });
+                  
+                  return sortedEntries.map((e) => {
                   const fieldMap = Object.fromEntries(
                     (e.fields || []).map((f) => [f.key, f.value]),
                   );
