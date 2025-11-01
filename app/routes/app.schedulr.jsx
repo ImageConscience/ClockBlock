@@ -2314,8 +2314,11 @@ export default function SchedulrPage() {
                   
                   return (
                     <tr style={{ borderBottom: "2px solid #e1e3e5", backgroundColor: "#f6f6f7" }}>
-                      <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: "600", borderRight: "1px solid #e1e3e5", width: "80px" }}>
+                      <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: "600", borderRight: "1px solid #e1e3e5", width: "60px" }}>
                         Active
+                      </th>
+                      <th style={{ padding: "0.75rem", textAlign: "center", fontWeight: "600", borderRight: "1px solid #e1e3e5", width: "80px" }}>
+                        Edit
                       </th>
                       <th 
                         style={{ 
