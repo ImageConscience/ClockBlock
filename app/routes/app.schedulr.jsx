@@ -6,6 +6,8 @@ import { authenticate } from "../shopify.server";
 // createRequire no longer needed - removed form-data package
 
 // Helper to return JSON response (React Router v7 compatible)
+// For React Router v7, we can return Response objects directly from actions
+// They should bypass the normal HTML rendering
 const json = (data, init = {}) => {
   const headers = new Headers({
     "Content-Type": "application/json; charset=utf-8",
@@ -110,6 +112,14 @@ export const action = async ({ request }) => {
     console.log("[ACTION] Request URL:", request.url);
     console.log("[ACTION] Request method:", request.method);
     console.log("[ACTION] Content-Type:", request.headers.get("content-type"));
+    console.log("[ACTION] Accept header:", request.headers.get("accept"));
+    console.log("[ACTION] X-Requested-With:", request.headers.get("x-requested-with"));
+    
+    // Check if this is a fetcher request (from useFetcher)
+    // Fetcher requests typically have Accept: */* or similar, not text/html
+    const acceptHeader = request.headers.get("accept") || "";
+    const isFetcherRequest = acceptHeader.includes("*/*") || acceptHeader.includes("application/json") || !acceptHeader.includes("text/html");
+    console.log("[ACTION] Is fetcher request:", isFetcherRequest);
     
     const formData = await request.formData();
     console.log("[ACTION] FormData received, checking contents...");
