@@ -251,6 +251,8 @@ export const action = async ({ request }) => {
       
       // Step 2: Upload file to GCS using multipart/form-data
       console.log("[ACTION] Step 2: Uploading file to Google Cloud Storage...");
+      // Use axios for better form-data handling with streams
+      const axios = (await import("axios")).default;
       const FormData = (await import("form-data")).default;
       const formData = new FormData();
       
@@ -268,24 +270,21 @@ export const action = async ({ request }) => {
         contentType: fileType,
       });
       
-      // CRITICAL: Get the headers from form-data, which includes the boundary
-      // Use undici.request for proper stream handling with form-data
-      const uploadHeaders = formData.getHeaders();
-      console.log("[ACTION] Upload headers calculated:", JSON.stringify(uploadHeaders));
+      console.log("[ACTION] Uploading to:", stagedTarget.url);
       
-      // Use undici.request for better form-data stream handling
-      const { request } = await import("undici");
-      const uploadResponse = await request(stagedTarget.url, {
-        method: "POST",
-        body: formData,
-        headers: uploadHeaders,
+      // Use axios which handles form-data streams correctly
+      const uploadResponse = await axios.post(stagedTarget.url, formData, {
+        headers: formData.getHeaders(),
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        validateStatus: (status) => status >= 200 && status < 400, // Accept 2xx and 3xx
       });
       
-      if (uploadResponse.statusCode < 200 || uploadResponse.statusCode >= 300) {
-        const errorText = await uploadResponse.body.text();
-        console.error("[ACTION] GCS upload failed:", uploadResponse.statusCode, errorText);
+      if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
+        const errorText = uploadResponse.data || uploadResponse.statusText;
+        console.error("[ACTION] GCS upload failed:", uploadResponse.status, errorText);
         return json({ 
-          error: `Failed to upload file to storage: ${uploadResponse.statusCode} ${errorText}`, 
+          error: `Failed to upload file to storage: ${uploadResponse.status} ${errorText}`, 
           success: false 
         });
       }
