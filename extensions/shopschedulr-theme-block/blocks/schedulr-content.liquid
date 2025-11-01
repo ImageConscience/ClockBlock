@@ -1,6 +1,6 @@
 {% comment %}
   ShopSchedulr block: filters selected metaobjects by position_id and current date/time.
-  Requires the merchant to select metaobject entries (list) of type schedulable_entity.
+  Displays responsive banners with images, headline, description, and call-to-action button.
 {% endcomment %}
 
 {% assign now_ts = 'now' | date: '%s' %}
@@ -8,7 +8,7 @@
 
 {% if block.settings.entries != blank %}
   {% assign matched = false %}
-  <div class="shopschedulr">
+  <div class="shopschedulr" {{ block.shopify_attributes }}>
     {% for entry in block.settings.entries %}
       {% assign fields = entry.fields %}
       {% assign entry_pos = fields.position_id.value | default: '' %}
@@ -17,13 +17,66 @@
 
       {% if entry_pos == position_id and now_ts >= start_ts and now_ts <= end_ts %}
         {% assign matched = true %}
-        <div class="shopschedulr__item" data-handle="{{ entry.handle }}">
-          {% if fields.title.value != blank %}
-            <h3 class="shopschedulr__title">{{ fields.title.value }}</h3>
+        {% assign desktop_banner = fields.desktop_banner.value %}
+        {% assign mobile_banner = fields.mobile_banner.value %}
+        {% assign target_url = fields.target_url.value %}
+        {% assign headline = fields.headline.value %}
+        {% assign button_text = fields.button_text.value %}
+        {% assign description = fields.description.value %}
+        
+        <div class="shopschedulr__banner shopschedulr__banner--{{ block.settings.display_style | default: 'below' }}" data-handle="{{ entry.handle }}">
+          {% if desktop_banner or mobile_banner %}
+            <div class="shopschedulr__banner-image">
+              {% if desktop_banner %}
+                <img 
+                  src="{{ desktop_banner.url }}" 
+                  alt="{{ desktop_banner.alt | default: fields.title.value }}"
+                  class="shopschedulr__image shopschedulr__image--desktop"
+                  width="{{ desktop_banner.width }}"
+                  height="{{ desktop_banner.height }}"
+                  loading="lazy"
+                >
+              {% endif %}
+              {% if mobile_banner %}
+                <img 
+                  src="{{ mobile_banner.url }}" 
+                  alt="{{ mobile_banner.alt | default: fields.title.value }}"
+                  class="shopschedulr__image shopschedulr__image--mobile"
+                  width="{{ mobile_banner.width }}"
+                  height="{{ mobile_banner.height }}"
+                  loading="lazy"
+                >
+              {% elsif desktop_banner %}
+                {% comment %}Fallback to desktop image on mobile if no mobile banner{% endcomment %}
+                <img 
+                  src="{{ desktop_banner.url }}" 
+                  alt="{{ desktop_banner.alt | default: fields.title.value }}"
+                  class="shopschedulr__image shopschedulr__image--mobile shopschedulr__image--fallback"
+                  width="{{ desktop_banner.width }}"
+                  height="{{ desktop_banner.height }}"
+                  loading="lazy"
+                >
+              {% endif %}
+            </div>
           {% endif %}
-          {% if fields.content.value != blank %}
-            <div class="shopschedulr__content">{{ fields.content.value }}</div>
-          {% endif %}
+          
+          <div class="shopschedulr__banner-content">
+            {% if headline != blank %}
+              <h2 class="shopschedulr__headline">{{ headline }}</h2>
+            {% elsif fields.title.value != blank %}
+              <h2 class="shopschedulr__headline">{{ fields.title.value }}</h2>
+            {% endif %}
+            
+            {% if description != blank %}
+              <div class="shopschedulr__description">{{ description }}</div>
+            {% endif %}
+            
+            {% if target_url != blank and button_text != blank %}
+              <a href="{{ target_url }}" class="shopschedulr__button">{{ button_text }}</a>
+            {% elsif target_url != blank %}
+              <a href="{{ target_url }}" class="shopschedulr__button">{{ block.settings.default_button_text | default: 'Learn More' }}</a>
+            {% endif %}
+          </div>
         </div>
       {% endif %}
     {% endfor %}
@@ -40,27 +93,189 @@
 {% endif %}
 
 
+<style>
+  .shopschedulr {
+    width: 100%;
+    margin: 20px 0;
+  }
+  
+  .shopschedulr__banner {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+  }
+  
+  .shopschedulr__banner-image {
+    position: relative;
+    width: 100%;
+    line-height: 0;
+  }
+  
+  .shopschedulr__image {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+  }
+  
+  .shopschedulr__image--desktop {
+    display: block;
+  }
+  
+  .shopschedulr__image--mobile {
+    display: none;
+  }
+  
+  @media (max-width: 768px) {
+    .shopschedulr__image--desktop {
+      display: none;
+    }
+    
+    .shopschedulr__image--mobile {
+      display: block;
+    }
+  }
+  
+  .shopschedulr__banner-content {
+    padding: 30px 20px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.95);
+  }
+  
+  .shopschedulr__headline {
+    margin: 0 0 15px 0;
+    font-size: 2em;
+    font-weight: bold;
+    color: #2c3e50;
+    line-height: 1.2;
+  }
+  
+  @media (max-width: 768px) {
+    .shopschedulr__headline {
+      font-size: 1.5em;
+    }
+  }
+  
+  .shopschedulr__description {
+    margin: 0 0 20px 0;
+    font-size: 1.1em;
+    color: #555;
+    line-height: 1.6;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  @media (max-width: 768px) {
+    .shopschedulr__description {
+      font-size: 1em;
+    }
+  }
+  
+  .shopschedulr__button {
+    display: inline-block;
+    padding: 12px 30px;
+    background-color: #667eea;
+    color: white !important;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 1em;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    cursor: pointer;
+  }
+  
+  .shopschedulr__button:hover {
+    background-color: #5568d3;
+    transform: translateY(-2px);
+    text-decoration: none;
+  }
+  
+  .shopschedulr__button:active {
+    transform: translateY(0);
+  }
+  
+  .shopschedulr__empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: #999;
+    font-style: italic;
+  }
+  
+  /* Overlay content on image variant */
+  .shopschedulr__banner--overlay .shopschedulr__banner-content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+    color: white;
+    text-align: left;
+    padding: 40px;
+  }
+  
+  .shopschedulr__banner--overlay .shopschedulr__headline,
+  .shopschedulr__banner--overlay .shopschedulr__description {
+    color: white;
+  }
+  
+  .shopschedulr__banner--overlay .shopschedulr__button {
+    background-color: white;
+    color: #667eea !important;
+  }
+  
+  .shopschedulr__banner--overlay .shopschedulr__button:hover {
+    background-color: #f0f0f0;
+  }
+</style>
+
 {% schema %}
 {
-  "name": "ShopSchedulr content",
-  "target": "section",
+  "name": "ShopSchedulr Banner",
+  "target": "app_block",
   "settings": [
     {
       "type": "text",
       "id": "position_id",
       "label": "Position ID",
+      "info": "The position ID to filter scheduled content by",
       "default": "homepage_banner"
     },
     {
       "type": "metaobject_list",
       "id": "entries",
       "label": "Schedulable entries",
+      "info": "Select the schedulable entries to display. Only entries matching the Position ID and current date/time will be shown.",
       "metaobject_type": "schedulable_entity"
+    },
+    {
+      "type": "select",
+      "id": "display_style",
+      "label": "Display style",
+      "options": [
+        {
+          "value": "below",
+          "label": "Content below image"
+        },
+        {
+          "value": "overlay",
+          "label": "Content overlay on image"
+        }
+      ],
+      "default": "below"
+    },
+    {
+      "type": "text",
+      "id": "default_button_text",
+      "label": "Default button text",
+      "info": "Text to show on button if no button text is set in the entry",
+      "default": "Learn More"
     },
     {
       "type": "checkbox",
       "id": "show_empty_state",
-      "label": "Show empty state when nothing matches",
+      "label": "Show empty state",
+      "info": "Show a message when no entries match",
       "default": false
     },
     {
@@ -69,8 +284,7 @@
       "label": "Empty state text",
       "default": "Nothing is scheduled for this spot."
     }
-  ],
-  
+  ]
 }
 {% endschema %}
 
