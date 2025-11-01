@@ -4,49 +4,69 @@
   If multiple matches, displays the one with the most recent start date/time.
 {% endcomment %}
 
-{% assign now_ts = 'now' | date: '%s' %}
-{% assign position_id = block.settings.position_id | default: '' %}
+{% assign now_ts = 'now' | date: '%s' | plus: 0 %}
+{% assign position_id = block.settings.position_id | default: '' | strip %}
 
-{% comment %} Get all metaobjects of type schedulable_entity {% endcomment %}
+{% comment %} Get all metaobjects of type schedulable_entity - try different access methods {% endcomment %}
 {% assign all_entries = shop.metaobjects.schedulable_entity.values %}
-
-{% comment %} Find matching entries: position_id matches, start_at <= NOW, end_at > NOW {% endcomment %}
-{% assign matching_entries = blank | split: ',' %}
-{% for entry in all_entries %}
-  {% assign fields = entry.fields %}
-  {% assign entry_pos = fields.position_id.value | default: '' %}
-  {% assign start_at_value = fields.start_at.value %}
-  {% assign end_at_value = fields.end_at.value %}
-  
-  {% if start_at_value != blank and end_at_value != blank %}
-    {% assign start_ts = start_at_value | date: '%s' %}
-    {% assign end_ts = end_at_value | date: '%s' %}
-    
-    {% if entry_pos == position_id and now_ts >= start_ts and now_ts < end_ts %}
-      {% assign matching_entries = matching_entries | push: entry %}
-    {% endif %}
-  {% endif %}
-{% endfor %}
-
-{% comment %} If multiple matches, sort by start_at descending and take the first (most recent start) {% endcomment %}
-{% assign selected_entry = null %}
-{% if matching_entries.size > 0 %}
-  {% if matching_entries.size == 1 %}
-    {% assign selected_entry = matching_entries[0] %}
-  {% else %}
-    {% comment %} Sort by start_at descending - find the one with the most recent start {% endcomment %}
-    {% assign latest_start_ts = 0 %}
-    {% for entry in matching_entries %}
-      {% assign entry_start_ts = entry.fields.start_at.value | date: '%s' %}
-      {% if entry_start_ts > latest_start_ts %}
-        {% assign latest_start_ts = entry_start_ts %}
-        {% assign selected_entry = entry %}
-      {% endif %}
-    {% endfor %}
-  {% endif %}
+{% if all_entries == blank %}
+  {% assign all_entries = shop.metaobjects['schedulable_entity'].values %}
 {% endif %}
 
-{% comment %} Display the selected entry {% endcomment %}
+{% comment %} Find matching entries: position_id matches, start_at <= NOW, end_at > NOW {% endcomment %}
+{% assign selected_entry = null %}
+{% assign latest_start_ts = 0 %}
+
+{% if all_entries != blank %}
+  {% for entry in all_entries %}
+    {% assign fields = entry.fields %}
+    {% assign entry_pos = fields.position_id.value | default: '' | strip %}
+    {% assign start_at_value = fields.start_at.value %}
+    {% assign end_at_value = fields.end_at.value %}
+    
+    {% if start_at_value != blank and end_at_value != blank %}
+      {% assign start_ts = start_at_value | date: '%s' | plus: 0 %}
+      {% assign end_ts = end_at_value | date: '%s' | plus: 0 %}
+      
+      {% comment %} Check if position_id matches and dates are valid {% endcomment %}
+      {% if entry_pos == position_id %}
+        {% comment %} Check if current time is within the scheduled range: start_at <= NOW < end_at {% endcomment %}
+        {% if now_ts >= start_ts and now_ts < end_ts %}
+          {% comment %} This entry matches - check if it has a more recent start time {% endcomment %}
+          {% if start_ts > latest_start_ts %}
+            {% assign latest_start_ts = start_ts %}
+            {% assign selected_entry = entry %}
+          {% endif %}
+        {% endif %}
+      {% endif %}
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
+{% comment %} Display the selected entry or debug info {% endcomment %}
+{% if block.settings.debug_mode %}
+  <div style="padding: 20px; background: #f0f0f0; border: 2px solid #ccc; margin: 10px 0;">
+    <h4>Debug Info:</h4>
+    <p>Position ID setting: "{{ position_id }}"</p>
+    <p>Current timestamp: {{ now_ts }}</p>
+    <p>All entries found: {{ all_entries.size | default: 0 }}</p>
+    {% if all_entries != blank %}
+      <ul>
+        {% for entry in all_entries limit: 5 %}
+          <li>
+            Entry: {{ entry.handle }}<br>
+            Position ID: "{{ entry.fields.position_id.value | strip }}"<br>
+            Start: {{ entry.fields.start_at.value }} ({{ entry.fields.start_at.value | date: '%s' | plus: 0 }})<br>
+            End: {{ entry.fields.end_at.value }} ({{ entry.fields.end_at.value | date: '%s' | plus: 0 }})<br>
+            Matches: {% if entry.fields.position_id.value | strip == position_id and now_ts >= entry.fields.start_at.value | date: '%s' | plus: 0 and now_ts < entry.fields.end_at.value | date: '%s' | plus: 0 %}YES{% else %}NO{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    <p>Selected entry: {{ selected_entry.handle | default: 'NONE' }}</p>
+  </div>
+{% endif %}
+
 {% if selected_entry != null %}
   {% assign fields = selected_entry.fields %}
   {% assign desktop_banner = fields.desktop_banner.value %}
@@ -285,6 +305,13 @@
       "label": "Position ID",
       "info": "The position ID to filter scheduled content by",
       "default": "homepage_banner"
+    },
+    {
+      "type": "checkbox",
+      "id": "debug_mode",
+      "label": "Enable debug mode",
+      "info": "Show debug information to troubleshoot matching issues",
+      "default": false
     },
     {
       "type": "select",
