@@ -228,8 +228,9 @@ export const action = async ({ request }) => {
       // Step 2: Use fileCreate with the public URL directly (bypasses staged upload)
       console.log("[ACTION] Creating file using public URL...");
       
-      // Create file directly using the public URL (bypasses staged upload completely)
-      const fileCreateResponse = await admin.graphql(
+      try {
+        // Create file directly using the public URL (bypasses staged upload completely)
+        const fileCreateResponse = await admin.graphql(
         `#graphql
         mutation fileCreate($files: [FileCreateInput!]!) {
           fileCreate(files: $files) {
