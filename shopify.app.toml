@@ -1,8 +1,8 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "722d30d098915b95390d2d2c670c1e6d"
+client_id = "62a04efa1aa9dcd31cf94c1730f3bbe5"
 name = "ShopSchedulr"
-application_url = "https://shopschedulr-production.up.railway.app/app/schedulr"
+application_url = "https://shopschedulrapp-production.up.railway.app/app/schedulr"
 embedded = true
 
 [build]
