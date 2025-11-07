@@ -1,5 +1,5 @@
 {% comment %}
-  ShopSchedulr block: Filter entries by position_id and date/time range.
+  ClockBlock block: Filter entries by position_id and date/time range.
   Uses Eastern Time (US) for 'now' comparison.
   If multiple matches, selects the one with the most recent start_at.
 {% endcomment %}
@@ -56,7 +56,7 @@
 {% assign margin_top = block.settings.margin_top | default: 20 %}
 {% assign margin_bottom = block.settings.margin_bottom | default: 20 %}
 
-<div class="shopschedulr {% unless found_match and selected_target_url != blank %}shopschedulr--hidden{% endunless %}" style="margin-top: {{ margin_top }}px; margin-bottom: {{ margin_bottom }}px;" {{ block.shopify_attributes }}>
+<div class="clockblock {% unless found_match and selected_target_url != blank %}clockblock--hidden{% endunless %}" style="margin-top: {{ margin_top }}px; margin-bottom: {{ margin_bottom }}px;" {{ block.shopify_attributes }}>
   {% if found_match and selected_target_url != blank %}
     {% assign mobile_content_below = block.settings.mobile_content_below | default: false %}
     {% assign overlay_color = block.settings.overlay_color | default: '#000000' %}
@@ -84,22 +84,22 @@
     {% assign button_bg_below = block.settings.button_bg_below | default: '#667eea' %}
     {% assign button_text_below = block.settings.button_text_below | default: '#ffffff' %}
     
-    <a href="{{ selected_target_url }}" class="shopschedulr__link">
-      <div class="shopschedulr__banner-container {% if mobile_content_below %}shopschedulr__banner-container--mobile-below{% endif %}">
+    <a href="{{ selected_target_url }}" class="clockblock__link">
+      <div class="clockblock__banner-container {% if mobile_content_below %}clockblock__banner-container--mobile-below{% endif %}">
         {% if selected_desktop_banner != blank %}
-          <div class="shopschedulr__banner shopschedulr__banner--desktop">
-            {{ selected_desktop_banner | image_url: width: 1920 | image_tag: alt: selected_title, class: 'shopschedulr__banner-img', loading: 'lazy' }}
+          <div class="clockblock__banner clockblock__banner--desktop">
+            {{ selected_desktop_banner | image_url: width: 1920 | image_tag: alt: selected_title, class: 'clockblock__banner-img', loading: 'lazy' }}
             {% capture overlay_rgb %}{% assign color_no_hash = overlay_color | remove: '#' %}{% assign r = color_no_hash | slice: 0, 2 | hex_to_number %}{% assign g = color_no_hash | slice: 2, 2 | hex_to_number %}{% assign b = color_no_hash | slice: 4, 2 | hex_to_number %}{{ r }}, {{ g }}, {{ b }}{% endcapture %}
-            <div class="shopschedulr__banner-content shopschedulr__banner-content--desktop shopschedulr__banner-content--v-{{ vertical_alignment }} shopschedulr__banner-content--align-{{ content_alignment_desktop }}" style="background: linear-gradient(to top, rgba({{ overlay_rgb | strip }}, {{ overlay_opacity }}), transparent);">
-              <div class="shopschedulr__content-inner">
+            <div class="clockblock__banner-content clockblock__banner-content--desktop clockblock__banner-content--v-{{ vertical_alignment }} clockblock__banner-content--align-{{ content_alignment_desktop }}" style="background: linear-gradient(to top, rgba({{ overlay_rgb | strip }}, {{ overlay_opacity }}), transparent);">
+              <div class="clockblock__content-inner">
                 {% if selected_title != blank %}
-                  <h2 class="shopschedulr__title" style="font-size: {{ headline_font_size }}em; color: {{ title_color_overlay }};{% if title_font != blank %}font-family: {{ title_font.family }}, {{ title_font.fallback_families }}; font-weight: {{ title_font.weight }}; font-style: {{ title_font.style }};{% endif %}">{{ selected_title }}</h2>
+                  <h2 class="clockblock__title" style="font-size: {{ headline_font_size }}em; color: {{ title_color_overlay }};{% if title_font != blank %}font-family: {{ title_font.family }}, {{ title_font.fallback_families }}; font-weight: {{ title_font.weight }}; font-style: {{ title_font.style }};{% endif %}">{{ selected_title }}</h2>
                 {% endif %}
                 {% if selected_description != blank %}
-                  <p class="shopschedulr__description" style="font-size: {{ description_font_size }}em; color: {{ description_color_overlay }};{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
+                  <p class="clockblock__description" style="font-size: {{ description_font_size }}em; color: {{ description_color_overlay }};{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
                 {% endif %}
                 {% if selected_button_text != blank %}
-                  <span class="shopschedulr__button shopschedulr__button--overlay" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; border-radius: {{ button_border_radius }}px; background-color: {{ button_bg_overlay }}; color: {{ button_text_overlay }};{% if button_text_uppercase %}text-transform: uppercase;{% endif %}">{{ selected_button_text }}</span>
+                  <span class="clockblock__button clockblock__button--overlay" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; border-radius: {{ button_border_radius }}px; background-color: {{ button_bg_overlay }}; color: {{ button_text_overlay }};{% if button_text_uppercase %}text-transform: uppercase;{% endif %}">{{ selected_button_text }}</span>
                 {% endif %}
               </div>
             </div>
@@ -107,20 +107,20 @@
         {% endif %}
         
         {% if selected_mobile_banner != blank %}
-          <div class="shopschedulr__banner shopschedulr__banner--mobile">
-            {{ selected_mobile_banner | image_url: width: 768 | image_tag: alt: selected_title, class: 'shopschedulr__banner-img', loading: 'lazy' }}
+          <div class="clockblock__banner clockblock__banner--mobile">
+            {{ selected_mobile_banner | image_url: width: 768 | image_tag: alt: selected_title, class: 'clockblock__banner-img', loading: 'lazy' }}
             {% if mobile_content_below == false %}
               {% capture overlay_rgb %}{% assign color_no_hash = overlay_color | remove: '#' %}{% assign r = color_no_hash | slice: 0, 2 | hex_to_number %}{% assign g = color_no_hash | slice: 2, 2 | hex_to_number %}{% assign b = color_no_hash | slice: 4, 2 | hex_to_number %}{{ r }}, {{ g }}, {{ b }}{% endcapture %}
-              <div class="shopschedulr__banner-content shopschedulr__banner-content--mobile shopschedulr__banner-content--v-{{ vertical_alignment }} shopschedulr__banner-content--align-{{ content_alignment_mobile }}" style="background: linear-gradient(to top, rgba({{ overlay_rgb | strip }}, {{ overlay_opacity }}), transparent);">
-                <div class="shopschedulr__content-inner">
+              <div class="clockblock__banner-content clockblock__banner-content--mobile clockblock__banner-content--v-{{ vertical_alignment }} clockblock__banner-content--align-{{ content_alignment_mobile }}" style="background: linear-gradient(to top, rgba({{ overlay_rgb | strip }}, {{ overlay_opacity }}), transparent);">
+                <div class="clockblock__content-inner">
                   {% if selected_title != blank %}
-                    <h2 class="shopschedulr__title" style="font-size: {{ headline_font_size }}em; color: {{ title_color_overlay }};{% if title_font != blank %}font-family: {{ title_font.family }}, {{ title_font.fallback_families }}; font-weight: {{ title_font.weight }}; font-style: {{ title_font.style }};{% endif %}">{{ selected_title }}</h2>
+                    <h2 class="clockblock__title" style="font-size: {{ headline_font_size }}em; color: {{ title_color_overlay }};{% if title_font != blank %}font-family: {{ title_font.family }}, {{ title_font.fallback_families }}; font-weight: {{ title_font.weight }}; font-style: {{ title_font.style }};{% endif %}">{{ selected_title }}</h2>
                   {% endif %}
                   {% if selected_description != blank %}
-                    <p class="shopschedulr__description" style="font-size: {{ description_font_size }}em; color: {{ description_color_overlay }};{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
+                    <p class="clockblock__description" style="font-size: {{ description_font_size }}em; color: {{ description_color_overlay }};{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
                   {% endif %}
                   {% if selected_button_text != blank %}
-                    <span class="shopschedulr__button shopschedulr__button--overlay" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; border-radius: {{ button_border_radius }}px; background-color: {{ button_bg_overlay }}; color: {{ button_text_overlay }};{% if button_text_uppercase %}text-transform: uppercase;{% endif %}">{{ selected_button_text }}</span>
+                    <span class="clockblock__button clockblock__button--overlay" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; border-radius: {{ button_border_radius }}px; background-color: {{ button_bg_overlay }}; color: {{ button_text_overlay }};{% if button_text_uppercase %}text-transform: uppercase;{% endif %}">{{ selected_button_text }}</span>
                   {% endif %}
                 </div>
               </div>
@@ -129,15 +129,15 @@
         {% endif %}
         
         {% if mobile_content_below %}
-          <div class="shopschedulr__content-below shopschedulr__content-below--mobile-only shopschedulr__content-below--align-{{ content_alignment_mobile }}">
+          <div class="clockblock__content-below clockblock__content-below--mobile-only clockblock__content-below--align-{{ content_alignment_mobile }}">
             {% if selected_title != blank %}
-              <h2 class="shopschedulr__title shopschedulr__title--below" style="font-size: {{ headline_font_size | times: 0.8 }}em; color: {{ title_color_below }};{% if title_font != blank %}font-family: {{ title_font.family }}, {{ title_font.fallback_families }}; font-weight: {{ title_font.weight }}; font-style: {{ title_font.style }};{% endif %}">{{ selected_title }}</h2>
+              <h2 class="clockblock__title clockblock__title--below" style="font-size: {{ headline_font_size | times: 0.8 }}em; color: {{ title_color_below }};{% if title_font != blank %}font-family: {{ title_font.family }}, {{ title_font.fallback_families }}; font-weight: {{ title_font.weight }}; font-style: {{ title_font.style }};{% endif %}">{{ selected_title }}</h2>
             {% endif %}
             {% if selected_description != blank %}
-              <p class="shopschedulr__description shopschedulr__description--below" style="font-size: {{ description_font_size }}em; color: {{ description_color_below }};{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
+              <p class="clockblock__description clockblock__description--below" style="font-size: {{ description_font_size }}em; color: {{ description_color_below }};{% if description_font != blank %}font-family: {{ description_font.family }}, {{ description_font.fallback_families }}; font-weight: {{ description_font.weight }}; font-style: {{ description_font.style }};{% endif %}">{{ selected_description }}</p>
             {% endif %}
             {% if selected_button_text != blank %}
-              <span class="shopschedulr__button shopschedulr__button--below" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; margin: 0; border-radius: {{ button_border_radius }}px; background-color: {{ button_bg_below }}; color: {{ button_text_below }};{% if button_text_uppercase %}text-transform: uppercase;{% endif %}">{{ selected_button_text }}</span>
+              <span class="clockblock__button clockblock__button--below" style="padding: {{ button_padding_top }}px {{ button_padding_right }}px {{ button_padding_bottom }}px {{ button_padding_left }}px; font-size: {{ button_font_size }}em; margin: 0; border-radius: {{ button_border_radius }}px; background-color: {{ button_bg_below }}; color: {{ button_text_below }};{% if button_text_uppercase %}text-transform: uppercase;{% endif %}">{{ selected_button_text }}</span>
             {% endif %}
           </div>
         {% endif %}
@@ -150,34 +150,34 @@
 
 
 <style>
-  .shopschedulr {
+  .clockblock {
     width: 100%;
   }
   
-  .shopschedulr--hidden {
+  .clockblock--hidden {
     display: none !important;
   }
   
-  .shopschedulr__banner-container {
+  .clockblock__banner-container {
     position: relative;
     width: 100%;
   }
   
-  .shopschedulr__banner {
+  .clockblock__banner {
     position: relative;
     width: 100%;
     line-height: 0;
     overflow: hidden;
   }
   
-  .shopschedulr__banner-img {
+  .clockblock__banner-img {
     display: block;
     width: 100%;
     height: auto;
     object-fit: cover;
   }
   
-  .shopschedulr__banner-content {
+  .clockblock__banner-content {
     position: absolute;
     top: 0;
     left: 0;
@@ -192,19 +192,19 @@
     box-sizing: border-box;
   }
   
-  .shopschedulr__banner-content--v-top {
+  .clockblock__banner-content--v-top {
     justify-content: flex-start;
   }
   
-  .shopschedulr__banner-content--v-center {
+  .clockblock__banner-content--v-center {
     justify-content: center;
   }
   
-  .shopschedulr__banner-content--v-bottom {
+  .clockblock__banner-content--v-bottom {
     justify-content: flex-end;
   }
   
-  .shopschedulr__content-inner {
+  .clockblock__content-inner {
     position: relative;
     z-index: 1;
     display: flex;
@@ -213,111 +213,111 @@
     width: 100%;
   }
   
-  .shopschedulr__banner-content--align-left .shopschedulr__content-inner {
+  .clockblock__banner-content--align-left .clockblock__content-inner {
     text-align: left;
     align-items: flex-start;
   }
   
-  .shopschedulr__banner-content--align-center .shopschedulr__content-inner {
+  .clockblock__banner-content--align-center .clockblock__content-inner {
     text-align: center;
     align-items: center;
   }
   
-  .shopschedulr__banner-content--align-right .shopschedulr__content-inner {
+  .clockblock__banner-content--align-right .clockblock__content-inner {
     text-align: right;
     align-items: flex-end;
   }
   
-  .shopschedulr__banner-content--desktop {
+  .clockblock__banner-content--desktop {
     display: flex;
   }
   
-  .shopschedulr__banner-content--mobile {
+  .clockblock__banner-content--mobile {
     display: none;
   }
   
-  .shopschedulr__content-below {
+  .clockblock__content-below {
     display: none;
     padding: 30px 20px;
     text-align: center;
     background: #fff;
   }
   
-  .shopschedulr__content-below .shopschedulr__button--below {
+  .clockblock__content-below .clockblock__button--below {
     margin: 0;
   }
   
-  .shopschedulr__content-below--mobile-only {
+  .clockblock__content-below--mobile-only {
     display: none;
   }
   
-  .shopschedulr__banner--desktop {
+  .clockblock__banner--desktop {
     display: block;
   }
   
-  .shopschedulr__banner--mobile {
+  .clockblock__banner--mobile {
     display: none;
   }
   
   @media all and (max-width: {{ breakpoint | minus: 1 }}px) {
-    .shopschedulr__banner--desktop {
+    .clockblock__banner--desktop {
       display: none !important;
     }
     
-    .shopschedulr__banner--mobile {
+    .clockblock__banner--mobile {
       display: block !important;
     }
     
-    .shopschedulr__banner-content--desktop {
+    .clockblock__banner-content--desktop {
       display: none !important;
     }
     
-    .shopschedulr__banner-content--mobile {
+    .clockblock__banner-content--mobile {
       display: flex !important;
     }
     
-    .shopschedulr__banner-container--mobile-below .shopschedulr__banner-content--mobile {
+    .clockblock__banner-container--mobile-below .clockblock__banner-content--mobile {
       display: none !important;
     }
     
-    .shopschedulr__content-below--mobile-only {
+    .clockblock__content-below--mobile-only {
       display: block !important;
     }
   }
   
   @media all and (min-width: {{ breakpoint }}px) {
-    .shopschedulr__banner--desktop {
+    .clockblock__banner--desktop {
       display: block !important;
     }
     
-    .shopschedulr__banner--mobile {
+    .clockblock__banner--mobile {
       display: none !important;
     }
     
-    .shopschedulr__banner-content--desktop {
+    .clockblock__banner-content--desktop {
       display: flex !important;
     }
     
-    .shopschedulr__banner-content--mobile {
+    .clockblock__banner-content--mobile {
       display: none !important;
     }
     
-    .shopschedulr__content-below--mobile-only {
+    .clockblock__content-below--mobile-only {
       display: none !important;
     }
   }
   
-  .shopschedulr__link {
+  .clockblock__link {
     text-decoration: none;
     display: block;
     color: inherit;
   }
 
-  .shopschedulr__link:hover {
+  .clockblock__link:hover {
     text-decoration: none;
   }
 
-  .shopschedulr__banner-content {
+  .clockblock__banner-content {
     position: absolute;
     bottom: 0;
     left: 0;
@@ -331,56 +331,56 @@
     gap: 15px;
   }
   
-  .shopschedulr__title {
+  .clockblock__title {
     margin: 0 0 10px 0;
     font-weight: bold;
     line-height: 1.2;
   }
   
-  .shopschedulr__title--below {
+  .clockblock__title--below {
     margin: 0 0 10px 0;
   }
   
-  .shopschedulr__description {
+  .clockblock__description {
     margin: 0 0 15px 0;
     line-height: 1.5;
   }
   
-  .shopschedulr__description--below {
+  .clockblock__description--below {
     margin: 0 0 15px 0;
   }
   
-  .shopschedulr__content-below--align-left {
+  .clockblock__content-below--align-left {
     text-align: left;
   }
   
-  .shopschedulr__content-below--align-center {
+  .clockblock__content-below--align-center {
     text-align: center;
   }
   
-  .shopschedulr__content-below--align-right {
+  .clockblock__content-below--align-right {
     text-align: right;
   }
   
-  .shopschedulr__content-below--align-left .shopschedulr__button--below {
+  .clockblock__content-below--align-left .clockblock__button--below {
     align-self: flex-start;
   }
   
-  .shopschedulr__content-below--align-center .shopschedulr__button--below {
+  .clockblock__content-below--align-center .clockblock__button--below {
     align-self: center;
   }
   
-  .shopschedulr__content-below--align-right .shopschedulr__button--below {
+  .clockblock__content-below--align-right .clockblock__button--below {
     align-self: flex-end;
   }
 
   @media all and (max-width: {{ breakpoint | minus: 1 }}px) {
-    .shopschedulr__title {
+    .clockblock__title {
       font-size: 2em;
     }
   }
   
-  .shopschedulr__headline {
+  .clockblock__headline {
     margin: 0 0 15px 0;
     font-size: 1.8em;
     font-weight: 600;
@@ -389,13 +389,13 @@
   }
   
   @media (max-width: 768px) {
-    .shopschedulr__headline {
+    .clockblock__headline {
       font-size: 1.4em;
     }
   }
   
   
-      .shopschedulr__button {
+      .clockblock__button {
         display: inline-block;
         text-decoration: none;
         font-weight: 600;
@@ -407,15 +407,15 @@
         box-sizing: border-box;
       }
   
-  .shopschedulr__link:hover .shopschedulr__button {
+  .clockblock__link:hover .clockblock__button {
     transform: translateY(-2px);
   }
 
-  .shopschedulr__link:active .shopschedulr__button {
+  .clockblock__link:active .clockblock__button {
     transform: translateY(0);
   }
   
-  .shopschedulr__empty {
+  .clockblock__empty {
     padding: 40px 20px;
     text-align: center;
     color: #999;
@@ -426,7 +426,7 @@
 
 {% schema %}
 {
-  "name": "ShopSchedulr Banner",
+  "name": "ClockBlock Banner",
   "target": "section",
   "settings": [
     {

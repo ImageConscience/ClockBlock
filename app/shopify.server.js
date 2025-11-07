@@ -24,7 +24,7 @@ const shopify = shopifyApp({
     afterAuth: async ({ admin }) => {
       console.log(`[afterAuth] Hook called - starting metaobject definition check/create`);
       try {
-        // Define the metaobject type and fields for ShopSchedulr
+        // Define the metaobject type and fields for ClockBlock
         const type = "schedulable_entity";
 
         console.log(`[afterAuth] Checking for metaobject definition: ${type}`);

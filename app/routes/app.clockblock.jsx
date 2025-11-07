@@ -2006,7 +2006,7 @@ function UrlPicker({ name, label, defaultValue = "" }) {
   );
 }*/
 
-export default function SchedulrPage() {
+export default function ClockBlockPage() {
   const { entries: initialEntries, mediaFiles, error: loaderError } = useLoaderData();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
@@ -2093,7 +2093,7 @@ export default function SchedulrPage() {
   const isLoading = navigation.state === "submitting" || fetcher.state === "submitting";
 
   return (
-    <s-page heading="ShopSchedulr | Entries">
+    <s-page heading="ClockBlock | Entries">
       {(loaderError || fetcher.data?.error) && (
         <s-banner tone="critical" title="Error">
           {loaderError || fetcher.data?.error}

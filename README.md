@@ -142,7 +142,7 @@ When you reach the step for [setting up environment variables](https://shopify.d
 
 - `SHOPIFY_API_KEY` = your Shopify app Client ID
 - `SHOPIFY_API_SECRET` = your Shopify app Client Secret
-- `SHOPIFY_APP_URL` = your Railway HTTPS URL (e.g., `https://shopschedulr-production.up.railway.app`)
+- `SHOPIFY_APP_URL` = your Railway HTTPS URL (e.g., `https://clockblock-production.up.railway.app`)
 - `SCOPES` = `read_metaobject_definitions,write_metaobject_definitions,read_metaobjects,write_metaobjects,write_products,unauthenticated_read_metaobjects,read_files,write_files,read_content,write_content`
 - `DATABASE_URL` = Railway Postgres connection URL
 - `NODE_ENV` = `production`
@@ -158,10 +158,10 @@ When you reach the step for [setting up environment variables](https://shopify.d
 4. Theme extension deploy (once per shop/theme)
 
 ```
-shopify extension deploy --directory=extensions/shopschedulr-theme-block
+shopify extension deploy --directory=extensions/clockblock-theme-block
 ```
 
-Then add the “ShopSchedulr content” app block in the Theme Editor.
+Then add the “ClockBlock content” app block in the Theme Editor.
 
 
 ## Gotchas / Troubleshooting

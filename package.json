@@ -1,5 +1,5 @@
 {
-  "name": "shop-schedulr",
+  "name": "clockblock",
   "private": true,
   "scripts": {
     "build": "react-router build",
