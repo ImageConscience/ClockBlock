@@ -158,10 +158,10 @@ When you reach the step for [setting up environment variables](https://shopify.d
 4. Theme extension deploy (once per shop/theme)
 
 ```
-shopify extension deploy --directory=extensions/clockblock-theme-block
+shopify extension deploy --directory=extensions/scheduled-banner-theme-block
 ```
 
-Then add the “ClockBlock content” app block in the Theme Editor.
+Then add the “Scheduled Banner” app block in the Theme Editor.
 
 
 ## Gotchas / Troubleshooting

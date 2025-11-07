@@ -1,5 +1,5 @@
-name = "ClockBlock Theme Block"
-handle = "clockblock-theme-block"
+name = "Scheduled Banner"
+handle = "scheduled-banner-theme-block"
 uid = "cf9a04f9-93ad-f0a3-3d7f-3c4ccc60adaf0791c5f7"
 type = "theme"
 
