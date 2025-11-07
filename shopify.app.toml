@@ -2,7 +2,7 @@
 
 client_id = "62a04efa1aa9dcd31cf94c1730f3bbe5"
 name = "ClockBlock"
-application_url = "https://clockblockapp-production.up.railway.app/app/clockblock"
+application_url = "https://clockblock-production.up.railway.app/app/clockblock"
 embedded = true
 
 [build]
@@ -27,6 +27,6 @@ use_legacy_install_flow = false
 
 [auth]
 redirect_urls = [
-  "https://clockblockapp-production.up.railway.app/auth",
-  "https://clockblockapp-production.up.railway.app/auth/callback"
+  "https://clockblock-production.up.railway.app/auth",
+  "https://clockblock-production.up.railway.app/auth/callback"
 ]
