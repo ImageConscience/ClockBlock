@@ -47,8 +47,7 @@ export default function ClockBlockPage() {
 
       if (shopify) {
         try {
-          const redirect = Redirect.create(shopify);
-          redirect.dispatch(Redirect.Action.REMOTE, {
+          shopify.dispatch(Redirect.Action.REMOTE, {
             url,
             newContext: true,
           });
