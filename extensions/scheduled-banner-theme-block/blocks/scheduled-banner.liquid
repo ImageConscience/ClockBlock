@@ -1,16 +1,12 @@
 {% comment %}
   Scheduled Banner block: Filter entries by position_id and date/time range.
-  Uses Eastern Time (US) for 'now' comparison.
   If multiple matches, selects the one with the most recent start_at.
 {% endcomment %}
 
 {% assign all_entries = metaobjects.schedulable_entity.values %}
 {% assign position_id = block.settings.position_id | default: '' | strip %}
 
-{% comment %} Get current time in UTC, then adjust to Eastern Time (UTC-5 or UTC-4 depending on DST) {% endcomment %}
-{% assign now_utc = 'now' | date: '%s' | plus: 0 %}
-{% comment %} Eastern Time is UTC-5 (EST) or UTC-4 (EDT). Use -18000 seconds (5 hours) as base offset. {% endcomment %}
-{% assign now_et = now_utc | minus: 18000 %}
+{% assign now_ts = 'now' | date: '%s' | plus: 0 %}
 
 {% comment %} Find matching entries and track the one with most recent start_at {% endcomment %}
 {% assign latest_start_ts = 0 %}
@@ -33,8 +29,8 @@
         {% assign start_ts = start_at_value | date: '%s' | plus: 0 %}
         {% assign end_ts = end_at_value | date: '%s' | plus: 0 %}
         
-        {% comment %} Check if current Eastern time is within the scheduled range: start_at <= NOW < end_at {% endcomment %}
-        {% if now_et >= start_ts and now_et < end_ts %}
+        {% comment %} Check if current time is within the scheduled range: start_at <= NOW < end_at {% endcomment %}
+        {% if now_ts >= start_ts and now_ts < end_ts %}
           {% comment %} This entry matches - check if it has a more recent start time {% endcomment %}
           {% if start_ts > latest_start_ts or latest_start_ts == 0 %}
             {% assign latest_start_ts = start_ts %}
@@ -154,6 +150,9 @@
     width: 100%;
     margin:0px;
   }
+  body:has(>#header-group>.header-section>#header-component[transparent]):not(:has(>#header-group>.header-section+.shopify-section))>main>.section-wrapper:first-child .shopify-app-block:has(.scheduled-banner) {
+  margin-top: calc(var(--header-group-height, 0px) * -1);
+}
   .scheduled-banner {
     width: 100%;
   }

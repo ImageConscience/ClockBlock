@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { useFetcher, useLoaderData, redirect, useNavigation, useRevalidator, useRouteError, isRouteErrorResponse } from "react-router";
+import { useEffect, useRef, useState, useId } from "react";
+import { useFetcher, useLoaderData, useNavigation, useRevalidator, useRouteError } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
+import { DateTime } from "luxon";
+import PropTypes from "prop-types";
+import { Buffer } from "buffer";
 // createRequire no longer needed - removed form-data package
 
 // Helper to return JSON response (React Router v7 compatible)
@@ -18,6 +21,60 @@ const json = (data, init = {}) => {
     statusText: init.statusText,
     headers,
   });
+};
+
+const parseLocalDateTimeToUTC = (value, timeZone, fallbackOffsetMinutes) => {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  let dateTime = DateTime.fromISO(trimmed, { setZone: true });
+
+  if (!dateTime.isValid && timeZone) {
+    dateTime = DateTime.fromISO(trimmed, { zone: timeZone });
+  }
+
+  if (!dateTime.isValid && timeZone) {
+    dateTime = DateTime.fromFormat(trimmed, "yyyy-MM-dd'T'HH:mm", { zone: timeZone });
+  }
+
+  if (!dateTime.isValid && timeZone) {
+    dateTime = DateTime.fromFormat(trimmed, "yyyy-MM-dd'T'HH:mm:ss", { zone: timeZone });
+  }
+
+  if (!dateTime.isValid && fallbackOffsetMinutes !== undefined && fallbackOffsetMinutes !== null) {
+    const offsetZone = `UTC${fallbackOffsetMinutes >= 0 ? "+" : "-"}${String(Math.floor(Math.abs(fallbackOffsetMinutes) / 60)).padStart(2, "0")}:${String(Math.abs(fallbackOffsetMinutes) % 60).padStart(2, "0")}`;
+    dateTime = DateTime.fromISO(trimmed, { zone: offsetZone });
+    if (!dateTime.isValid) {
+      dateTime = DateTime.fromFormat(trimmed, "yyyy-MM-dd'T'HH:mm", { zone: offsetZone });
+    }
+    if (!dateTime.isValid) {
+      dateTime = DateTime.fromFormat(trimmed, "yyyy-MM-dd'T'HH:mm:ss", { zone: offsetZone });
+    }
+  }
+
+  if (!dateTime.isValid) {
+    return null;
+  }
+
+  return dateTime.toUTC().toISO({ suppressMilliseconds: true });
+};
+
+const getDefaultDateBounds = (timeZone, fallbackOffsetMinutes) => {
+  const resolvedZone = timeZone || (fallbackOffsetMinutes !== undefined ? `UTC${fallbackOffsetMinutes >= 0 ? "+" : "-"}${String(Math.floor(Math.abs(fallbackOffsetMinutes) / 60)).padStart(2, "0")}:${String(Math.abs(fallbackOffsetMinutes) % 60).padStart(2, "0")}` : "UTC");
+
+  const start = DateTime.fromObject(
+    { year: 2000, month: 1, day: 1, hour: 0, minute: 0, second: 0 },
+    { zone: resolvedZone },
+  ).toUTC().toISO({ suppressMilliseconds: true });
+
+  const end = DateTime.fromObject(
+    { year: 2100, month: 12, day: 31, hour: 23, minute: 59, second: 59 },
+    { zone: resolvedZone },
+  ).toUTC().toISO({ suppressMilliseconds: true });
+
+  return { start, end };
 };
 
 export const loader = async ({ request }) => {
@@ -189,24 +246,45 @@ export const action = async ({ request }) => {
         console.log("[ACTION] Processing update request for entry:", body.id);
         const { admin } = await authenticate.admin(request);
         
-        // Build fields array similar to create
         const fields = [];
+        const userTimeZone = typeof body.timezone === "string" && body.timezone.trim() ? body.timezone.trim() : null;
+        const rawOffset = body.timezoneOffset ?? body.timezone_offset;
+        const userTimezoneOffsetForUpdate =
+          rawOffset !== undefined && rawOffset !== null && rawOffset !== "" && !Number.isNaN(Number(rawOffset))
+            ? Number(rawOffset)
+            : undefined;
+
         if (body.title) fields.push({ key: "title", value: body.title });
         if (body.positionId) fields.push({ key: "position_id", value: body.positionId });
         if (body.headline !== undefined) fields.push({ key: "headline", value: body.headline || "" });
         if (body.description !== undefined) fields.push({ key: "description", value: body.description || "" });
-        if (body.startAt) {
-          const startDate = new Date(body.startAt);
-          if (!isNaN(startDate.getTime())) {
-            fields.push({ key: "start_at", value: startDate.toISOString() });
+
+        if (body.startAt !== undefined) {
+          if (body.startAt) {
+            const formattedStart = parseLocalDateTimeToUTC(body.startAt, userTimeZone, userTimezoneOffsetForUpdate);
+            if (!formattedStart) {
+              return json({ error: "Invalid Start Date format. Please ensure the date is valid.", success: false });
+            }
+            fields.push({ key: "start_at", value: formattedStart });
+          } else {
+            const defaults = getDefaultDateBounds(userTimeZone, userTimezoneOffsetForUpdate);
+            fields.push({ key: "start_at", value: defaults.start });
           }
         }
-        if (body.endAt) {
-          const endDate = new Date(body.endAt);
-          if (!isNaN(endDate.getTime())) {
-            fields.push({ key: "end_at", value: endDate.toISOString() });
+
+        if (body.endAt !== undefined) {
+          if (body.endAt) {
+            const formattedEnd = parseLocalDateTimeToUTC(body.endAt, userTimeZone, userTimezoneOffsetForUpdate);
+            if (!formattedEnd) {
+              return json({ error: "Invalid End Date format. Please ensure the date is valid.", success: false });
+            }
+            fields.push({ key: "end_at", value: formattedEnd });
+          } else {
+            const defaults = getDefaultDateBounds(userTimeZone, userTimezoneOffsetForUpdate);
+            fields.push({ key: "end_at", value: defaults.end });
           }
         }
+
         if (body.desktopBanner) fields.push({ key: "desktop_banner", value: body.desktopBanner });
         if (body.mobileBanner) fields.push({ key: "mobile_banner", value: body.mobileBanner });
         if (body.targetUrl !== undefined) fields.push({ key: "target_url", value: body.targetUrl || "" });
@@ -372,10 +450,13 @@ export const action = async ({ request }) => {
         const stream = file.stream();
         const chunks = [];
         const reader = stream.getReader();
-        while (true) {
+        let readerDone = false;
+        while (!readerDone) {
           const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
+          readerDone = done;
+          if (!done && value) {
+            chunks.push(value);
+          }
         }
         const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
         arrayBuffer = new Uint8Array(totalLength);
@@ -664,7 +745,10 @@ export const action = async ({ request }) => {
     const statusCheckbox = formData.get("status");
     const status = statusCheckbox === "on" ? "active" : "draft";
     // Get user's timezone offset in minutes (negative means ahead of UTC, positive means behind)
-    const userTimezoneOffset = parseInt(formData.get("timezone_offset") || "0", 10);
+    let userTimezoneOffset = parseInt(formData.get("timezone_offset") || "0", 10);
+    if (Number.isNaN(userTimezoneOffset)) {
+      userTimezoneOffset = 0;
+    }
 
     // Query metaobject definition to check if it exists
     let definitionExists = false;
@@ -826,80 +910,6 @@ export const action = async ({ request }) => {
     }
   }
 
-  // Convert HTML to Lexical JSON format for rich_text_field
-  // Shopify's rich_text_field expects a Lexical editor state JSON
-  // The format should match Lexical's serialized state structure
-  const htmlToLexicalJSON = (html) => {
-    if (!html || !html.trim()) {
-      // Return empty Lexical state
-      return JSON.stringify({
-        root: {
-          children: [],
-          direction: "ltr",
-          format: "",
-          indent: 0,
-          type: "root",
-          version: 1,
-        },
-      });
-    }
-    
-    // Try to preserve HTML structure by converting to Lexical nodes
-    // For now, let's try a simpler approach - just pass the HTML directly
-    // Shopify might accept HTML strings for rich_text_field
-    
-    // Actually, let's try the correct Lexical format without the nested root
-    // Shopify might expect the Lexical state directly without wrapping
-    const textContent = html.replace(/<[^>]*>/g, "").trim() || "";
-    
-    if (!textContent) {
-      return JSON.stringify({
-        root: {
-          children: [],
-          direction: "ltr",
-          format: "",
-          indent: 0,
-          type: "root",
-          version: 1,
-        },
-      });
-    }
-    
-    // Create proper Lexical JSON structure
-    // Shopify expects the root object directly, not wrapped
-    const lexicalState = {
-      root: {
-        children: [
-          {
-            children: [
-              {
-                detail: 0,
-                format: 0,
-                mode: "normal",
-                style: "",
-                text: textContent,
-                type: "text",
-                version: 1,
-              },
-            ],
-            direction: "ltr",
-            format: "",
-            indent: 0,
-            type: "paragraph",
-            version: 1,
-          },
-        ],
-        direction: "ltr",
-        format: "",
-        indent: 0,
-        type: "root",
-        version: 1,
-      },
-    };
-    
-    return JSON.stringify(lexicalState);
-  };
-
     // Validate required fields
     if (!title) {
       return json({
@@ -913,71 +923,6 @@ export const action = async ({ request }) => {
         success: false,
       });
     }
-
-    // Format dates to ISO 8601 - datetime-local returns YYYY-MM-DDTHH:mm in user's local time
-    // We need to preserve the user's local timezone when converting to ISO 8601
-    const formatDateTime = (dateStr) => {
-    if (!dateStr) return null;
-    try {
-      // datetime-local format is YYYY-MM-DDTHH:mm (no seconds or timezone)
-      // Parse the date components directly to preserve the exact time the user entered
-      const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
-      if (!match) {
-        // Fallback to Date parsing if format doesn't match
-        const date = new Date(dateStr);
-        if (isNaN(date.getTime())) {
-          console.error("Invalid date:", dateStr);
-          return null;
-        }
-        const offset = userTimezoneOffset;
-        const offsetHours = Math.floor(Math.abs(offset) / 60).toString().padStart(2, '0');
-        const offsetMinutes = (Math.abs(offset) % 60).toString().padStart(2, '0');
-        const offsetSign = offset >= 0 ? '+' : '-';
-        const year = date.getFullYear();
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const day = date.getDate().toString().padStart(2, '0');
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-        const seconds = date.getSeconds().toString().padStart(2, '0');
-        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetSign}${offsetHours}:${offsetMinutes}`;
-      }
-      
-      // Extract date components (user entered these in their local timezone)
-      const year = match[1];
-      const month = match[2];
-      const day = match[3];
-      const hours = match[4];
-      const minutes = match[5];
-      const seconds = match[6] || "00";
-      
-      // Use user's timezone offset
-      const offset = userTimezoneOffset;
-      const offsetHours = Math.floor(Math.abs(offset) / 60).toString().padStart(2, '0');
-      const offsetMinutes = (Math.abs(offset) % 60).toString().padStart(2, '0');
-      const offsetSign = offset >= 0 ? '+' : '-';
-      
-      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetSign}${offsetHours}:${offsetMinutes}`;
-    } catch (error) {
-      console.error("Date formatting error:", error, dateStr);
-      return null;
-    }
-  };
-
-    // Helper function to create default date in user's local timezone
-    const createLocalDate = (year, month, day, hours, minutes, seconds = 0) => {
-    // Format date components with user's timezone offset
-    const offset = userTimezoneOffset;
-    const offsetHours = Math.floor(Math.abs(offset) / 60).toString().padStart(2, '0');
-    const offsetMinutes = (Math.abs(offset) % 60).toString().padStart(2, '0');
-    const offsetSign = offset >= 0 ? '+' : '-';
-    const y = year.toString().padStart(4, '0');
-    const m = month.toString().padStart(2, '0');
-    const d = day.toString().padStart(2, '0');
-    const h = hours.toString().padStart(2, '0');
-    const min = minutes.toString().padStart(2, '0');
-    const s = seconds.toString().padStart(2, '0');
-    return `${y}-${m}-${d}T${h}:${min}:${s}${offsetSign}${offsetHours}:${offsetMinutes}`;
-  };
 
     console.log("Raw form data:", {
       positionId,
@@ -993,21 +938,12 @@ export const action = async ({ request }) => {
       status,
     });
 
-    // Set default dates if not provided (in user's local timezone)
-    // Default start: Jan 1, 2000 at 12:00 AM
-    // Default end: Dec 31, 2100 at 11:59 PM
-    const defaultStartDateISO = createLocalDate(2000, 1, 1, 0, 0, 0);
-    const defaultEndDateISO = createLocalDate(2100, 12, 31, 23, 59, 59);
-    
-    const formattedStartAt = startAt ? formatDateTime(startAt) : defaultStartDateISO;
-    const formattedEndAt = endAt ? formatDateTime(endAt) : defaultEndDateISO;
-    
-    console.log("Formatted dates:", {
-      formattedStartAt,
-      formattedEndAt,
-    });
+    const userTimeZone = String(formData.get("timezone") || "").trim() || null;
 
-    // Validate date formats
+    const defaultBounds = getDefaultDateBounds(userTimeZone, userTimezoneOffset);
+    const formattedStartAt = startAt ? parseLocalDateTimeToUTC(startAt, userTimeZone, userTimezoneOffset) : defaultBounds.start;
+    const formattedEndAt = endAt ? parseLocalDateTimeToUTC(endAt, userTimeZone, userTimezoneOffset) : defaultBounds.end;
+
     if (startAt && !formattedStartAt) {
       return json({
         error: "Invalid Start Date format. Please ensure the date is valid.",
@@ -1149,6 +1085,7 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
   const fileInputRef = useRef(null);
   const progressIntervalRef = useRef(null);
   const revalidator = useRevalidator();
+  const triggerId = useId();
   // Removed uploadFetcher - now using direct fetch() for file uploads
 
   const selectedFile = localMediaFiles.find((f) => f.id === selectedFileId);
@@ -1158,7 +1095,7 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
     setLocalMediaFiles(mediaFiles);
   }, [mediaFiles]);
 
-  const handleSelectFile = (fileId, fileUrl, fileAlt) => {
+  const handleSelectFile = (fileId) => {
     setSelectedFileId(fileId);
     setShowPicker(false);
     setSearchTerm("");
@@ -1355,11 +1292,12 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
   return (
     <>
       <div style={{ marginBottom: "0.5rem" }}>
-        <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+        <label htmlFor={triggerId} style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
           {label}
         </label>
         <button
           type="button"
+          id={triggerId}
           onClick={() => {
             setShowPicker(true);
             setUploadError(""); // Clear any previous error when opening modal
@@ -1430,7 +1368,20 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
       {/* Media Library Picker Modal */}
       {showPicker && (
         <div
-          onClick={() => setShowPicker(false)}
+          role="button"
+          tabIndex={0}
+          aria-label={`Close ${label} picker`}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowPicker(false);
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setShowPicker(false);
+            }
+          }}
           style={{
             position: "fixed",
             top: 0,
@@ -1447,7 +1398,10 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
           }}
         >
           <div
-            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Select ${label}`}
+            tabIndex={-1}
             style={{
               backgroundColor: "white",
               borderRadius: "8px",
@@ -1604,15 +1558,19 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
                 </div>
               ) : (
                 filteredFiles.map((file) => (
-                  <div
+                  <button
+                    type="button"
                     key={file.id}
-                    onClick={() => handleSelectFile(file.id, file.url, file.alt)}
+                    onClick={() => handleSelectFile(file.id)}
+                    aria-pressed={selectedFileId === file.id}
                     style={{
                       cursor: "pointer",
                       border: selectedFileId === file.id ? "2px solid #008060" : "1px solid #c9cccf",
                       borderRadius: "4px",
                       padding: "0.5rem",
                       backgroundColor: selectedFileId === file.id ? "#f0f9f6" : "white",
+                      textAlign: "left",
+                      width: "100%",
                     }}
                   >
                     <img
@@ -1637,7 +1595,7 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
                     >
                       {file.alt || "Untitled"}
                     </div>
-                  </div>
+                  </button>
                 ))
               )}
             </div>
@@ -1645,141 +1603,6 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
         </div>
       )}
     </>
-  );
-}
-
-function UrlPicker({ name, label, defaultValue = "" }) {
-  const [urlType, setUrlType] = useState(() => {
-    if (!defaultValue) return "custom";
-    if (defaultValue.startsWith("/products/")) return "product";
-    if (defaultValue.startsWith("/collections/")) return "collection";
-    if (defaultValue.startsWith("/pages/")) return "page";
-    if (defaultValue === "/" || defaultValue === "") return "home";
-    return "custom";
-  });
-  const [customUrl, setCustomUrl] = useState(() => {
-    if (defaultValue && !defaultValue.startsWith("/products/") && !defaultValue.startsWith("/collections/") && !defaultValue.startsWith("/pages/") && defaultValue !== "/") {
-      return defaultValue;
-    }
-    return "";
-  });
-  const [productHandle, setProductHandle] = useState("");
-  const [collectionHandle, setCollectionHandle] = useState("");
-  const [pageHandle, setPageHandle] = useState("");
-  const hiddenInputRef = useRef(null);
-
-  useEffect(() => {
-    if (hiddenInputRef.current) {
-      let finalUrl = "";
-      if (urlType === "home") {
-        // For home page, use root path - will be converted to full URL in action
-        finalUrl = "/";
-      } else if (urlType === "product" && productHandle) {
-        // Convert to relative URL - will be converted to full URL in action
-        finalUrl = `/products/${productHandle}`;
-      } else if (urlType === "collection" && collectionHandle) {
-        finalUrl = `/collections/${collectionHandle}`;
-      } else if (urlType === "page" && pageHandle) {
-        finalUrl = `/pages/${pageHandle}`;
-      } else if (urlType === "custom") {
-        finalUrl = customUrl;
-        // Ensure custom URLs have a scheme
-        if (finalUrl && !/^(https?|mailto|sms|tel):/i.test(finalUrl)) {
-          if (!finalUrl.startsWith("/")) {
-            finalUrl = `https://${finalUrl}`;
-          } else {
-            // Relative URLs need to be converted - for now, add https prefix
-            finalUrl = `https://example.com${finalUrl}`;
-          }
-        }
-      }
-      hiddenInputRef.current.value = finalUrl;
-    }
-  }, [urlType, customUrl, productHandle, collectionHandle, pageHandle]);
-
-  return (
-    <div style={{ marginBottom: "0.375rem" }}>
-      <label style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>{label}</label>
-      <select
-        value={urlType}
-        onChange={(e) => setUrlType(e.target.value)}
-        style={{
-          width: "100%",
-          padding: "0.375rem 0.5rem",
-          border: "1px solid #c9cccf",
-          borderRadius: "4px",
-          fontSize: "0.8125rem",
-          marginBottom: "0.375rem",
-        }}
-      >
-        <option value="home">Home</option>
-        <option value="product">Product</option>
-        <option value="collection">Collection</option>
-        <option value="page">Page</option>
-        <option value="custom">Custom URL</option>
-      </select>
-      {urlType === "product" && (
-        <input
-          type="text"
-          placeholder="Product handle (e.g., my-product)"
-          value={productHandle}
-          onChange={(e) => setProductHandle(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "0.375rem 0.5rem",
-            border: "1px solid #c9cccf",
-            borderRadius: "4px",
-            fontSize: "0.8125rem",
-          }}
-        />
-      )}
-      {urlType === "collection" && (
-        <input
-          type="text"
-          placeholder="Collection handle (e.g., my-collection)"
-          value={collectionHandle}
-          onChange={(e) => setCollectionHandle(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "0.375rem 0.5rem",
-            border: "1px solid #c9cccf",
-            borderRadius: "4px",
-            fontSize: "0.8125rem",
-          }}
-        />
-      )}
-      {urlType === "page" && (
-        <input
-          type="text"
-          placeholder="Page handle (e.g., about-us)"
-          value={pageHandle}
-          onChange={(e) => setPageHandle(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "0.375rem 0.5rem",
-            border: "1px solid #c9cccf",
-            borderRadius: "4px",
-            fontSize: "0.8125rem",
-          }}
-        />
-      )}
-      {urlType === "custom" && (
-        <input
-          type="url"
-          placeholder="https://example.com or /path"
-          value={customUrl}
-          onChange={(e) => setCustomUrl(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "0.375rem 0.5rem",
-            border: "1px solid #c9cccf",
-            borderRadius: "4px",
-            fontSize: "0.8125rem",
-          }}
-        />
-      )}
-      <input type="hidden" name={name} ref={hiddenInputRef} />
-    </div>
   );
 }
 
@@ -2020,6 +1843,9 @@ export default function ClockBlockPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
+  const [userTimeZone, setUserTimeZone] = useState("UTC");
+  const [userTimezoneOffset, setUserTimezoneOffset] = useState(0);
+  const statusInputId = useId();
 
   useEffect(() => {
     // Skip if no fetcher data
@@ -2081,6 +1907,14 @@ export default function ClockBlockPage() {
     }
   }, [loaderError, shopify]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const resolvedZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      setUserTimeZone(resolvedZone || "UTC");
+      setUserTimezoneOffset(new Date().getTimezoneOffset() * -1);
+    }
+  }, []);
+
   // Function to close form and reset toggle
   const handleCloseForm = () => {
     setShowForm(false);
@@ -2123,7 +1957,20 @@ export default function ClockBlockPage() {
       {/* Modal Overlay */}
       {showForm && (
         <div
-          onClick={handleCloseForm}
+          role="button"
+          tabIndex={0}
+          aria-label="Close create entry modal"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              handleCloseForm();
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              handleCloseForm();
+            }
+          }}
           style={{
             position: "fixed",
             top: 0,
@@ -2141,7 +1988,10 @@ export default function ClockBlockPage() {
           }}
         >
           <div
-            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Create new entry"
+            tabIndex={-1}
             style={{
               backgroundColor: "white",
               borderRadius: "8px",
@@ -2179,7 +2029,14 @@ export default function ClockBlockPage() {
             <input
               type="hidden"
               name="timezone_offset"
-              defaultValue={new Date().getTimezoneOffset() * -1}
+              value={userTimezoneOffset}
+              readOnly
+            />
+            <input
+              type="hidden"
+              name="timezone"
+              value={userTimeZone}
+              readOnly
             />
             <s-text-field
               label="Title"
@@ -2269,10 +2126,11 @@ export default function ClockBlockPage() {
                     placeholder="Button text"
                   />
                   <div style={{ marginBottom: "0.5rem" }}>
-                    <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500", fontSize: "0.875rem" }}>
+                    <p style={{ marginBottom: "0.5rem", fontWeight: "500", fontSize: "0.875rem" }}>
                       Entry Status
-                    </label>
-                    <label 
+                    </p>
+                    <label
+                      htmlFor={statusInputId}
                       style={{ 
                         display: "inline-flex", 
                         alignItems: "center", 
@@ -2282,6 +2140,7 @@ export default function ClockBlockPage() {
                       }}
                     >
                       <input
+                        id={statusInputId}
                         type="checkbox"
                         name="status"
                         value="on"
@@ -2302,6 +2161,21 @@ export default function ClockBlockPage() {
                           height: "24px",
                         }}
                       >
+                        <span
+                          style={{
+                            position: "absolute",
+                            width: "1px",
+                            height: "1px",
+                            padding: 0,
+                            margin: "-1px",
+                            overflow: "hidden",
+                            clip: "rect(0, 0, 0, 0)",
+                            whiteSpace: "nowrap",
+                            border: 0,
+                          }}
+                        >
+                          {formStatusActive ? "Set entry to draft" : "Set entry to active"}
+                        </span>
                         <span
                           style={{
                             position: "absolute",
@@ -2565,6 +2439,7 @@ export default function ClockBlockPage() {
                   
                   // Get publishable status
                   const isActive = e.capabilities?.publishable?.status === "ACTIVE";
+                  const toggleId = `${e.id}-status-toggle`;
                   
                   // Handler for toggle status
                   const handleToggleStatus = async () => {
@@ -2597,6 +2472,7 @@ export default function ClockBlockPage() {
                     <tr key={e.id} style={{ borderBottom: "1px solid #e1e3e5" }}>
                       <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", textAlign: "center" }}>
                         <label 
+                          htmlFor={toggleId}
                           style={{ 
                             display: "inline-flex", 
                             alignItems: "center", 
@@ -2608,9 +2484,11 @@ export default function ClockBlockPage() {
                           }}
                         >
                           <input
+                            id={toggleId}
                             type="checkbox"
                             checked={isActive}
                             onChange={handleToggleStatus}
+                            aria-label={isActive ? "Set entry to draft status" : "Set entry to active status"}
                             style={{
                               opacity: 0,
                               width: 0,
@@ -2631,6 +2509,21 @@ export default function ClockBlockPage() {
                               transition: "background-color 0.2s",
                             }}
                           >
+                            <span
+                              style={{
+                                position: "absolute",
+                                width: "1px",
+                                height: "1px",
+                                padding: 0,
+                                margin: "-1px",
+                                overflow: "hidden",
+                                clip: "rect(0, 0, 0, 0)",
+                                whiteSpace: "nowrap",
+                                border: 0,
+                              }}
+                            >
+                              {isActive ? "Set entry to draft" : "Set entry to active"}
+                            </span>
                             <span
                               style={{
                                 position: "absolute",
@@ -2683,10 +2576,9 @@ export default function ClockBlockPage() {
                         {endDate}
                       </td>
                       <td style={{ padding: "0.75rem", borderRight: "1px solid #e1e3e5", textAlign: "center" }}>
-                        <a
-                          href="#"
-                          onClick={(event) => {
-                            event.preventDefault();
+                        <button
+                          type="button"
+                          onClick={() => {
                             setSelectedEntry(e);
                             setEditModalOpen(true);
                           }}
@@ -2695,16 +2587,18 @@ export default function ClockBlockPage() {
                             color: "#667eea",
                             textDecoration: "underline",
                             cursor: "pointer",
+                            background: "none",
+                            border: "none",
+                            padding: 0,
                           }}
                         >
                           Edit
-                        </a>
+                        </button>
                       </td>
                       <td style={{ padding: "0.75rem", textAlign: "center" }}>
-                        <a
-                          href="#"
-                          onClick={(event) => {
-                            event.preventDefault();
+                        <button
+                          type="button"
+                          onClick={() => {
                             setSelectedEntry(e);
                             setDeleteModalOpen(true);
                           }}
@@ -2713,10 +2607,13 @@ export default function ClockBlockPage() {
                             color: "#d72c0d",
                             textDecoration: "underline",
                             cursor: "pointer",
+                            background: "none",
+                            border: "none",
+                            padding: 0,
                           }}
                         >
                           Delete
-                        </a>
+                        </button>
                       </td>
                     </tr>
                   );
@@ -2733,6 +2630,8 @@ export default function ClockBlockPage() {
         <EditEntryModal
           entry={selectedEntry}
           mediaFiles={mediaFiles}
+          userTimeZone={userTimeZone}
+          userTimezoneOffset={userTimezoneOffset}
           onClose={() => {
             setEditModalOpen(false);
             setSelectedEntry(null);
@@ -2765,9 +2664,18 @@ export default function ClockBlockPage() {
 }
 
 // Edit Entry Modal Component
-function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
+function EditEntryModal({ entry, mediaFiles, onClose, onSuccess, userTimeZone, userTimezoneOffset }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const baseId = useId();
+  const titleInputId = `${baseId}-title`;
+  const positionInputId = `${baseId}-position`;
+  const startInputId = `${baseId}-start`;
+  const endInputId = `${baseId}-end`;
+  const headlineInputId = `${baseId}-headline`;
+  const descriptionInputId = `${baseId}-description`;
+  const targetUrlInputId = `${baseId}-target-url`;
+  const buttonTextInputId = `${baseId}-button-text`;
   
   const fieldMap = Object.fromEntries(
     (entry.fields || []).map((f) => [f.key, f.value]),
@@ -2807,6 +2715,8 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
       mobileBanner: formData.get("mobile_banner") || "",
       targetUrl: formData.get("target_url") || "",
       buttonText: formData.get("button_text") || "",
+      timezone: formData.get("timezone") || "",
+      timezoneOffset: formData.get("timezone_offset") || "",
     };
     
     try {
@@ -2836,7 +2746,20 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
   
   return (
     <div
-      onClick={onClose}
+      role="button"
+      tabIndex={0}
+      aria-label="Close edit entry modal"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClose();
+        }
+      }}
       style={{
         position: "fixed",
         top: 0,
@@ -2853,7 +2776,10 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
       }}
     >
       <div
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit entry"
+        tabIndex={-1}
         style={{
           backgroundColor: "white",
           borderRadius: "8px",
@@ -2888,12 +2814,15 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
               {error}
             </div>
           )}
+          <input type="hidden" name="timezone" value={userTimeZone ?? "UTC"} readOnly />
+          <input type="hidden" name="timezone_offset" value={userTimezoneOffset ?? 0} readOnly />
           <div style={{ marginBottom: "1rem" }}>
-            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+            <label htmlFor={titleInputId} style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
               Title <span style={{ color: "#d72c0d" }}>*</span>
             </label>
             <input
               type="text"
+              id={titleInputId}
               name="title"
               defaultValue={fieldMap.title || ""}
               required
@@ -2907,11 +2836,12 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
             />
           </div>
           <div style={{ marginBottom: "1rem" }}>
-            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+            <label htmlFor={positionInputId} style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
               Position ID <span style={{ color: "#d72c0d" }}>*</span>
             </label>
             <input
               type="text"
+              id={positionInputId}
               name="position_id"
               defaultValue={fieldMap.position_id || ""}
               required
@@ -2926,12 +2856,12 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
           </div>
           <div style={{ display: "flex", gap: "15px", marginBottom: "1rem" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <label htmlFor="edit_start_at" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+              <label htmlFor={startInputId} style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
                 Start Date & Time
               </label>
               <input
                 type="datetime-local"
-                id="edit_start_at"
+                id={startInputId}
                 name="start_at"
                 defaultValue={getDateTimeLocal(fieldMap.start_at)}
                 style={{
@@ -2944,12 +2874,12 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
               />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <label htmlFor="edit_end_at" style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+              <label htmlFor={endInputId} style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
                 End Date & Time
               </label>
               <input
                 type="datetime-local"
-                id="edit_end_at"
+                id={endInputId}
                 name="end_at"
                 defaultValue={getDateTimeLocal(fieldMap.end_at)}
                 style={{
@@ -2981,11 +2911,12 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
             </div>
           </div>
           <div style={{ marginBottom: "1rem" }}>
-            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+            <label htmlFor={headlineInputId} style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
               Headline
             </label>
             <input
               type="text"
+              id={headlineInputId}
               name="headline"
               defaultValue={fieldMap.headline || ""}
               placeholder="Headline text"
@@ -2999,11 +2930,12 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
             />
           </div>
           <div style={{ marginBottom: "1rem" }}>
-            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+            <label htmlFor={descriptionInputId} style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
               Description
             </label>
             <input
               type="text"
+              id={descriptionInputId}
               name="description"
               defaultValue={fieldMap.description || ""}
               style={{
@@ -3016,11 +2948,12 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
             />
           </div>
           <div style={{ marginBottom: "1rem" }}>
-            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+            <label htmlFor={targetUrlInputId} style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
               Target URL
             </label>
             <input
               type="text"
+              id={targetUrlInputId}
               name="target_url"
               defaultValue={fieldMap.target_url || ""}
               style={{
@@ -3033,11 +2966,12 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess }) {
             />
           </div>
           <div style={{ marginBottom: "1rem" }}>
-            <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+            <label htmlFor={buttonTextInputId} style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
               Button Text
             </label>
             <input
               type="text"
+              id={buttonTextInputId}
               name="button_text"
               defaultValue={fieldMap.button_text || ""}
               style={{
@@ -3125,7 +3059,20 @@ function DeleteEntryModal({ entry, onClose, onSuccess }) {
   
   return (
     <div
-      onClick={onClose}
+      role="button"
+      tabIndex={0}
+      aria-label="Close delete entry confirmation"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClose();
+        }
+      }}
       style={{
         position: "fixed",
         top: 0,
@@ -3142,7 +3089,10 @@ function DeleteEntryModal({ entry, onClose, onSuccess }) {
       }}
     >
       <div
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Delete entry confirmation"
+        tabIndex={-1}
         style={{
           backgroundColor: "white",
           borderRadius: "8px",
@@ -3176,7 +3126,7 @@ function DeleteEntryModal({ entry, onClose, onSuccess }) {
             </div>
           )}
           <p style={{ margin: "0 0 1rem 0" }}>
-            Are you sure you want to delete <strong>"{fieldMap.title || "(untitled)"}"</strong>? This action cannot be undone.
+            Are you sure you want to delete <strong>{fieldMap.title || "(untitled)"}</strong>? This action cannot be undone.
           </p>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
             <button
@@ -3214,6 +3164,56 @@ function DeleteEntryModal({ entry, onClose, onSuccess }) {
     </div>
   );
 }
+
+const mediaFileShape = PropTypes.shape({
+  id: PropTypes.string.isRequired,
+  url: PropTypes.string,
+  alt: PropTypes.string,
+  image: PropTypes.shape({
+    url: PropTypes.string,
+    width: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    height: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  }),
+});
+
+MediaLibraryPicker.propTypes = {
+  name: PropTypes.string.isRequired,
+  label: PropTypes.string.isRequired,
+  mediaFiles: PropTypes.arrayOf(mediaFileShape),
+  defaultValue: PropTypes.string,
+};
+
+EditEntryModal.propTypes = {
+  entry: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    fields: PropTypes.arrayOf(
+      PropTypes.shape({
+        key: PropTypes.string,
+        value: PropTypes.string,
+        reference: PropTypes.object,
+      }),
+    ),
+  }).isRequired,
+  mediaFiles: PropTypes.arrayOf(mediaFileShape),
+  onClose: PropTypes.func.isRequired,
+  onSuccess: PropTypes.func.isRequired,
+  userTimeZone: PropTypes.string,
+  userTimezoneOffset: PropTypes.number,
+};
+
+DeleteEntryModal.propTypes = {
+  entry: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    fields: PropTypes.arrayOf(
+      PropTypes.shape({
+        key: PropTypes.string,
+        value: PropTypes.string,
+      }),
+    ),
+  }).isRequired,
+  onClose: PropTypes.func.isRequired,
+  onSuccess: PropTypes.func.isRequired,
+};
 
 export const headers = (headersArgs) => {
   return boundary.headers(headersArgs);
