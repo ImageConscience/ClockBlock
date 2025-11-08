@@ -1,9 +1,6 @@
 import { Buffer } from "buffer";
 import { authenticate } from "../shopify.server";
-import {
-  createAppBridgeRedirect,
-  ensureActiveSubscription,
-} from "../utils/billing.server";
+import { ensureActiveSubscription } from "../utils/billing.server";
 import { parseLocalDateTimeToUTC, getDefaultDateBounds } from "../utils/datetime";
 import { json } from "../utils/responses.server";
 
@@ -24,7 +21,7 @@ export const loader = async ({ request }) => {
 
   const confirmationUrl = await ensureActiveSubscription(admin);
   if (confirmationUrl) {
-    return createAppBridgeRedirect(confirmationUrl);
+    return json({ redirectUrl: confirmationUrl });
   }
 
   try {
@@ -143,7 +140,7 @@ export const action = async ({ request }) => {
 
     const confirmationUrl = await ensureActiveSubscription(admin);
     if (confirmationUrl) {
-      return createAppBridgeRedirect(confirmationUrl);
+      return json({ redirectUrl: confirmationUrl });
     }
 
     const acceptHeader = request.headers.get("accept") || "";

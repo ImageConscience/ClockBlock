@@ -14,7 +14,12 @@ const debugLog = (...args) => {
 };
 
 export default function ClockBlockPage() {
-  const { entries: initialEntries, mediaFiles, error: loaderError } = useLoaderData();
+  const loaderData = useLoaderData();
+  const initialEntries = loaderData?.entries ?? [];
+  const loaderMediaFiles = loaderData?.mediaFiles ?? [];
+  const mediaFiles = loaderMediaFiles;
+  const loaderError = loaderData?.error ?? null;
+  const redirectUrl = loaderData?.redirectUrl ?? null;
   const fetcher = useFetcher();
   const shopify = useAppBridge();
   const navigation = useNavigation();
@@ -51,6 +56,16 @@ export default function ClockBlockPage() {
     }
 
     debugLog("[CLIENT] Handling new fetcher response:", fetcher.data);
+    if (fetcher.data?.redirectUrl) {
+      debugLog("[CLIENT] Billing redirect requested from action:", fetcher.data.redirectUrl);
+      if (shopify?.redirect?.toURL) {
+        shopify.redirect.toURL(fetcher.data.redirectUrl);
+      } else if (typeof window !== "undefined") {
+        window.top ? (window.top.location.href = fetcher.data.redirectUrl) : (window.location.href = fetcher.data.redirectUrl);
+      }
+      handledResponseRef.current = responseId;
+      return;
+    }
     
     if (fetcher.data?.error) {
       console.error("[CLIENT] Error in fetcher data:", fetcher.data.error);
@@ -92,6 +107,18 @@ export default function ClockBlockPage() {
   }, [loaderError, shopify]);
 
   useEffect(() => {
+    if (!redirectUrl) {
+      return;
+    }
+    debugLog("[CLIENT] Billing redirect requested from loader:", redirectUrl);
+    if (shopify?.redirect?.toURL) {
+      shopify.redirect.toURL(redirectUrl);
+    } else if (typeof window !== "undefined") {
+      window.top ? (window.top.location.href = redirectUrl) : (window.location.href = redirectUrl);
+    }
+  }, [redirectUrl, shopify]);
+
+  useEffect(() => {
     if (typeof window !== "undefined") {
       const resolvedZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       setUserTimeZone(resolvedZone || "UTC");
@@ -109,6 +136,16 @@ export default function ClockBlockPage() {
   };
 
   const isLoading = navigation.state === "submitting" || fetcher.state === "submitting";
+
+  if (redirectUrl) {
+    return (
+      <s-page heading="ClockBlock | Entries">
+        <s-section>
+          <p>Redirecting to Shopify billing…</p>
+        </s-section>
+      </s-page>
+    );
+  }
 
   return (
     <s-page heading="ClockBlock | Entries">
@@ -270,14 +307,14 @@ export default function ClockBlockPage() {
                       <MediaLibraryPicker
                         name="desktop_banner"
                         label="Desktop Banner"
-                        mediaFiles={mediaFiles || []}
+                        mediaFiles={loaderMediaFiles || []}
                       />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <MediaLibraryPicker
                         name="mobile_banner"
                         label="Mobile Banner"
-                        mediaFiles={mediaFiles || []}
+                        mediaFiles={loaderMediaFiles || []}
                       />
                     </div>
                   </div>
