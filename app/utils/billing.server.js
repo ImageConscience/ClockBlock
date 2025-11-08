@@ -138,6 +138,13 @@ export async function ensureActiveSubscription(admin) {
       return null;
     }
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes("Apps without a public distribution cannot use the Billing API")
+    ) {
+      console.warn("[billing] App is not public yet; disabling billing enforcement.");
+      return null;
+    }
     console.error("[billing] Error while checking subscription:", error);
     throw error;
   }
@@ -165,6 +172,12 @@ export async function ensureActiveSubscription(admin) {
       creationJson?.data?.appSubscriptionCreate?.userErrors?.filter(Boolean) ?? [];
     if (userErrors.length > 0) {
       const message = userErrors.map((error) => error.message).join(", ");
+      if (
+        message.includes("Apps without a public distribution cannot use the Billing API")
+      ) {
+        console.warn("[billing] App is not yet public; skipping billing enforcement.");
+        return null;
+      }
       throw new Error(`[billing] Subscription creation returned user errors: ${message}`);
     }
 
@@ -176,6 +189,13 @@ export async function ensureActiveSubscription(admin) {
     return confirmationUrl;
   } catch (error) {
     console.error("[billing] Error while creating subscription:", error);
+    if (
+      error instanceof Error &&
+      error.message.includes("Apps without a public distribution cannot use the Billing API")
+    ) {
+      console.warn("[billing] App is not public yet; skipping billing enforcement.");
+      return null;
+    }
     throw error;
   }
 }
