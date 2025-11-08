@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useId } from "react";
+import { useEffect, useRef, useState, useId, useMemo } from "react";
 import { useFetcher, useLoaderData, useNavigation, useRevalidator, useRouteError } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
@@ -6,6 +6,10 @@ import { authenticate } from "../shopify.server";
 import { DateTime } from "luxon";
 import PropTypes from "prop-types";
 import { Buffer } from "buffer";
+import Flatpickr from "react-flatpickr";
+import confirmDatePlugin from "flatpickr/dist/plugins/confirmDate/confirmDate";
+import "flatpickr/dist/flatpickr.min.css";
+import "flatpickr/dist/plugins/confirmDate/confirmDate.css";
 // createRequire no longer needed - removed form-data package
 
 // Helper to return JSON response (React Router v7 compatible)
@@ -116,6 +120,37 @@ const getDefaultDateBounds = (timeZone, fallbackOffsetMinutes) => {
     .toISO({ suppressMilliseconds: true });
 
   return { start, end };
+};
+
+const buildScheduleDisableRanges = (entries, excludeId) => {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries
+    .filter((entry) => !excludeId || entry.id !== excludeId)
+    .map((entry) => {
+      const fieldMap = Object.fromEntries((entry.fields || []).map((f) => [f.key, f.value]));
+      const startValue = fieldMap.start_at;
+      const endValue = fieldMap.end_at;
+
+      if (!startValue || !endValue) {
+        return null;
+      }
+
+      const startDate = DateTime.fromISO(startValue);
+      const endDate = DateTime.fromISO(endValue);
+
+      if (!startDate.isValid || !endDate.isValid || endDate <= startDate) {
+        return null;
+      }
+
+      return {
+        from: startDate.toJSDate(),
+        to: endDate.toJSDate(),
+      };
+    })
+    .filter(Boolean);
 };
 
 export const loader = async ({ request }) => {
@@ -1891,11 +1926,16 @@ export default function ClockBlockPage() {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [userTimeZone, setUserTimeZone] = useState("UTC");
   const [userTimezoneOffset, setUserTimezoneOffset] = useState(0);
-  const [startDraft, setStartDraft] = useState("");
-  const [startCommitted, setStartCommitted] = useState("");
-  const [endDraft, setEndDraft] = useState("");
-  const [endCommitted, setEndCommitted] = useState("");
+  const [startAtValue, setStartAtValue] = useState("");
+  const [endAtValue, setEndAtValue] = useState("");
   const statusInputId = useId();
+  const startPickerId = useId();
+  const endPickerId = useId();
+
+  const disableRangesForCreate = useMemo(
+    () => buildScheduleDisableRanges(initialEntries),
+    [initialEntries],
+  );
 
   useEffect(() => {
     // Skip if no fetcher data
@@ -1938,10 +1978,8 @@ export default function ClockBlockPage() {
       }
       // Reset toggle state
       setFormStatusActive(false);
-      setStartDraft("");
-      setStartCommitted("");
-      setEndDraft("");
-      setEndCommitted("");
+      setStartAtValue("");
+      setEndAtValue("");
       // Close the modal after successful submission
       setShowForm(false);
     }
@@ -1971,10 +2009,8 @@ export default function ClockBlockPage() {
 
   useEffect(() => {
     if (showForm) {
-      setStartDraft("");
-      setStartCommitted("");
-      setEndDraft("");
-      setEndCommitted("");
+      setStartAtValue("");
+      setEndAtValue("");
     }
   }, [showForm]);
 
@@ -1985,10 +2021,8 @@ export default function ClockBlockPage() {
     if (formRef.current) {
       formRef.current.reset();
     }
-    setStartDraft("");
-    setStartCommitted("");
-    setEndDraft("");
-    setEndCommitted("");
+    setStartAtValue("");
+    setEndAtValue("");
   };
 
   const isLoading = navigation.state === "submitting" || fetcher.state === "submitting";
@@ -2124,112 +2158,26 @@ export default function ClockBlockPage() {
             />
                   <div style={{ display: "flex", gap: "15px", marginBottom: "0.5rem" }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <label htmlFor="start_at_display" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>
-                        Start Date & Time
-                      </label>
-                      <input
-                        type="datetime-local"
-                        id="start_at_display"
-                        value={startDraft}
-                        onChange={(event) => setStartDraft(event.target.value)}
-                        style={{
-                          width: "100%",
-                          padding: "0.375rem 0.5rem",
-                          border: "1px solid #c9cccf",
-                          borderRadius: "4px",
-                          fontSize: "0.8125rem",
-                          boxSizing: "border-box",
-                        }}
+                      <DateTimePickerField
+                        id={startPickerId}
+                        label="Start Date & Time"
+                        value={startAtValue}
+                        onChange={setStartAtValue}
+                        disabledRanges={disableRangesForCreate}
                       />
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.375rem" }}>
-                        <button
-                          type="button"
-                          onClick={() => setStartDraft(startCommitted)}
-                          disabled={startDraft === startCommitted}
-                          style={{
-                            padding: "0.25rem 0.5rem",
-                            border: "1px solid #c9cccf",
-                            borderRadius: "4px",
-                            backgroundColor: "white",
-                            cursor: startDraft === startCommitted ? "not-allowed" : "pointer",
-                            fontSize: "0.75rem",
-                          }}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setStartCommitted(startDraft)}
-                          disabled={startDraft === startCommitted}
-                          style={{
-                            padding: "0.25rem 0.5rem",
-                            border: "none",
-                            borderRadius: "4px",
-                            backgroundColor: "#008060",
-                            color: "white",
-                            cursor: startDraft === startCommitted ? "not-allowed" : "pointer",
-                            fontSize: "0.75rem",
-                          }}
-                        >
-                          OK
-                        </button>
-                      </div>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <label htmlFor="end_at_display" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>
-                        End Date & Time
-                      </label>
-                      <input
-                        type="datetime-local"
-                        id="end_at_display"
-                        value={endDraft}
-                        onChange={(event) => setEndDraft(event.target.value)}
-                        style={{
-                          width: "100%",
-                          padding: "0.375rem 0.5rem",
-                          border: "1px solid #c9cccf",
-                          borderRadius: "4px",
-                          fontSize: "0.8125rem",
-                          boxSizing: "border-box",
-                        }}
+                      <DateTimePickerField
+                        id={endPickerId}
+                        label="End Date & Time"
+                        value={endAtValue}
+                        onChange={setEndAtValue}
+                        disabledRanges={disableRangesForCreate}
                       />
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.375rem" }}>
-                        <button
-                          type="button"
-                          onClick={() => setEndDraft(endCommitted)}
-                          disabled={endDraft === endCommitted}
-                          style={{
-                            padding: "0.25rem 0.5rem",
-                            border: "1px solid #c9cccf",
-                            borderRadius: "4px",
-                            backgroundColor: "white",
-                            cursor: endDraft === endCommitted ? "not-allowed" : "pointer",
-                            fontSize: "0.75rem",
-                          }}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEndCommitted(endDraft)}
-                          disabled={endDraft === endCommitted}
-                          style={{
-                            padding: "0.25rem 0.5rem",
-                            border: "none",
-                            borderRadius: "4px",
-                            backgroundColor: "#008060",
-                            color: "white",
-                            cursor: endDraft === endCommitted ? "not-allowed" : "pointer",
-                            fontSize: "0.75rem",
-                          }}
-                        >
-                          OK
-                        </button>
-                      </div>
                     </div>
                   </div>
-                  <input type="hidden" name="start_at" value={startCommitted} />
-                  <input type="hidden" name="end_at" value={endCommitted} />
+                  <input type="hidden" name="start_at" value={startAtValue} />
+                  <input type="hidden" name="end_at" value={endAtValue} />
                   <s-url-field
                     label="Target URL"
                     name="target_url"
@@ -2788,6 +2736,7 @@ export default function ClockBlockPage() {
         <EditEntryModal
           entry={selectedEntry}
           mediaFiles={mediaFiles}
+          disabledRanges={buildScheduleDisableRanges(initialEntries, selectedEntry.id)}
           userTimeZone={userTimeZone}
           userTimezoneOffset={userTimezoneOffset}
           onClose={() => {
@@ -2822,7 +2771,7 @@ export default function ClockBlockPage() {
 }
 
 // Edit Entry Modal Component
-function EditEntryModal({ entry, mediaFiles, onClose, onSuccess, userTimeZone, userTimezoneOffset }) {
+function EditEntryModal({ entry, mediaFiles, onClose, onSuccess, userTimeZone, userTimezoneOffset, disabledRanges }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const baseId = useId();
@@ -2857,18 +2806,14 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess, userTimeZone, u
   
   const initialStart = getDateTimeLocal(fieldMap.start_at);
   const initialEnd = getDateTimeLocal(fieldMap.end_at);
-  const [startDraft, setStartDraft] = useState(initialStart);
-  const [startCommitted, setStartCommitted] = useState(initialStart);
-  const [endDraft, setEndDraft] = useState(initialEnd);
-  const [endCommitted, setEndCommitted] = useState(initialEnd);
+  const [startValue, setStartValue] = useState(initialStart);
+  const [endValue, setEndValue] = useState(initialEnd);
 
   useEffect(() => {
     const updatedStart = getDateTimeLocal(fieldMap.start_at);
     const updatedEnd = getDateTimeLocal(fieldMap.end_at);
-    setStartDraft(updatedStart);
-    setStartCommitted(updatedStart);
-    setEndDraft(updatedEnd);
-    setEndCommitted(updatedEnd);
+    setStartValue(updatedStart);
+    setEndValue(updatedEnd);
   }, [entry]);
 
   const handleSubmit = async (e) => {
@@ -3035,110 +2980,26 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess, userTimeZone, u
           </div>
           <div style={{ display: "flex", gap: "15px", marginBottom: "1rem" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <label htmlFor={startInputId} style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
-                Start Date & Time
-              </label>
-              <input
-                type="datetime-local"
+              <DateTimePickerField
                 id={startInputId}
-                value={startDraft}
-                onChange={(event) => setStartDraft(event.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  border: "1px solid #c9cccf",
-                  borderRadius: "4px",
-                  boxSizing: "border-box",
-                }}
+                label="Start Date & Time"
+                value={startValue}
+                onChange={setStartValue}
+                disabledRanges={disabledRanges}
               />
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.5rem" }}>
-                <button
-                  type="button"
-                  onClick={() => setStartDraft(startCommitted)}
-                  disabled={startDraft === startCommitted}
-                  style={{
-                    padding: "0.25rem 0.5rem",
-                    border: "1px solid #c9cccf",
-                    borderRadius: "4px",
-                    backgroundColor: "white",
-                    cursor: startDraft === startCommitted ? "not-allowed" : "pointer",
-                    fontSize: "0.75rem",
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStartCommitted(startDraft)}
-                  disabled={startDraft === startCommitted}
-                  style={{
-                    padding: "0.25rem 0.5rem",
-                    border: "none",
-                    borderRadius: "4px",
-                    backgroundColor: "#008060",
-                    color: "white",
-                    cursor: startDraft === startCommitted ? "not-allowed" : "pointer",
-                    fontSize: "0.75rem",
-                  }}
-                >
-                  OK
-                </button>
-              </div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <label htmlFor={endInputId} style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
-                End Date & Time
-              </label>
-              <input
-                type="datetime-local"
+              <DateTimePickerField
                 id={endInputId}
-                value={endDraft}
-                onChange={(event) => setEndDraft(event.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "0.5rem",
-                  border: "1px solid #c9cccf",
-                  borderRadius: "4px",
-                  boxSizing: "border-box",
-                }}
+                label="End Date & Time"
+                value={endValue}
+                onChange={setEndValue}
+                disabledRanges={disabledRanges}
               />
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.5rem" }}>
-                <button
-                  type="button"
-                  onClick={() => setEndDraft(endCommitted)}
-                  disabled={endDraft === endCommitted}
-                  style={{
-                    padding: "0.25rem 0.5rem",
-                    border: "1px solid #c9cccf",
-                    borderRadius: "4px",
-                    backgroundColor: "white",
-                    cursor: endDraft === endCommitted ? "not-allowed" : "pointer",
-                    fontSize: "0.75rem",
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEndCommitted(endDraft)}
-                  disabled={endDraft === endCommitted}
-                  style={{
-                    padding: "0.25rem 0.5rem",
-                    border: "none",
-                    borderRadius: "4px",
-                    backgroundColor: "#008060",
-                    color: "white",
-                    cursor: endDraft === endCommitted ? "not-allowed" : "pointer",
-                    fontSize: "0.75rem",
-                  }}
-                >
-                  OK
-                </button>
-              </div>
             </div>
           </div>
-          <input type="hidden" name="start_at" value={startCommitted || ""} />
-          <input type="hidden" name="end_at" value={endCommitted || ""} />
+          <input type="hidden" name="start_at" value={startValue || ""} />
+          <input type="hidden" name="end_at" value={endValue || ""} />
           <div style={{ display: "flex", gap: "15px", marginBottom: "1rem" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <MediaLibraryPicker
@@ -3417,6 +3278,75 @@ function DeleteEntryModal({ entry, onClose, onSuccess }) {
   );
 }
 
+function DateTimePickerField({ id, label, value, onChange, disabledRanges }) {
+  const confirmPlugin = useMemo(
+    () =>
+      confirmDatePlugin({
+        showAlways: false,
+        confirmText: "OK",
+        cancelText: "Cancel",
+      }),
+    [],
+  );
+
+  const parsedValue = useMemo(() => {
+    if (!value) {
+      return null;
+    }
+    const dateTime = DateTime.fromFormat(value, "yyyy-MM-dd'T'HH:mm");
+    if (!dateTime.isValid) {
+      return null;
+    }
+    return dateTime.toJSDate();
+  }, [value]);
+
+  const options = useMemo(
+    () => ({
+      enableTime: true,
+      time_24hr: false,
+      dateFormat: "Y-m-d\\TH:i",
+      disable: Array.isArray(disabledRanges) ? disabledRanges : [],
+      defaultDate: parsedValue || undefined,
+      plugins: [confirmPlugin],
+    }),
+    [disabledRanges, parsedValue, confirmPlugin],
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+      <label
+        htmlFor={id}
+        style={{ display: "block", marginBottom: "0.25rem", fontWeight: "500", fontSize: "0.8125rem" }}
+      >
+        {label}
+      </label>
+      <Flatpickr
+        id={id}
+        value={parsedValue}
+        options={options}
+        onOpen={(selectedDates, dateStr, instance) => {
+          if (parsedValue) {
+            instance.setDate(parsedValue, false);
+          } else {
+            instance.clear(false);
+          }
+        }}
+        onClose={(selectedDates, dateStr, instance) => {
+          if (selectedDates.length > 0) {
+            const confirmed = DateTime.fromJSDate(selectedDates[0]).toFormat("yyyy-MM-dd'T'HH:mm");
+            onChange(confirmed);
+          } else if (parsedValue) {
+            instance.setDate(parsedValue, false);
+          } else {
+            onChange("");
+            instance.clear(false);
+          }
+        }}
+      />
+    </div>
+  );
+}
+
 const mediaFileShape = PropTypes.shape({
   id: PropTypes.string.isRequired,
   url: PropTypes.string,
@@ -3451,6 +3381,12 @@ EditEntryModal.propTypes = {
   onSuccess: PropTypes.func.isRequired,
   userTimeZone: PropTypes.string,
   userTimezoneOffset: PropTypes.number,
+  disabledRanges: PropTypes.arrayOf(
+    PropTypes.shape({
+      from: PropTypes.instanceOf(Date),
+      to: PropTypes.instanceOf(Date),
+    }),
+  ),
 };
 
 DeleteEntryModal.propTypes = {
@@ -3465,6 +3401,19 @@ DeleteEntryModal.propTypes = {
   }).isRequired,
   onClose: PropTypes.func.isRequired,
   onSuccess: PropTypes.func.isRequired,
+};
+
+DateTimePickerField.propTypes = {
+  id: PropTypes.string.isRequired,
+  label: PropTypes.string.isRequired,
+  value: PropTypes.string,
+  onChange: PropTypes.func.isRequired,
+  disabledRanges: PropTypes.arrayOf(
+    PropTypes.shape({
+      from: PropTypes.instanceOf(Date),
+      to: PropTypes.instanceOf(Date),
+    }),
+  ),
 };
 
 export const headers = (headersArgs) => {
