@@ -2246,9 +2246,25 @@ export default function ClockBlockPage() {
                       </span>
                     </label>
                   </div>
-                  <s-button type="submit" disabled={isLoading} variant="primary">
-                    {isLoading ? "Creating..." : "Create Entry"}
-                  </s-button>
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
+                    <button
+                      type="button"
+                      onClick={handleCloseForm}
+                      disabled={isLoading}
+                      style={{
+                        padding: "0.5rem 1rem",
+                        border: "1px solid #c9cccf",
+                        borderRadius: "4px",
+                        backgroundColor: "white",
+                        cursor: isLoading ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <s-button type="submit" disabled={isLoading} variant="primary">
+                      {isLoading ? "Creating..." : "Create Entry"}
+                    </s-button>
+                  </div>
           </s-stack>
         </fetcher.Form>
             </div>
