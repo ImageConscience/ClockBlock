@@ -494,7 +494,6 @@ export const action = async ({ request }) => {
         debugLog("[ACTION] Step 2: Uploading file to Google Cloud Storage...");
         const FormData = (await import("form-data")).default;
         const uploadFormData = new FormData();
-        uploadFormData.append("key", fileName);
 
         if (Array.isArray(stagedTarget.parameters)) {
           for (const param of stagedTarget.parameters) {
