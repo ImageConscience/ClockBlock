@@ -57,6 +57,7 @@
     {% assign mobile_content_below = block.settings.mobile_content_below | default: false %}
     {% assign overlay_color = block.settings.overlay_color | default: '#000000' %}
     {% assign overlay_opacity = block.settings.overlay_opacity | default: 70 | divided_by: 100.0 %}
+    {% assign overlay_rgba = overlay_color | color_to_rgba: overlay_opacity %}
     {% assign vertical_alignment = block.settings.vertical_alignment | default: 'bottom' %}
     {% assign content_alignment_desktop = block.settings.content_alignment_desktop | default: 'left' %}
     {% assign content_alignment_mobile = block.settings.content_alignment_mobile | default: 'left' %}
@@ -85,8 +86,7 @@
         {% if selected_desktop_banner != blank %}
           <div class="scheduled-banner__banner scheduled-banner__banner--desktop">
             {{ selected_desktop_banner | image_url: width: 1920 | image_tag: alt: selected_title, class: 'scheduled-banner__banner-img', loading: 'lazy' }}
-            {% capture overlay_rgb %}{% assign color_no_hash = overlay_color | remove: '#' %}{% assign r = color_no_hash | slice: 0, 2 | hex_to_number %}{% assign g = color_no_hash | slice: 2, 2 | hex_to_number %}{% assign b = color_no_hash | slice: 4, 2 | hex_to_number %}{{ r }}, {{ g }}, {{ b }}{% endcapture %}
-            <div class="scheduled-banner__banner-content scheduled-banner__banner-content--desktop scheduled-banner__banner-content--v-{{ vertical_alignment }} scheduled-banner__banner-content--align-{{ content_alignment_desktop }}" style="background: linear-gradient(to top, rgba({{ overlay_rgb | strip }}, {{ overlay_opacity }}), transparent);">
+            <div class="scheduled-banner__banner-content scheduled-banner__banner-content--desktop scheduled-banner__banner-content--v-{{ vertical_alignment }} scheduled-banner__banner-content--align-{{ content_alignment_desktop }}" style="background: linear-gradient(to top, {{ overlay_rgba }}, transparent);">
               <div class="scheduled-banner__content-inner">
                 {% if selected_title != blank %}
                   <h2 class="scheduled-banner__title" style="font-size: {{ headline_font_size }}em; color: {{ title_color_overlay }};{% if title_font != blank %}font-family: {{ title_font.family }}, {{ title_font.fallback_families }}; font-weight: {{ title_font.weight }}; font-style: {{ title_font.style }};{% endif %}">{{ selected_title }}</h2>
@@ -106,8 +106,7 @@
           <div class="scheduled-banner__banner scheduled-banner__banner--mobile">
             {{ selected_mobile_banner | image_url: width: 768 | image_tag: alt: selected_title, class: 'scheduled-banner__banner-img', loading: 'lazy' }}
             {% if mobile_content_below == false %}
-              {% capture overlay_rgb %}{% assign color_no_hash = overlay_color | remove: '#' %}{% assign r = color_no_hash | slice: 0, 2 | hex_to_number %}{% assign g = color_no_hash | slice: 2, 2 | hex_to_number %}{% assign b = color_no_hash | slice: 4, 2 | hex_to_number %}{{ r }}, {{ g }}, {{ b }}{% endcapture %}
-              <div class="scheduled-banner__banner-content scheduled-banner__banner-content--mobile scheduled-banner__banner-content--v-{{ vertical_alignment }} scheduled-banner__banner-content--align-{{ content_alignment_mobile }}" style="background: linear-gradient(to top, rgba({{ overlay_rgb | strip }}, {{ overlay_opacity }}), transparent);">
+              <div class="scheduled-banner__banner-content scheduled-banner__banner-content--mobile scheduled-banner__banner-content--v-{{ vertical_alignment }} scheduled-banner__banner-content--align-{{ content_alignment_mobile }}" style="background: linear-gradient(to top, {{ overlay_rgba }}, transparent);">
                 <div class="scheduled-banner__content-inner">
                   {% if selected_title != blank %}
                     <h2 class="scheduled-banner__title" style="font-size: {{ headline_font_size }}em; color: {{ title_color_overlay }};{% if title_font != blank %}font-family: {{ title_font.family }}, {{ title_font.fallback_families }}; font-weight: {{ title_font.weight }}; font-style: {{ title_font.style }};{% endif %}">{{ selected_title }}</h2>
