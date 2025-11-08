@@ -24,7 +24,7 @@ export const loader = async ({ request }) => {
 
   const confirmationUrl = await ensureActiveSubscription(admin);
   if (confirmationUrl) {
-    throw createAppBridgeRedirect(confirmationUrl);
+    return createAppBridgeRedirect(confirmationUrl);
   }
 
   try {
