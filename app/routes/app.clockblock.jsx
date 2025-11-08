@@ -48,10 +48,7 @@ export default function ClockBlockPage() {
       if (shopify) {
         try {
           const redirect = Redirect.create(shopify);
-          redirect.dispatch(Redirect.Action.REMOTE, {
-            url,
-            newContext: true,
-          });
+          redirect.dispatch(Redirect.Action.REMOTE, url);
           return;
         } catch (error) {
           console.error("[CLIENT] Failed to dispatch App Bridge redirect:", error);
@@ -59,11 +56,7 @@ export default function ClockBlockPage() {
       }
 
       if (typeof window !== "undefined") {
-        if (window.top) {
-          window.top.location.href = url;
-        } else {
-          window.location.href = url;
-        }
+        window.open(url, "_top");
       }
     },
     [shopify],
