@@ -617,7 +617,7 @@ export const action = async ({ request }) => {
             const checkResponse = await admin.graphql(
               `#graphql
               query ($id: ID!) {
-                file(id: $id) {
+                node(id: $id) {
                   ... on MediaImage {
                     id
                     alt
@@ -631,7 +631,7 @@ export const action = async ({ request }) => {
               { variables: { id: uploadedFile.id } },
             );
             const checkJson = await checkResponse.json();
-            const fileNode = checkJson?.data?.file;
+            const fileNode = checkJson?.data?.node;
             if (fileNode?.image?.url) {
               fileUrl = fileNode.image.url;
               fileAlt = fileNode.alt || fileName;
