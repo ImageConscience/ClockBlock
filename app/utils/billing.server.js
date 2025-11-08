@@ -85,16 +85,14 @@ const APP_BRIDGE_REDIRECT_HEADER = "X-Shopify-App-Bridge-Redirect";
 const APP_BRIDGE_REDIRECT_URL_HEADER = "X-Shopify-App-Bridge-Redirect-Url";
 
 export function createAppBridgeRedirect(confirmationUrl) {
-  const headers = new Headers({
-    Location: confirmationUrl,
-    [APP_BRIDGE_REDIRECT_HEADER]: "1",
-    [APP_BRIDGE_REDIRECT_URL_HEADER]: confirmationUrl,
-    "Content-Type": "application/json; charset=utf-8",
-  });
-
   return new Response(JSON.stringify({ redirectUrl: confirmationUrl }), {
     status: 200,
-    headers,
+    headers: {
+      [APP_BRIDGE_REDIRECT_HEADER]: "1",
+      [APP_BRIDGE_REDIRECT_URL_HEADER]: confirmationUrl,
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
   });
 }
 
