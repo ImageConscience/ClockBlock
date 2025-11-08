@@ -99,6 +99,7 @@ export function createAppBridgeRedirect(confirmationUrl) {
 }
 
 export async function ensureActiveSubscription(admin) {
+  console.log("[billing] ensureActiveSubscription called");
   if (!isBillingConfigured) {
     if (BILLING_ENABLED) {
       console.warn(
@@ -111,6 +112,11 @@ export async function ensureActiveSubscription(admin) {
   try {
     const response = await admin.graphql(CHECK_SUBSCRIPTION_QUERY);
     const json = await response.json();
+
+    console.log(
+      "[billing] Active subscription check result:",
+      JSON.stringify(json?.data?.currentAppInstallation?.activeSubscriptions || [], null, 2),
+    );
 
     if (json?.errors?.length) {
       const message = json.errors.map((error) => error.message).join(", ");
@@ -166,6 +172,7 @@ export async function ensureActiveSubscription(admin) {
       },
     });
     const creationJson = await creationResponse.json();
+    console.log("[billing] Subscription creation response:", JSON.stringify(creationJson, null, 2));
 
     if (creationJson?.errors?.length) {
       const message = creationJson.errors.map((error) => error.message).join(", ");
@@ -190,6 +197,7 @@ export async function ensureActiveSubscription(admin) {
       throw new Error("[billing] Missing confirmation URL from appSubscriptionCreate.");
     }
 
+    console.log("[billing] Returning confirmation URL:", confirmationUrl);
     return confirmationUrl;
   } catch (error) {
     console.error("[billing] Error while creating subscription:", error);
