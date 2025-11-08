@@ -82,38 +82,19 @@ const isBillingConfigured =
   RETURN_URL;
 
 const APP_BRIDGE_REDIRECT_HEADER = "X-Shopify-App-Bridge-Redirect";
+const APP_BRIDGE_REDIRECT_URL_HEADER = "X-Shopify-App-Bridge-Redirect-Url";
 
 export function createAppBridgeRedirect(confirmationUrl) {
-  const fallbackHtml = `
-    <!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="utf-8" />
-        <title>Redirecting…</title>
-        <script>
-          (function() {
-            var target = ${JSON.stringify(confirmationUrl)};
-            if (window.top) {
-              window.top.location.href = target;
-            } else {
-              window.location.href = target;
-            }
-          })();
-        </script>
-      </head>
-      <body>
-        <p>Redirecting to billing…</p>
-      </body>
-    </html>
-  `;
+  const headers = new Headers({
+    Location: confirmationUrl,
+    [APP_BRIDGE_REDIRECT_HEADER]: "1",
+    [APP_BRIDGE_REDIRECT_URL_HEADER]: confirmationUrl,
+    "Content-Type": "application/json; charset=utf-8",
+  });
 
-  return new Response(fallbackHtml, {
-    status: 302,
-    headers: {
-      Location: confirmationUrl,
-      [APP_BRIDGE_REDIRECT_HEADER]: "1",
-      "Content-Type": "text/html; charset=utf-8",
-    },
+  return new Response(JSON.stringify({ redirectUrl: confirmationUrl }), {
+    status: 200,
+    headers,
   });
 }
 
