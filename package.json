@@ -1,5 +1,5 @@
 {
-  "name": "clockblock",
+  "name": "block-scheduler",
   "private": true,
   "scripts": {
     "build": "react-router build",

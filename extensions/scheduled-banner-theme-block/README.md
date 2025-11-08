@@ -1,6 +1,6 @@
 # Scheduled Banner Theme Block
 
-This theme app extension renders a single scheduled banner selected from ClockBlock metaobjects. Merchants can control layout and styling via theme settings.
+This theme app extension renders a single scheduled banner selected from Block Scheduler metaobjects. Merchants can control layout and styling via theme settings.
 
 ## Configuration tips
 

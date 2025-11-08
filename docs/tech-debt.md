@@ -2,7 +2,7 @@
 
 These items are outside the scope of the current deployment but worth capturing for future sprints.
 
-- **Break down `app/services/clockblock.server.js`.**
+- **Break down `app/services/block-scheduler.server.js`.**
   - Extract metaobject helpers (definition ensure, field builders) into `app/services/metaobjects.server.js`.
   - Split upload helpers into a dedicated module with unit tests around the staged upload flow.
 - **Add automated tests.**

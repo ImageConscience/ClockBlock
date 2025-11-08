@@ -43,7 +43,7 @@ const shopify = shopifyApp({
         `[afterAuth] Hook called - starting metaobject definition check/create`,
       );
       try {
-        // Define the metaobject type and fields for ClockBlock
+        // Define the metaobject type and fields for Block Scheduler
         const type = "schedulable_entity";
 
         afterAuthInfo(

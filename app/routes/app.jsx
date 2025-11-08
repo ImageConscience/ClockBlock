@@ -16,7 +16,7 @@ export default function App() {
   return (
     <AppProvider embedded apiKey={apiKey}>
       <s-app-nav>
-        <s-link href="/app/clockblock">Entries</s-link>
+        <s-link href="/app/block-scheduler">Entries</s-link>
       </s-app-nav>
       <Outlet />
     </AppProvider>

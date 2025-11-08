@@ -1,5 +1,5 @@
 const BILLING_ENABLED = process.env.BILLING_ENABLED !== "false";
-const PLAN_NAME = process.env.BILLING_PLAN_NAME || "ClockBlock Pro";
+const PLAN_NAME = process.env.BILLING_PLAN_NAME || "Block Scheduler Pro";
 const RAW_AMOUNT = process.env.BILLING_PRICE ?? "9.99";
 const AMOUNT = Number.parseFloat(RAW_AMOUNT);
 const CURRENCY_CODE = (process.env.BILLING_CURRENCY || "USD").toUpperCase();
@@ -9,7 +9,7 @@ const TEST_MODE = process.env.BILLING_TEST === "true" || process.env.NODE_ENV !=
 const APP_BASE_URL = process.env.BILLING_RETURN_URL || process.env.SHOPIFY_APP_URL;
 
 const CHECK_SUBSCRIPTION_QUERY = `#graphql
-  query CheckClockBlockSubscription {
+  query CheckBlockSchedulerSubscription {
     currentAppInstallation {
       activeSubscriptions {
         id
@@ -34,7 +34,7 @@ const CHECK_SUBSCRIPTION_QUERY = `#graphql
 `;
 
 const CREATE_SUBSCRIPTION_MUTATION = `#graphql
-  mutation CreateClockBlockSubscription(
+  mutation CreateBlockSchedulerSubscription(
     $name: String!
     $trialDays: Int
     $amount: Decimal!
@@ -115,7 +115,7 @@ export async function ensureActiveSubscription(admin, request) {
     request.headers.get("x-shopify-shop-domain") ||
     undefined;
 
-  const returnUrl = new URL("/app/clockblock", APP_BASE_URL);
+  const returnUrl = new URL("/app/block-scheduler", APP_BASE_URL);
   if (hostParam) {
     returnUrl.searchParams.set("host", hostParam);
   }

@@ -4,7 +4,7 @@ import { useAppBridge } from "@shopify/app-bridge-react";
 import { Redirect } from "@shopify/app-bridge/actions";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import PropTypes from "prop-types";
-export { loader, action } from "../services/clockblock.server";
+export { loader, action } from "../services/block-scheduler.server";
 
 const isDevEnvironment =
   (typeof import.meta !== "undefined" && import.meta.env?.MODE !== "production") || typeof import.meta === "undefined";
@@ -14,7 +14,7 @@ const debugLog = (...args) => {
   }
 };
 
-export default function ClockBlockPage() {
+export default function BlockSchedulerPage() {
   const loaderData = useLoaderData();
   const initialEntries = loaderData?.entries ?? [];
   const loaderMediaFiles = loaderData?.mediaFiles ?? [];
@@ -153,7 +153,7 @@ export default function ClockBlockPage() {
   const isLoading = navigation.state === "submitting" || fetcher.state === "submitting";
 
   return (
-    <s-page heading="ClockBlock | Entries">
+    <s-page heading="Block Scheduler | Entries">
       {(loaderError || fetcher.data?.error) && (
         <s-banner tone="critical" title="Error">
           {loaderError || fetcher.data?.error}
