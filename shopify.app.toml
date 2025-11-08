@@ -1,8 +1,8 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "829936ed40dcc19c60c8dd442a652863"
+client_id = "6f5b5ea5d134b8cea5be5397d5cae070"
 name = "Block Scheduler"
-application_url = "https://clockblock-production.up.railway.app/app/block-scheduler"
+application_url = "https://block-scheduler-production.up.railway.app/app/block-scheduler"
 embedded = true
 
 [build]
@@ -27,6 +27,6 @@ use_legacy_install_flow = false
 
 [auth]
 redirect_urls = [
-  "https://clockblock-production.up.railway.app/auth",
-  "https://clockblock-production.up.railway.app/auth/callback"
+  "https://block-scheduler-production.up.railway.app/auth",
+  "https://block-scheduler-production.up.railway.app/auth/callback"
 ]
