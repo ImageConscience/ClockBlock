@@ -108,7 +108,7 @@ export function createAppBridgeRedirect(confirmationUrl) {
   `;
 
   return new Response(fallbackHtml, {
-    status: 200,
+    status: 302,
     headers: {
       Location: confirmationUrl,
       [APP_BRIDGE_REDIRECT_HEADER]: "1",
