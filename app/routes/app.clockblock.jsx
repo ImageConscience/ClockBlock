@@ -47,7 +47,8 @@ export default function ClockBlockPage() {
 
       if (shopify) {
         try {
-          shopify.dispatch(Redirect.Action.REMOTE, {
+          const redirect = Redirect.create(shopify);
+          redirect.dispatch(Redirect.Action.REMOTE, {
             url,
             newContext: true,
           });
@@ -58,7 +59,11 @@ export default function ClockBlockPage() {
       }
 
       if (typeof window !== "undefined") {
-        window.location.assign(url);
+        if (window.top) {
+          window.top.location.href = url;
+        } else {
+          window.location.href = url;
+        }
       }
     },
     [shopify],
