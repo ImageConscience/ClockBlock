@@ -154,6 +154,23 @@ When you reach the step for [setting up environment variables](https://shopify.d
 - Optional: `SHOP_CUSTOM_DOMAIN`
 - Optional: `BILLING_ENABLED` (defaults to `true`) and `BILLING_RETURN_URL` (defaults to `SHOPIFY_APP_URL/app/clockblock`)
 
+### Debug logging toggles
+
+To keep production logs tidy, all incidental logging is disabled unless one of these environment variables is set (they default to `true` when `NODE_ENV !== "production"`):
+
+- `DEBUG_AFTER_AUTH` – verbose metaobject definition logging inside the `afterAuth` hook
+- `DEBUG_ENTRY_LOGS` – detailed request tracing in the server entrypoint
+- `DEBUG_WEBHOOKS` – webhook receipt logging
+
+### Billing QA checklist
+
+Before enabling **App Store** distribution and turning off `BILLING_TEST`, run through the steps in [`docs/billing-qa.md`](docs/billing-qa.md). The checklist covers:
+
+1. Verifying environment variables and return URLs.
+2. Installing on a development store (`BILLING_TEST=true`) and confirming the billing confirmation screen appears.
+3. Cancelling the test charge and ensuring the app redirects back to billing on re-entry.
+4. Re-accepting the charge to confirm normal behaviour and noting the steps required when switching to paid mode.
+
 3. Shopify Partners app URLs
 
 - App URL: `https://YOUR_DOMAIN`
@@ -168,6 +185,8 @@ shopify extension deploy --directory=extensions/scheduled-banner-theme-block
 ```
 
 Then add the “Scheduled Banner” app block in the Theme Editor.
+
+For configuration guidance, see [`extensions/scheduled-banner-theme-block/README.md`](extensions/scheduled-banner-theme-block/README.md).
 
 
 ## Gotchas / Troubleshooting

@@ -1,10 +1,18 @@
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 
+const shouldLogWebhooks =
+  process.env.DEBUG_WEBHOOKS === "true" || process.env.NODE_ENV !== "production";
+const webhookLog = (...args) => {
+  if (shouldLogWebhooks) {
+    console.log(...args);
+  }
+};
+
 export const action = async ({ request }) => {
   const { payload, session, topic, shop } = await authenticate.webhook(request);
 
-  console.log(`Received ${topic} webhook for ${shop}`);
+  webhookLog(`Received ${topic} webhook for ${shop}`);
   const current = payload.current;
 
   if (session) {

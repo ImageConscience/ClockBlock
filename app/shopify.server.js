@@ -7,6 +7,23 @@ import {
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
 
+const isDevEnvironment = process.env.NODE_ENV !== "production";
+const shouldDebugAfterAuth =
+  process.env.DEBUG_AFTER_AUTH === "true" || isDevEnvironment;
+const afterAuthInfo = (...args) => {
+  if (shouldDebugAfterAuth) {
+    console.log(...args);
+  }
+};
+const afterAuthWarn = (...args) => {
+  if (shouldDebugAfterAuth) {
+    console.warn(...args);
+  }
+};
+const afterAuthError = (...args) => {
+  console.error(...args);
+};
+
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
@@ -22,12 +39,16 @@ const shopify = shopifyApp({
   hooks: {
     // Run after the shop installs or reauthenticates; ensure our metaobject definition exists
     afterAuth: async ({ admin }) => {
-      console.log(`[afterAuth] Hook called - starting metaobject definition check/create`);
+      afterAuthInfo(
+        `[afterAuth] Hook called - starting metaobject definition check/create`,
+      );
       try {
         // Define the metaobject type and fields for ClockBlock
         const type = "schedulable_entity";
 
-        console.log(`[afterAuth] Checking for metaobject definition: ${type}`);
+        afterAuthInfo(
+          `[afterAuth] Checking for metaobject definition: ${type}`,
+        );
 
         // Check if the definition already exists
         let checkResponse;
@@ -54,9 +75,15 @@ const shopify = shopifyApp({
             },
           );
           checkJson = await checkResponse.json();
-          console.log(`[afterAuth] Check response:`, JSON.stringify(checkJson, null, 2));
+          afterAuthInfo(
+            `[afterAuth] Check response:`,
+            JSON.stringify(checkJson, null, 2),
+          );
         } catch (checkError) {
-          console.error(`[afterAuth] Error checking metaobject definition:`, checkError);
+          afterAuthWarn(
+            `[afterAuth] Error checking metaobject definition:`,
+            checkError,
+          );
           // If the query fails, assume it doesn't exist and try to create
           checkJson = { data: { metaobjectDefinitionByType: null } };
         }
@@ -65,10 +92,14 @@ const shopify = shopifyApp({
 
         if (exists) {
           const def = checkJson.data.metaobjectDefinitionByType;
-          console.log(`[afterAuth] Metaobject definition already exists: ${def.id}`);
+          afterAuthInfo(
+            `[afterAuth] Metaobject definition already exists: ${def.id}`,
+          );
           try {
             // Check if we need to update capabilities (onlineStore and renderable)
-            console.log(`[afterAuth] Attempting to enable onlineStore and renderable capabilities if not already enabled`);
+            afterAuthInfo(
+              `[afterAuth] Attempting to enable onlineStore and renderable capabilities if not already enabled`,
+            );
             const updateResponse = await admin.graphql(
               `#graphql
               mutation UpdateSchedulableEntityDefinition($id: ID!, $definition: MetaobjectDefinitionUpdateInput!) {
@@ -109,25 +140,33 @@ const shopify = shopifyApp({
               },
             );
             const updateJson = await updateResponse.json();
-            console.log(`[afterAuth] Update capabilities response:`, JSON.stringify(updateJson, null, 2));
+            afterAuthInfo(
+              `[afterAuth] Update capabilities response:`,
+              JSON.stringify(updateJson, null, 2),
+            );
             if (updateJson?.data?.metaobjectDefinitionUpdate?.userErrors?.length) {
-              console.warn(
+              afterAuthWarn(
                 `[afterAuth] Could not update capabilities: `,
                 updateJson.data.metaobjectDefinitionUpdate.userErrors
                   .map((e) => `${e.field}: ${e.message}`)
                   .join(", "),
               );
             } else {
-              console.log(`[afterAuth] Successfully updated onlineStore and renderable capabilities`);
+              afterAuthInfo(
+                `[afterAuth] Successfully updated onlineStore and renderable capabilities`,
+              );
             }
             
           } catch (updateError) {
-            console.error(`[afterAuth] Error updating existing definition:`, updateError);
+            afterAuthWarn(
+              `[afterAuth] Error updating existing definition:`,
+              updateError,
+            );
           }
           return;
         }
 
-        console.log(`[afterAuth] Metaobject definition not found, creating...`);
+        afterAuthInfo(`[afterAuth] Metaobject definition not found, creating...`);
 
         // Create the metaobject definition with required fields
         let createResponse;
@@ -232,30 +271,38 @@ const shopify = shopifyApp({
           },
         );
         } catch (createError) {
-          console.error(`[afterAuth] Error calling metaobjectDefinitionCreate:`, createError);
+          afterAuthWarn(
+            `[afterAuth] Error calling metaobjectDefinitionCreate:`,
+            createError,
+          );
           throw createError;
         }
         
         const createJson = await createResponse.json();
-        console.log(`[afterAuth] Create response:`, JSON.stringify(createJson, null, 2));
+        afterAuthInfo(
+          `[afterAuth] Create response:`,
+          JSON.stringify(createJson, null, 2),
+        );
 
         if (createJson?.data?.metaobjectDefinitionCreate?.userErrors?.length > 0) {
           const errors = createJson.data.metaobjectDefinitionCreate.userErrors
             .map((e) => `${e.field}: ${e.message}`)
             .join(", ");
-          console.error(`[afterAuth] Failed to create metaobject definition: ${errors}`);
+          afterAuthWarn(
+            `[afterAuth] Failed to create metaobject definition: ${errors}`,
+          );
           throw new Error(`Failed to create metaobject definition: ${errors}`);
         }
 
         if (createJson?.data?.metaobjectDefinitionCreate?.metaobjectDefinition?.id) {
-          console.log(`[afterAuth] Successfully created metaobject definition: ${createJson.data.metaobjectDefinitionCreate.metaobjectDefinition.id}`);
+          afterAuthInfo(
+            `[afterAuth] Successfully created metaobject definition: ${createJson.data.metaobjectDefinitionCreate.metaobjectDefinition.id}`,
+          );
         } else {
-          console.error(`[afterAuth] Unexpected response format:`, createJson);
+          afterAuthWarn(`[afterAuth] Unexpected response format:`, createJson);
         }
       } catch (error) {
-        console.error(`[afterAuth] Error in afterAuth hook:`, error);
-        console.error(`[afterAuth] Error message:`, error.message);
-        console.error(`[afterAuth] Error stack:`, error.stack);
+        afterAuthError(`[afterAuth] Error in afterAuth hook:`, error);
         // Don't throw - we don't want to block installation
         // The metaobject can be created manually if needed
       }
