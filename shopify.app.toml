@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "62a04efa1aa9dcd31cf94c1730f3bbe5"
-name = "ClockBlock"
+client_id = "829936ed40dcc19c60c8dd442a652863"
+name = "Clock Block"
 application_url = "https://clockblock-production.up.railway.app/app/clockblock"
 embedded = true
 

@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState, useId } from "react";
-import { useFetcher, useLoaderData, useNavigation, useRevalidator, useRouteError } from "react-router";
+import {
+  redirect,
+  useFetcher,
+  useLoaderData,
+  useNavigation,
+  useRevalidator,
+  useRouteError,
+} from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { DateTime } from "luxon";
 import PropTypes from "prop-types";
 import { Buffer } from "buffer";
+import { ensureActiveSubscription } from "../utils/billing.server";
 // createRequire no longer needed - removed form-data package
 
 // Helper to return JSON response (React Router v7 compatible)
@@ -120,6 +128,11 @@ const getDefaultDateBounds = (timeZone, fallbackOffsetMinutes) => {
 
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
+
+  const confirmationUrl = await ensureActiveSubscription(admin);
+  if (confirmationUrl) {
+    throw redirect(confirmationUrl);
+  }
 
   try {
     const response = await admin.graphql(
@@ -245,6 +258,10 @@ export const action = async ({ request }) => {
     if (contentType.includes("application/json")) {
       const body = await request.json();
       const { admin } = await authenticate.admin(request);
+      const confirmationUrl = await ensureActiveSubscription(admin);
+      if (confirmationUrl) {
+        return redirect(confirmationUrl);
+      }
       
       if (body.intent === "delete") {
         console.log("[ACTION] Processing delete request for entry:", body.id);
@@ -285,7 +302,6 @@ export const action = async ({ request }) => {
       
       if (body.intent === "update") {
         console.log("[ACTION] Processing update request for entry:", body.id);
-        const { admin } = await authenticate.admin(request);
         
         const fields = [];
         const userTimeZone = typeof body.timezone === "string" && body.timezone.trim() ? body.timezone.trim() : null;
@@ -375,7 +391,6 @@ export const action = async ({ request }) => {
       
       if (body.intent === "toggleStatus") {
         console.log("[ACTION] Processing toggle status request for entry:", body.id, "to status:", body.status);
-        const { admin } = await authenticate.admin(request);
         
         const toggleResponse = await admin.graphql(
           `#graphql
@@ -449,10 +464,15 @@ export const action = async ({ request }) => {
     
     console.log("[ACTION] File present:", !!file, "Has title:", !!hasTitle, "File type:", file instanceof File ? file.type : typeof file);
     
+    const { admin } = await authenticate.admin(request);
+    const formBillingRedirect = await ensureActiveSubscription(admin);
+    if (formBillingRedirect) {
+      return redirect(formBillingRedirect);
+    }
+    
     if (file && !hasTitle) {
     console.log("[ACTION] Detected file upload request - using official Shopify staged upload method");
     try {
-      const { admin } = await authenticate.admin(request);
       console.log("[ACTION] Admin authenticated successfully for file upload");
       
       if (!file) {
@@ -768,7 +788,6 @@ export const action = async ({ request }) => {
   
   // Entry creation logic (only reached if not a file upload)
   console.log("[ACTION] Action called - starting entry creation");
-    const { admin } = await authenticate.admin(request);
     console.log("[ACTION] Admin authenticated successfully");
     console.log("[ACTION] Form data received");
 
