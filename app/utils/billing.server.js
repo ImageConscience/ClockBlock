@@ -81,6 +81,19 @@ const isBillingConfigured =
   PLAN_NAME.length > 0 &&
   RETURN_URL;
 
+const APP_BRIDGE_REDIRECT_HEADER = "X-Shopify-App-Bridge-Redirect";
+
+export function createAppBridgeRedirect(confirmationUrl) {
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: confirmationUrl,
+      [APP_BRIDGE_REDIRECT_HEADER]: confirmationUrl,
+      "Content-Type": "text/html; charset=utf-8",
+    },
+  });
+}
+
 export async function ensureActiveSubscription(admin) {
   if (!isBillingConfigured) {
     if (BILLING_ENABLED) {

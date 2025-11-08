@@ -1,19 +1,15 @@
 import { useEffect, useRef, useState, useId } from "react";
-import {
-  redirect,
-  useFetcher,
-  useLoaderData,
-  useNavigation,
-  useRevalidator,
-  useRouteError,
-} from "react-router";
+import { useFetcher, useLoaderData, useNavigation, useRevalidator, useRouteError } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { DateTime } from "luxon";
 import PropTypes from "prop-types";
 import { Buffer } from "buffer";
-import { ensureActiveSubscription } from "../utils/billing.server";
+import {
+  createAppBridgeRedirect,
+  ensureActiveSubscription,
+} from "../utils/billing.server";
 // createRequire no longer needed - removed form-data package
 
 // Helper to return JSON response (React Router v7 compatible)
@@ -131,7 +127,7 @@ export const loader = async ({ request }) => {
 
   const confirmationUrl = await ensureActiveSubscription(admin);
   if (confirmationUrl) {
-    throw redirect(confirmationUrl);
+    throw createAppBridgeRedirect(confirmationUrl);
   }
 
   try {
@@ -260,7 +256,7 @@ export const action = async ({ request }) => {
       const { admin } = await authenticate.admin(request);
       const confirmationUrl = await ensureActiveSubscription(admin);
       if (confirmationUrl) {
-        return redirect(confirmationUrl);
+        return createAppBridgeRedirect(confirmationUrl);
       }
       
       if (body.intent === "delete") {
@@ -467,7 +463,7 @@ export const action = async ({ request }) => {
     const { admin } = await authenticate.admin(request);
     const formBillingRedirect = await ensureActiveSubscription(admin);
     if (formBillingRedirect) {
-      return redirect(formBillingRedirect);
+      return createAppBridgeRedirect(formBillingRedirect);
     }
     
     if (file && !hasTitle) {
