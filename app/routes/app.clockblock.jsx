@@ -1891,6 +1891,10 @@ export default function ClockBlockPage() {
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [userTimeZone, setUserTimeZone] = useState("UTC");
   const [userTimezoneOffset, setUserTimezoneOffset] = useState(0);
+  const [startDraft, setStartDraft] = useState("");
+  const [startCommitted, setStartCommitted] = useState("");
+  const [endDraft, setEndDraft] = useState("");
+  const [endCommitted, setEndCommitted] = useState("");
   const statusInputId = useId();
 
   useEffect(() => {
@@ -1934,6 +1938,10 @@ export default function ClockBlockPage() {
       }
       // Reset toggle state
       setFormStatusActive(false);
+      setStartDraft("");
+      setStartCommitted("");
+      setEndDraft("");
+      setEndCommitted("");
       // Close the modal after successful submission
       setShowForm(false);
     }
@@ -1961,6 +1969,15 @@ export default function ClockBlockPage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (showForm) {
+      setStartDraft("");
+      setStartCommitted("");
+      setEndDraft("");
+      setEndCommitted("");
+    }
+  }, [showForm]);
+
   // Function to close form and reset toggle
   const handleCloseForm = () => {
     setShowForm(false);
@@ -1968,6 +1985,10 @@ export default function ClockBlockPage() {
     if (formRef.current) {
       formRef.current.reset();
     }
+    setStartDraft("");
+    setStartCommitted("");
+    setEndDraft("");
+    setEndCommitted("");
   };
 
   const isLoading = navigation.state === "submitting" || fetcher.state === "submitting";
@@ -2103,13 +2124,14 @@ export default function ClockBlockPage() {
             />
                   <div style={{ display: "flex", gap: "15px", marginBottom: "0.5rem" }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <label htmlFor="start_at" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>
+                      <label htmlFor="start_at_display" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>
                         Start Date & Time
                       </label>
                       <input
                         type="datetime-local"
-                        id="start_at"
-                        name="start_at"
+                        id="start_at_display"
+                        value={startDraft}
+                        onChange={(event) => setStartDraft(event.target.value)}
                         style={{
                           width: "100%",
                           padding: "0.375rem 0.5rem",
@@ -2119,15 +2141,49 @@ export default function ClockBlockPage() {
                           boxSizing: "border-box",
                         }}
                       />
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.375rem" }}>
+                        <button
+                          type="button"
+                          onClick={() => setStartDraft(startCommitted)}
+                          disabled={startDraft === startCommitted}
+                          style={{
+                            padding: "0.25rem 0.5rem",
+                            border: "1px solid #c9cccf",
+                            borderRadius: "4px",
+                            backgroundColor: "white",
+                            cursor: startDraft === startCommitted ? "not-allowed" : "pointer",
+                            fontSize: "0.75rem",
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setStartCommitted(startDraft)}
+                          disabled={startDraft === startCommitted}
+                          style={{
+                            padding: "0.25rem 0.5rem",
+                            border: "none",
+                            borderRadius: "4px",
+                            backgroundColor: "#008060",
+                            color: "white",
+                            cursor: startDraft === startCommitted ? "not-allowed" : "pointer",
+                            fontSize: "0.75rem",
+                          }}
+                        >
+                          OK
+                        </button>
+                      </div>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <label htmlFor="end_at" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>
+                      <label htmlFor="end_at_display" style={{ display: "block", marginBottom: "0", fontWeight: "500", fontSize: "0.8125rem" }}>
                         End Date & Time
                       </label>
                       <input
                         type="datetime-local"
-                        id="end_at"
-                        name="end_at"
+                        id="end_at_display"
+                        value={endDraft}
+                        onChange={(event) => setEndDraft(event.target.value)}
                         style={{
                           width: "100%",
                           padding: "0.375rem 0.5rem",
@@ -2137,8 +2193,43 @@ export default function ClockBlockPage() {
                           boxSizing: "border-box",
                         }}
                       />
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.375rem" }}>
+                        <button
+                          type="button"
+                          onClick={() => setEndDraft(endCommitted)}
+                          disabled={endDraft === endCommitted}
+                          style={{
+                            padding: "0.25rem 0.5rem",
+                            border: "1px solid #c9cccf",
+                            borderRadius: "4px",
+                            backgroundColor: "white",
+                            cursor: endDraft === endCommitted ? "not-allowed" : "pointer",
+                            fontSize: "0.75rem",
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEndCommitted(endDraft)}
+                          disabled={endDraft === endCommitted}
+                          style={{
+                            padding: "0.25rem 0.5rem",
+                            border: "none",
+                            borderRadius: "4px",
+                            backgroundColor: "#008060",
+                            color: "white",
+                            cursor: endDraft === endCommitted ? "not-allowed" : "pointer",
+                            fontSize: "0.75rem",
+                          }}
+                        >
+                          OK
+                        </button>
+                      </div>
                     </div>
                   </div>
+                  <input type="hidden" name="start_at" value={startCommitted} />
+                  <input type="hidden" name="end_at" value={endCommitted} />
                   <s-url-field
                     label="Target URL"
                     name="target_url"
@@ -2764,6 +2855,22 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess, userTimeZone, u
     }
   };
   
+  const initialStart = getDateTimeLocal(fieldMap.start_at);
+  const initialEnd = getDateTimeLocal(fieldMap.end_at);
+  const [startDraft, setStartDraft] = useState(initialStart);
+  const [startCommitted, setStartCommitted] = useState(initialStart);
+  const [endDraft, setEndDraft] = useState(initialEnd);
+  const [endCommitted, setEndCommitted] = useState(initialEnd);
+
+  useEffect(() => {
+    const updatedStart = getDateTimeLocal(fieldMap.start_at);
+    const updatedEnd = getDateTimeLocal(fieldMap.end_at);
+    setStartDraft(updatedStart);
+    setStartCommitted(updatedStart);
+    setEndDraft(updatedEnd);
+    setEndCommitted(updatedEnd);
+  }, [entry]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -2934,8 +3041,8 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess, userTimeZone, u
               <input
                 type="datetime-local"
                 id={startInputId}
-                name="start_at"
-                defaultValue={getDateTimeLocal(fieldMap.start_at)}
+                value={startDraft}
+                onChange={(event) => setStartDraft(event.target.value)}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
@@ -2944,6 +3051,39 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess, userTimeZone, u
                   boxSizing: "border-box",
                 }}
               />
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.5rem" }}>
+                <button
+                  type="button"
+                  onClick={() => setStartDraft(startCommitted)}
+                  disabled={startDraft === startCommitted}
+                  style={{
+                    padding: "0.25rem 0.5rem",
+                    border: "1px solid #c9cccf",
+                    borderRadius: "4px",
+                    backgroundColor: "white",
+                    cursor: startDraft === startCommitted ? "not-allowed" : "pointer",
+                    fontSize: "0.75rem",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStartCommitted(startDraft)}
+                  disabled={startDraft === startCommitted}
+                  style={{
+                    padding: "0.25rem 0.5rem",
+                    border: "none",
+                    borderRadius: "4px",
+                    backgroundColor: "#008060",
+                    color: "white",
+                    cursor: startDraft === startCommitted ? "not-allowed" : "pointer",
+                    fontSize: "0.75rem",
+                  }}
+                >
+                  OK
+                </button>
+              </div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <label htmlFor={endInputId} style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
@@ -2952,8 +3092,8 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess, userTimeZone, u
               <input
                 type="datetime-local"
                 id={endInputId}
-                name="end_at"
-                defaultValue={getDateTimeLocal(fieldMap.end_at)}
+                value={endDraft}
+                onChange={(event) => setEndDraft(event.target.value)}
                 style={{
                   width: "100%",
                   padding: "0.5rem",
@@ -2962,8 +3102,43 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess, userTimeZone, u
                   boxSizing: "border-box",
                 }}
               />
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.5rem" }}>
+                <button
+                  type="button"
+                  onClick={() => setEndDraft(endCommitted)}
+                  disabled={endDraft === endCommitted}
+                  style={{
+                    padding: "0.25rem 0.5rem",
+                    border: "1px solid #c9cccf",
+                    borderRadius: "4px",
+                    backgroundColor: "white",
+                    cursor: endDraft === endCommitted ? "not-allowed" : "pointer",
+                    fontSize: "0.75rem",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEndCommitted(endDraft)}
+                  disabled={endDraft === endCommitted}
+                  style={{
+                    padding: "0.25rem 0.5rem",
+                    border: "none",
+                    borderRadius: "4px",
+                    backgroundColor: "#008060",
+                    color: "white",
+                    cursor: endDraft === endCommitted ? "not-allowed" : "pointer",
+                    fontSize: "0.75rem",
+                  }}
+                >
+                  OK
+                </button>
+              </div>
             </div>
           </div>
+          <input type="hidden" name="start_at" value={startCommitted || ""} />
+          <input type="hidden" name="end_at" value={endCommitted || ""} />
           <div style={{ display: "flex", gap: "15px", marginBottom: "1rem" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <MediaLibraryPicker
