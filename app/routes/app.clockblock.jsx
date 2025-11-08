@@ -1335,6 +1335,506 @@ function DeleteEntryModal({ entry, onClose, onSuccess }) {
   );
 }
 
+function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" }) {
+  const [selectedFileId, setSelectedFileId] = useState(defaultValue);
+  const [showPicker, setShowPicker] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [localMediaFiles, setLocalMediaFiles] = useState(mediaFiles);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const hiddenInputRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const progressIntervalRef = useRef(null);
+  const revalidator = useRevalidator();
+  const triggerId = useId();
+
+  const selectedFile = localMediaFiles.find((f) => f.id === selectedFileId);
+
+  useEffect(() => {
+    setLocalMediaFiles(mediaFiles);
+  }, [mediaFiles]);
+
+  const handleSelectFile = (fileId) => {
+    setSelectedFileId(fileId);
+    setShowPicker(false);
+    setSearchTerm("");
+    if (hiddenInputRef.current) {
+      hiddenInputRef.current.value = fileId;
+    }
+  };
+
+  const filteredFiles = localMediaFiles.filter((file) =>
+    (file.alt || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (file.url || "").toLowerCase().includes(searchTerm.toLowerCase()),
+  );
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files?.[0];
+    debugLog("[MediaLibraryPicker] File selected:", file?.name, "Size:", file?.size, "Type:", file?.type);
+
+    if (!file) {
+      debugLog("[MediaLibraryPicker] No file selected");
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      debugLog("[MediaLibraryPicker] Invalid file type:", file.type);
+      setUploadError("Please upload an image file");
+      return;
+    }
+
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+
+    setIsUploading(true);
+    setUploadError("");
+    setUploadSuccess(false);
+    setUploadProgress(0);
+
+    progressIntervalRef.current = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 90) return prev;
+        return prev + 10;
+      });
+    }, 500);
+
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", file);
+      debugLog("[MediaLibraryPicker] FormData created, submitting...");
+      debugLog("[MediaLibraryPicker] Submitting FormData with file:", file.name, "Size:", file.size, "Type:", file.type);
+
+      const uploadStartTime = Date.now();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Upload timeout: Request took longer than 60 seconds")), 60000);
+      });
+      const fetchPromise = fetch(window.location.pathname, {
+        method: "POST",
+        body: uploadFormData,
+        credentials: "include",
+      });
+
+      const response = await Promise.race([fetchPromise, timeoutPromise]);
+      const uploadDuration = Date.now() - uploadStartTime;
+
+      debugLog("[MediaLibraryPicker] Upload response received after", uploadDuration, "ms, status:", response.status);
+
+      const contentType = response.headers.get("content-type") || "";
+      debugLog("[MediaLibraryPicker] Response content-type:", contentType);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[MediaLibraryPicker] Upload failed with status:", response.status);
+        console.error("[MediaLibraryPicker] Response content-type:", contentType);
+        console.error("[MediaLibraryPicker] Error response (first 500 chars):", errorText.substring(0, 500));
+        if (contentType.includes("text/html")) {
+          throw new Error(`Server returned HTML error page (${response.status}). The request may not have reached the action handler.`);
+        }
+        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+      }
+
+      if (!contentType.includes("application/json")) {
+        const responseText = await response.text();
+        console.error("[MediaLibraryPicker] Expected JSON but got:", contentType);
+        console.error("[MediaLibraryPicker] Response (first 500 chars):", responseText.substring(0, 500));
+        throw new Error(`Server returned ${contentType} instead of JSON. Response may be an error page.`);
+      }
+
+      const result = await response.json();
+      debugLog("[MediaLibraryPicker] Upload response data:", result);
+
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+
+      setUploadProgress(100);
+      setIsUploading(false);
+
+      setTimeout(() => {
+        if (result && typeof result === "object" && result.success && result.file) {
+          const newFile = {
+            id: result.file.id,
+            url: result.file.url,
+            alt: result.file.alt || "Uploaded image",
+            createdAt: result.file.createdAt || new Date().toISOString(),
+          };
+          debugLog("[MediaLibraryPicker] Upload successful, file:", newFile);
+          setLocalMediaFiles((prev) => [newFile, ...prev]);
+          setSelectedFileId(newFile.id);
+          if (hiddenInputRef.current) {
+            hiddenInputRef.current.value = newFile.id;
+          }
+          setUploadError("");
+          setUploadSuccess(true);
+          revalidator.revalidate();
+
+          setTimeout(() => {
+            setShowPicker(false);
+            setUploadSuccess(false);
+            setUploadProgress(0);
+          }, 1500);
+        } else {
+          const errorMessage = result?.error || result?.message || "Failed to upload file";
+          console.error("[MediaLibraryPicker] Upload error:", errorMessage);
+          console.error("[MediaLibraryPicker] Full result:", JSON.stringify(result, null, 2));
+          setUploadError(errorMessage);
+          setUploadProgress(0);
+        }
+
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }, 300);
+    } catch (error) {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      console.error("[MediaLibraryPicker] Error uploading file:", error);
+      console.error("[MediaLibraryPicker] Error name:", error.name);
+      console.error("[MediaLibraryPicker] Error message:", error.message);
+      console.error("[MediaLibraryPicker] Error stack:", error.stack);
+
+      let errorMessage = "Failed to upload file. Please try again.";
+      if (error.message?.includes("timeout")) {
+        errorMessage = "Upload timed out. The file may be too large or the server is taking too long to process it.";
+      } else if (error.message?.includes("Failed to fetch") || error.message?.includes("NetworkError")) {
+        errorMessage = "Network error. Please check your connection and try again.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setUploadError(errorMessage);
+      setIsUploading(false);
+      setUploadProgress(0);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (hiddenInputRef.current) {
+      hiddenInputRef.current.value = selectedFileId;
+    }
+  }, [selectedFileId]);
+
+  return (
+    <>
+      <div style={{ marginBottom: "0.5rem" }}>
+        <label htmlFor={triggerId} style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
+          {label}
+        </label>
+        <button
+          type="button"
+          id={triggerId}
+          onClick={() => {
+            setShowPicker(true);
+            setUploadError("");
+            setUploadSuccess(false);
+            setUploadProgress(0);
+          }}
+          style={{
+            width: "100%",
+            padding: "0.5rem",
+            border: "1px solid #c9cccf",
+            borderRadius: "4px",
+            fontSize: "0.875rem",
+            backgroundColor: "#f6f6f7",
+            cursor: "pointer",
+            textAlign: "left",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <span>{selectedFile ? `Selected: ${selectedFile.alt || "Image"}` : `Select ${label} from media library`}</span>
+          <span style={{ color: "#666", fontSize: "0.75rem" }}>Browse →</span>
+        </button>
+        <input type="hidden" ref={hiddenInputRef} name={name} value={selectedFileId} />
+        {selectedFile && selectedFile.url && (
+          <div style={{ marginTop: "0.5rem" }}>
+            <img
+              src={selectedFile.url}
+              alt={selectedFile.alt || ""}
+              style={{
+                maxWidth: "200px",
+                maxHeight: "150px",
+                objectFit: "contain",
+                border: "1px solid #c9cccf",
+                borderRadius: "4px",
+                padding: "0.25rem",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedFileId("");
+                if (hiddenInputRef.current) {
+                  hiddenInputRef.current.value = "";
+                }
+              }}
+              style={{
+                marginTop: "0.25rem",
+                padding: "0.25rem 0.5rem",
+                fontSize: "0.75rem",
+                color: "#d72c0d",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+              }}
+            >
+              Remove
+            </button>
+          </div>
+        )}
+      </div>
+
+      {showPicker && (
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={`Close ${label} picker`}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowPicker(false);
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setShowPicker(false);
+              return;
+            }
+            if ((event.key === "Enter" || event.key === " ") && event.target === event.currentTarget) {
+              event.preventDefault();
+              setShowPicker(false);
+            }
+          }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 2000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "2rem",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Select ${label}`}
+            tabIndex={-1}
+            style={{
+              backgroundColor: "white",
+              borderRadius: "8px",
+              width: "100%",
+              maxWidth: "800px",
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+            }}
+          >
+            <div style={{ padding: "1.5rem", borderBottom: "1px solid #e1e3e5" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "600" }}>Select {label}</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowPicker(false)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    fontSize: "1.5rem",
+                    cursor: "pointer",
+                    color: "#666",
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+                <input
+                  type="text"
+                  placeholder="Search images..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: "0.5rem",
+                    border: "1px solid #c9cccf",
+                    borderRadius: "4px",
+                    fontSize: "0.875rem",
+                  }}
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  style={{ display: "none" }}
+                  disabled={isUploading}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    border: "1px solid #008060",
+                    borderRadius: "4px",
+                    fontSize: "0.875rem",
+                    backgroundColor: "#008060",
+                    color: "white",
+                    cursor: isUploading ? "not-allowed" : "pointer",
+                    opacity: isUploading ? 0.6 : 1,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {isUploading ? "Uploading..." : "Upload Image"}
+                </button>
+              </div>
+              {isUploading && (
+                <div style={{ marginBottom: "0.5rem" }}>
+                  <div
+                    style={{
+                      padding: "0.5rem",
+                      backgroundColor: "#f0f9f6",
+                      border: "1px solid #008060",
+                      borderRadius: "4px",
+                      fontSize: "0.875rem",
+                      marginBottom: "0.25rem",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
+                      <span style={{ color: "#008060", fontWeight: "500" }}>Uploading... {uploadProgress}%</span>
+                    </div>
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "6px",
+                        backgroundColor: "#e1e3e5",
+                        borderRadius: "3px",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${uploadProgress}%`,
+                          height: "100%",
+                          backgroundColor: "#008060",
+                          transition: "width 0.3s ease",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+              {uploadSuccess && (
+                <div
+                  style={{
+                    padding: "0.5rem",
+                    backgroundColor: "#d4edda",
+                    border: "1px solid #c3e6cb",
+                    borderRadius: "4px",
+                    color: "#155724",
+                    fontSize: "0.875rem",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  ✓ File uploaded successfully!
+                </div>
+              )}
+              {uploadError && (
+                <div
+                  style={{
+                    padding: "0.5rem",
+                    backgroundColor: "#fee",
+                    border: "1px solid #fcc",
+                    borderRadius: "4px",
+                    color: "#c00",
+                    fontSize: "0.875rem",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  ✗ {uploadError}
+                </div>
+              )}
+            </div>
+            <div
+              style={{
+                padding: "1.5rem",
+                overflowY: "auto",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+                gap: "1rem",
+              }}
+            >
+              {filteredFiles.length === 0 ? (
+                <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "2rem", color: "#666" }}>
+                  {localMediaFiles.length === 0 ? "No images found in media library" : "No images match your search"}
+                </div>
+              ) : (
+                filteredFiles.map((file) => (
+                  <button
+                    type="button"
+                    key={file.id}
+                    onClick={() => handleSelectFile(file.id)}
+                    aria-pressed={selectedFileId === file.id}
+                    style={{
+                      cursor: "pointer",
+                      border: selectedFileId === file.id ? "2px solid #008060" : "1px solid #c9cccf",
+                      borderRadius: "4px",
+                      padding: "0.5rem",
+                      backgroundColor: selectedFileId === file.id ? "#f0f9f6" : "white",
+                      textAlign: "left",
+                      width: "100%",
+                    }}
+                  >
+                    <img
+                      src={file.url}
+                      alt={file.alt || ""}
+                      style={{
+                        width: "100%",
+                        aspectRatio: "1",
+                        objectFit: "cover",
+                        borderRadius: "4px",
+                        marginBottom: "0.5rem",
+                      }}
+                    />
+                    <div
+                      style={{
+                        fontSize: "0.75rem",
+                        color: "#666",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {file.alt || "Untitled"}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 const mediaFileShape = PropTypes.shape({
   id: PropTypes.string.isRequired,
   url: PropTypes.string,
