@@ -152,16 +152,6 @@ export default function ClockBlockPage() {
 
   const isLoading = navigation.state === "submitting" || fetcher.state === "submitting";
 
-  if (redirectUrl) {
-    return (
-      <s-page heading="ClockBlock | Entries">
-        <s-section>
-          <p>Redirecting to Shopify billing…</p>
-        </s-section>
-      </s-page>
-    );
-  }
-
   return (
     <s-page heading="ClockBlock | Entries">
       {(loaderError || fetcher.data?.error) && (
