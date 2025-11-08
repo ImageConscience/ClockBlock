@@ -1418,7 +1418,12 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
             }
           }}
           onKeyDown={(event) => {
-            if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setShowPicker(false);
+              return;
+            }
+            if ((event.key === "Enter" || event.key === " ") && event.target === event.currentTarget) {
               event.preventDefault();
               setShowPicker(false);
             }
@@ -2007,7 +2012,12 @@ export default function ClockBlockPage() {
             }
           }}
           onKeyDown={(event) => {
-            if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              handleCloseForm();
+              return;
+            }
+            if ((event.key === "Enter" || event.key === " ") && event.target === event.currentTarget) {
               event.preventDefault();
               handleCloseForm();
             }
@@ -2796,7 +2806,12 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess, userTimeZone, u
         }
       }}
       onKeyDown={(event) => {
-        if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onClose();
+          return;
+        }
+        if ((event.key === "Enter" || event.key === " ") && event.target === event.currentTarget) {
           event.preventDefault();
           onClose();
         }
@@ -3109,7 +3124,12 @@ function DeleteEntryModal({ entry, onClose, onSuccess }) {
         }
       }}
       onKeyDown={(event) => {
-        if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          onClose();
+          return;
+        }
+        if ((event.key === "Enter" || event.key === " ") && event.target === event.currentTarget) {
           event.preventDefault();
           onClose();
         }
