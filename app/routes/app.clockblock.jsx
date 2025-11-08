@@ -10,6 +10,18 @@ import {
   createAppBridgeRedirect,
   ensureActiveSubscription,
 } from "../utils/billing.server";
+
+const isDevEnvironment = process.env.NODE_ENV !== "production";
+const debugLog = (...args) => {
+  if (isDevEnvironment) {
+    debugLog(...args);
+  }
+};
+const debugWarn = (...args) => {
+  if (isDevEnvironment) {
+    debugWarn(...args);
+  }
+};
 // createRequire no longer needed - removed form-data package
 
 // Helper to return JSON response (React Router v7 compatible)
@@ -164,7 +176,7 @@ export const loader = async ({ request }) => {
     );
     const jsonResponse = await response.json();
 
-    console.log("Loader GraphQL response:", JSON.stringify(jsonResponse, null, 2));
+    debugLog("Loader GraphQL response:", JSON.stringify(jsonResponse, null, 2));
 
     // Check for GraphQL errors
     if (jsonResponse?.errors) {
@@ -172,7 +184,7 @@ export const loader = async ({ request }) => {
       // If the error is about the type not existing, return empty array
       const errorMessages = jsonResponse.errors.map((e) => e.message).join(", ");
       if (errorMessages.includes("metaobject definition") || errorMessages.includes("type")) {
-        console.warn("Metaobject definition may not exist yet. Returning empty entries.");
+        debugWarn("Metaobject definition may not exist yet. Returning empty entries.");
         return { entries: [], error: "Metaobject definition not found. Please ensure the app has been properly installed." };
       }
       throw new Error(`GraphQL error: ${errorMessages}`);
@@ -236,18 +248,18 @@ export const loader = async ({ request }) => {
 export const action = async ({ request }) => {
   // Wrap everything in try-catch to ensure we always return JSON
   try {
-    console.log("[ACTION] ========== ACTION CALLED ==========");
-    console.log("[ACTION] Request URL:", request.url);
-    console.log("[ACTION] Request method:", request.method);
-    console.log("[ACTION] Content-Type:", request.headers.get("content-type"));
-    console.log("[ACTION] Accept header:", request.headers.get("accept"));
-    console.log("[ACTION] X-Requested-With:", request.headers.get("x-requested-with"));
+    debugLog("[ACTION] ========== ACTION CALLED ==========");
+    debugLog("[ACTION] Request URL:", request.url);
+    debugLog("[ACTION] Request method:", request.method);
+    debugLog("[ACTION] Content-Type:", request.headers.get("content-type"));
+    debugLog("[ACTION] Accept header:", request.headers.get("accept"));
+    debugLog("[ACTION] X-Requested-With:", request.headers.get("x-requested-with"));
     
     // Check if this is a fetcher request (from useFetcher)
     // Fetcher requests typically have Accept: */* or similar, not text/html
     const acceptHeader = request.headers.get("accept") || "";
     const isFetcherRequest = acceptHeader.includes("*/*") || acceptHeader.includes("application/json") || !acceptHeader.includes("text/html");
-    console.log("[ACTION] Is fetcher request:", isFetcherRequest);
+    debugLog("[ACTION] Is fetcher request:", isFetcherRequest);
     
     // Check if this is a JSON request (for update/delete)
     const contentType = request.headers.get("content-type") || "";
@@ -260,7 +272,7 @@ export const action = async ({ request }) => {
       }
       
       if (body.intent === "delete") {
-        console.log("[ACTION] Processing delete request for entry:", body.id);
+        debugLog("[ACTION] Processing delete request for entry:", body.id);
         const deleteResponse = await admin.graphql(
           `#graphql
           mutation DeleteSchedulableEntity($id: ID!) {
@@ -292,12 +304,12 @@ export const action = async ({ request }) => {
           return json({ error: `Failed to delete entry: ${errors}`, success: false });
         }
         
-        console.log("[ACTION] Entry deleted successfully");
+        debugLog("[ACTION] Entry deleted successfully");
         return json({ success: true, message: "Entry deleted successfully!" });
       }
       
       if (body.intent === "update") {
-        console.log("[ACTION] Processing update request for entry:", body.id);
+        debugLog("[ACTION] Processing update request for entry:", body.id);
         
         const fields = [];
         const userTimeZone = typeof body.timezone === "string" && body.timezone.trim() ? body.timezone.trim() : null;
@@ -381,12 +393,12 @@ export const action = async ({ request }) => {
           return json({ error: `Failed to update entry: ${errors}`, success: false });
         }
         
-        console.log("[ACTION] Entry updated successfully");
+        debugLog("[ACTION] Entry updated successfully");
         return json({ success: true, message: "Entry updated successfully!" });
       }
       
       if (body.intent === "toggleStatus") {
-        console.log("[ACTION] Processing toggle status request for entry:", body.id, "to status:", body.status);
+        debugLog("[ACTION] Processing toggle status request for entry:", body.id, "to status:", body.status);
         
         const toggleResponse = await admin.graphql(
           `#graphql
@@ -438,27 +450,27 @@ export const action = async ({ request }) => {
           return json({ error: `Failed to toggle status: ${errors}`, success: false });
         }
         
-        console.log("[ACTION] Status toggled successfully");
+        debugLog("[ACTION] Status toggled successfully");
         return json({ success: true, message: "Status updated successfully!" });
       }
     }
     
     const formData = await request.formData();
-    console.log("[ACTION] FormData received, checking contents...");
+    debugLog("[ACTION] FormData received, checking contents...");
     
     // Log all formData keys to debug
     const formDataKeys = [];
     for (const [key, value] of formData.entries()) {
       formDataKeys.push(key);
-      console.log("[ACTION] FormData key:", key, "value type:", value instanceof File ? "File" : typeof value, value instanceof File ? `(${value.name}, ${value.size} bytes)` : "");
+      debugLog("[ACTION] FormData key:", key, "value type:", value instanceof File ? "File" : typeof value, value instanceof File ? `(${value.name}, ${value.size} bytes)` : "");
     }
-    console.log("[ACTION] All formData keys:", formDataKeys);
+    debugLog("[ACTION] All formData keys:", formDataKeys);
     
     // Check if this is a file upload request (has file but no title/position_id)
     const file = formData.get("file");
     const hasTitle = formData.get("title");
     
-    console.log("[ACTION] File present:", !!file, "Has title:", !!hasTitle, "File type:", file instanceof File ? file.type : typeof file);
+    debugLog("[ACTION] File present:", !!file, "Has title:", !!hasTitle, "File type:", file instanceof File ? file.type : typeof file);
     
     const { admin } = await authenticate.admin(request);
     const formBillingRedirect = await ensureActiveSubscription(admin);
@@ -467,9 +479,9 @@ export const action = async ({ request }) => {
     }
     
     if (file && !hasTitle) {
-    console.log("[ACTION] Detected file upload request - using official Shopify staged upload method");
+    debugLog("[ACTION] Detected file upload request - using official Shopify staged upload method");
     try {
-      console.log("[ACTION] Admin authenticated successfully for file upload");
+      debugLog("[ACTION] Admin authenticated successfully for file upload");
       
       if (!file) {
         return json({ error: "No file provided", success: false });
@@ -497,7 +509,7 @@ export const action = async ({ request }) => {
       const fileType = file.type || "image/jpeg";
       const fileSize = file.size || 0;
       
-      console.log("[ACTION] File:", fileName, "Type:", fileType, "Size:", fileSize, "bytes");
+      debugLog("[ACTION] File:", fileName, "Type:", fileType, "Size:", fileSize, "bytes");
       
       // Convert file to Buffer for upload
       let arrayBuffer;
@@ -528,7 +540,7 @@ export const action = async ({ request }) => {
       const fileBuffer = Buffer.from(arrayBuffer);
       
       // Step 1: Create staged upload target using official Shopify method
-      console.log("[ACTION] Step 1: Creating staged upload target...");
+      debugLog("[ACTION] Step 1: Creating staged upload target...");
       const stagedUploadResponse = await admin.graphql(
         `#graphql
         mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
@@ -563,7 +575,7 @@ export const action = async ({ request }) => {
       );
       
       const stagedUploadJson = await stagedUploadResponse.json();
-      console.log("[ACTION] Staged upload response received");
+      debugLog("[ACTION] Staged upload response received");
       
       if (stagedUploadJson?.errors) {
         const errors = stagedUploadJson.errors.map((e) => e.message).join(", ");
@@ -585,12 +597,12 @@ export const action = async ({ request }) => {
         return json({ error: "Failed to create staged upload: Invalid response", success: false });
       }
       
-      console.log("[ACTION] Staged upload created. Upload URL:", stagedTarget.url);
-      console.log("[ACTION] Resource URL:", stagedTarget.resourceUrl);
-      console.log("[ACTION] Parameters:", stagedTarget.parameters?.length || 0, "parameters");
+      debugLog("[ACTION] Staged upload created. Upload URL:", stagedTarget.url);
+      debugLog("[ACTION] Resource URL:", stagedTarget.resourceUrl);
+      debugLog("[ACTION] Parameters:", stagedTarget.parameters?.length || 0, "parameters");
       
       // Step 2: Upload file to GCS using multipart/form-data
-      console.log("[ACTION] Step 2: Uploading file to Google Cloud Storage...");
+      debugLog("[ACTION] Step 2: Uploading file to Google Cloud Storage...");
       const FormData = (await import("form-data")).default;
       const formData = new FormData();
       
@@ -598,7 +610,7 @@ export const action = async ({ request }) => {
       if (stagedTarget.parameters) {
         for (const param of stagedTarget.parameters) {
           formData.append(param.name, param.value);
-          console.log("[ACTION] Added parameter:", param.name, "=", param.value.substring(0, 50) + (param.value.length > 50 ? "..." : ""));
+          debugLog("[ACTION] Added parameter:", param.name, "=", param.value.substring(0, 50) + (param.value.length > 50 ? "..." : ""));
         }
       }
       
@@ -608,15 +620,15 @@ export const action = async ({ request }) => {
         contentType: fileType,
       });
       
-      console.log("[ACTION] Uploading to:", stagedTarget.url);
-      console.log("[ACTION] File buffer size:", fileBuffer.length, "bytes");
+      debugLog("[ACTION] Uploading to:", stagedTarget.url);
+      debugLog("[ACTION] File buffer size:", fileBuffer.length, "bytes");
       
       // Use undici.request with proper form-data stream handling
       const undici = await import("undici");
       
       // Get headers with boundary
       const uploadHeaders = formData.getHeaders();
-      console.log("[ACTION] Upload headers:", Object.keys(uploadHeaders));
+      debugLog("[ACTION] Upload headers:", Object.keys(uploadHeaders));
       
       // Make request - undici handles form-data streams natively
       const uploadResponse = await undici.request(stagedTarget.url, {
@@ -636,12 +648,12 @@ export const action = async ({ request }) => {
         });
       }
       
-      console.log("[ACTION] GCS upload response:", uploadResponse.statusCode, responseBody.substring(0, 200));
+      debugLog("[ACTION] GCS upload response:", uploadResponse.statusCode, responseBody.substring(0, 200));
       
-      console.log("[ACTION] File uploaded successfully to GCS");
+      debugLog("[ACTION] File uploaded successfully to GCS");
       
       // Step 3: Create file record in Shopify using resourceUrl
-      console.log("[ACTION] Step 3: Creating file record in Shopify...");
+      debugLog("[ACTION] Step 3: Creating file record in Shopify...");
       const fileCreateResponse = await admin.graphql(
         `#graphql
         mutation fileCreate($files: [FileCreateInput!]!) {
@@ -679,8 +691,8 @@ export const action = async ({ request }) => {
       );
       
       const fileCreateJson = await fileCreateResponse.json();
-      console.log("[ACTION] File create response received");
-      console.log("[ACTION] File create response:", JSON.stringify(fileCreateJson, null, 2));
+      debugLog("[ACTION] File create response received");
+      debugLog("[ACTION] File create response:", JSON.stringify(fileCreateJson, null, 2));
       
       if (fileCreateJson?.errors) {
         const errors = fileCreateJson.errors.map((e) => e.message).join(", ");
@@ -700,17 +712,17 @@ export const action = async ({ request }) => {
         return json({ error: "File uploaded but no ID returned", success: false });
       }
       
-      console.log("[ACTION] File uploaded successfully, ID:", uploadedFile.id);
-      console.log("[ACTION] File status:", uploadedFile.fileStatus);
-      console.log("[ACTION] File alt:", uploadedFile.alt);
-      console.log("[ACTION] File image URL:", uploadedFile.image?.url);
+      debugLog("[ACTION] File uploaded successfully, ID:", uploadedFile.id);
+      debugLog("[ACTION] File status:", uploadedFile.fileStatus);
+      debugLog("[ACTION] File alt:", uploadedFile.alt);
+      debugLog("[ACTION] File image URL:", uploadedFile.image?.url);
       
       // If the file is still processing and URL is not available, poll for it
       let fileUrl = uploadedFile.image?.url || "";
       let fileAlt = uploadedFile.alt || fileName;
       
       if (!fileUrl && uploadedFile.fileStatus !== "READY") {
-        console.log("[ACTION] File is still processing, waiting for URL...");
+        debugLog("[ACTION] File is still processing, waiting for URL...");
         // Poll up to 5 times with 1 second delay
         for (let i = 0; i < 5; i++) {
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -741,11 +753,11 @@ export const action = async ({ request }) => {
           if (fileNode?.image?.url) {
             fileUrl = fileNode.image.url;
             fileAlt = fileNode.alt || fileName;
-            console.log("[ACTION] File URL now available:", fileUrl);
+            debugLog("[ACTION] File URL now available:", fileUrl);
             break;
           }
           
-          console.log("[ACTION] Still processing, attempt", i + 1, "of 5");
+          debugLog("[ACTION] Still processing, attempt", i + 1, "of 5");
         }
       }
       
@@ -758,15 +770,15 @@ export const action = async ({ request }) => {
         },
       });
       
-      console.log("[ACTION] Returning success response:", JSON.stringify({
+      debugLog("[ACTION] Returning success response:", JSON.stringify({
         success: true,
         file: {
           id: uploadedFile.id,
           url: uploadedFile.image?.url || "",
         },
       }));
-      console.log("[ACTION] Response Content-Type:", successResponse.headers.get("content-type"));
-      console.log("[ACTION] Response status:", successResponse.status);
+      debugLog("[ACTION] Response Content-Type:", successResponse.headers.get("content-type"));
+      debugLog("[ACTION] Response status:", successResponse.status);
       
       // Ensure we return the response directly - don't let React Router wrap it
       return successResponse;
@@ -783,9 +795,9 @@ export const action = async ({ request }) => {
   }
   
   // Entry creation logic (only reached if not a file upload)
-  console.log("[ACTION] Action called - starting entry creation");
-    console.log("[ACTION] Admin authenticated successfully");
-    console.log("[ACTION] Form data received");
+  debugLog("[ACTION] Action called - starting entry creation");
+    debugLog("[ACTION] Admin authenticated successfully");
+    debugLog("[ACTION] Form data received");
 
     const positionId = String(formData.get("position_id") || "").trim();
     const startAt = String(formData.get("start_at") || "").trim();
@@ -823,9 +835,9 @@ export const action = async ({ request }) => {
       definitionExists = Boolean(defJson?.data?.metaobjectDefinitionByType?.id);
       
       if (definitionExists) {
-        console.log("[ACTION] Metaobject definition exists.");
+        debugLog("[ACTION] Metaobject definition exists.");
       } else {
-        console.log("[ACTION] Metaobject definition does not exist. Creating it...");
+        debugLog("[ACTION] Metaobject definition does not exist. Creating it...");
       }
     } catch (defError) {
       console.error("[ACTION] Could not query metaobject definition:", defError);
@@ -835,7 +847,7 @@ export const action = async ({ request }) => {
     // If definition doesn't exist, create it
     if (!definitionExists) {
     try {
-      console.log("[ACTION] Creating metaobject definition...");
+      debugLog("[ACTION] Creating metaobject definition...");
       const createDefResponse = await admin.graphql(
         `#graphql
         mutation CreateSchedulableEntityDefinition($definition: MetaobjectDefinitionCreateInput!) {
@@ -936,7 +948,7 @@ export const action = async ({ request }) => {
         }
       );
       const createDefJson = await createDefResponse.json();
-      console.log("[ACTION] Create definition response:", JSON.stringify(createDefJson, null, 2));
+      debugLog("[ACTION] Create definition response:", JSON.stringify(createDefJson, null, 2));
 
       if (createDefJson?.data?.metaobjectDefinitionCreate?.userErrors?.length > 0) {
         const errors = createDefJson.data.metaobjectDefinitionCreate.userErrors
@@ -949,7 +961,7 @@ export const action = async ({ request }) => {
       }
 
       if (createDefJson?.data?.metaobjectDefinitionCreate?.metaobjectDefinition?.id) {
-        console.log("[ACTION] Metaobject definition created successfully");
+        debugLog("[ACTION] Metaobject definition created successfully");
         definitionExists = true;
       } else {
         return json({
@@ -980,7 +992,7 @@ export const action = async ({ request }) => {
       });
     }
 
-    console.log("Raw form data:", {
+    debugLog("Raw form data:", {
       positionId,
       startAt,
       endAt,
@@ -1059,8 +1071,8 @@ export const action = async ({ request }) => {
     // Convert status to Shopify metaobject publish status
     const publishStatus = status === "draft" ? "DRAFT" : "ACTIVE";
 
-    console.log("Creating metaobject with fields:", JSON.stringify(fields, null, 2));
-    console.log("Metaobject publish status:", publishStatus);
+    debugLog("Creating metaobject with fields:", JSON.stringify(fields, null, 2));
+    debugLog("Metaobject publish status:", publishStatus);
 
     // Create the metaobject with publishable capability
     const createResponse = await admin.graphql(
@@ -1089,7 +1101,7 @@ export const action = async ({ request }) => {
     );
     const createJson = await createResponse.json();
 
-    console.log("Metaobject create response:", JSON.stringify(createJson, null, 2));
+    debugLog("Metaobject create response:", JSON.stringify(createJson, null, 2));
 
     if (createJson?.data?.metaobjectCreate?.userErrors?.length > 0) {
       const errors = createJson.data.metaobjectCreate.userErrors
@@ -1111,7 +1123,7 @@ export const action = async ({ request }) => {
 
     // For fetcher.Form, we need to return success and let the component handle reload
     // Using redirect with fetcher doesn't work the same way
-    console.log("[ACTION] Entry created successfully, returning success");
+    debugLog("[ACTION] Entry created successfully, returning success");
     return json({ success: true, message: "Entry created successfully!" });
   } catch (error) {
     console.error("[ACTION] ========== ERROR IN ACTION ==========");
@@ -1167,15 +1179,15 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
 
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
-    console.log("[MediaLibraryPicker] File selected:", file?.name, "Size:", file?.size, "Type:", file?.type);
+    debugLog("[MediaLibraryPicker] File selected:", file?.name, "Size:", file?.size, "Type:", file?.type);
     
     if (!file) {
-      console.log("[MediaLibraryPicker] No file selected");
+      debugLog("[MediaLibraryPicker] No file selected");
       return;
     }
     
     if (!file.type.startsWith("image/")) {
-      console.log("[MediaLibraryPicker] Invalid file type:", file.type);
+      debugLog("[MediaLibraryPicker] Invalid file type:", file.type);
       setUploadError("Please upload an image file");
       return;
     }
@@ -1202,12 +1214,12 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
     try {
       const uploadFormData = new FormData();
       uploadFormData.append("file", file);
-      console.log("[MediaLibraryPicker] FormData created, submitting...");
-      console.log("[MediaLibraryPicker] Submitting FormData with file:", file.name, "Size:", file.size, "Type:", file.type);
+      debugLog("[MediaLibraryPicker] FormData created, submitting...");
+      debugLog("[MediaLibraryPicker] Submitting FormData with file:", file.name, "Size:", file.size, "Type:", file.type);
       
       // Use direct fetch() instead of fetcher.submit() because React Router's fetcher
       // doesn't properly serialize File objects in FormData - it converts them to strings
-      console.log("[MediaLibraryPicker] Starting fetch request to:", window.location.pathname);
+      debugLog("[MediaLibraryPicker] Starting fetch request to:", window.location.pathname);
       const uploadStartTime = Date.now();
       
       // Create a timeout promise (60 seconds for large file uploads)
@@ -1226,11 +1238,11 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
       const response = await Promise.race([fetchPromise, timeoutPromise]);
       const uploadDuration = Date.now() - uploadStartTime;
       
-      console.log("[MediaLibraryPicker] Upload response received after", uploadDuration, "ms, status:", response.status);
+      debugLog("[MediaLibraryPicker] Upload response received after", uploadDuration, "ms, status:", response.status);
       
       // Check content type to ensure we got JSON, not HTML
       const contentType = response.headers.get("content-type") || "";
-      console.log("[MediaLibraryPicker] Response content-type:", contentType);
+      debugLog("[MediaLibraryPicker] Response content-type:", contentType);
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -1255,7 +1267,7 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
       }
       
       const result = await response.json();
-      console.log("[MediaLibraryPicker] Upload response data:", result);
+      debugLog("[MediaLibraryPicker] Upload response data:", result);
       
       // Clean up progress interval
       if (progressIntervalRef.current) {
@@ -1276,7 +1288,7 @@ function MediaLibraryPicker({ name, label, mediaFiles = [], defaultValue = "" })
             alt: result.file.alt || "Uploaded image",
             createdAt: result.file.createdAt || new Date().toISOString(), // Use current timestamp if not provided
           };
-          console.log("[MediaLibraryPicker] Upload successful, file:", newFile);
+          debugLog("[MediaLibraryPicker] Upload successful, file:", newFile);
           setLocalMediaFiles((prev) => [newFile, ...prev]);
           // Automatically select the newly uploaded file
           setSelectedFileId(newFile.id);
@@ -1927,7 +1939,7 @@ export default function ClockBlockPage() {
       return;
     }
 
-    console.log("[CLIENT] Handling new fetcher response:", fetcher.data);
+    debugLog("[CLIENT] Handling new fetcher response:", fetcher.data);
     
     if (fetcher.data?.error) {
       console.error("[CLIENT] Error in fetcher data:", fetcher.data.error);
@@ -1938,7 +1950,7 @@ export default function ClockBlockPage() {
       shopify.toast.show("Failed to create entry", { isError: true });
       handledResponseRef.current = responseId;
     } else if (fetcher.data?.success === true) {
-      console.log("[CLIENT] Entry created successfully, reloading entries");
+      debugLog("[CLIENT] Entry created successfully, reloading entries");
       shopify.toast.show(fetcher.data.message || "Entry created successfully!", { isError: false });
       handledResponseRef.current = responseId;
       // Reload the entries list
