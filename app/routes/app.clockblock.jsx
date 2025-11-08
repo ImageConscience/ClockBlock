@@ -2003,25 +2003,8 @@ export default function ClockBlockPage() {
       {/* Modal Overlay */}
       {showForm && (
         <div
-          role="button"
-          tabIndex={0}
-          aria-label="Close create entry modal"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              handleCloseForm();
-            }
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              handleCloseForm();
-              return;
-            }
-            if ((event.key === "Enter" || event.key === " ") && event.target === event.currentTarget) {
-              event.preventDefault();
-              handleCloseForm();
-            }
-          }}
+          role="presentation"
+          aria-hidden="true"
           style={{
             position: "fixed",
             top: 0,
@@ -2797,25 +2780,8 @@ function EditEntryModal({ entry, mediaFiles, onClose, onSuccess, userTimeZone, u
   
   return (
     <div
-      role="button"
-      tabIndex={0}
-      aria-label="Close edit entry modal"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          onClose();
-          return;
-        }
-        if ((event.key === "Enter" || event.key === " ") && event.target === event.currentTarget) {
-          event.preventDefault();
-          onClose();
-        }
-      }}
+      role="presentation"
+      aria-hidden="true"
       style={{
         position: "fixed",
         top: 0,
@@ -3115,25 +3081,8 @@ function DeleteEntryModal({ entry, onClose, onSuccess }) {
   
   return (
     <div
-      role="button"
-      tabIndex={0}
-      aria-label="Close delete entry confirmation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          onClose();
-          return;
-        }
-        if ((event.key === "Enter" || event.key === " ") && event.target === event.currentTarget) {
-          event.preventDefault();
-          onClose();
-        }
-      }}
+      role="presentation"
+      aria-hidden="true"
       style={{
         position: "fixed",
         top: 0,
