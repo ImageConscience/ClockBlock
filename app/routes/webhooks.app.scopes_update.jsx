@@ -1,3 +1,5 @@
+/* eslint-env node */
+
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 

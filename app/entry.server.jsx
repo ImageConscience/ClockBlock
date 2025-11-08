@@ -1,3 +1,5 @@
+/* eslint-env node */
+
 import { PassThrough } from "stream";
 import { renderToPipeableStream } from "react-dom/server";
 import { ServerRouter } from "react-router";
@@ -7,12 +9,12 @@ import { addDocumentResponseHeaders } from "./shopify.server";
 
 export const streamTimeout = 5000;
 
-const isDevEnvironment = process.env.NODE_ENV !== "production";
-const shouldLogEntry =
-  process.env.DEBUG_ENTRY_LOGS === "true" || isDevEnvironment;
+const NODE_ENV = process.env.NODE_ENV || "production";
+const isDevEnvironment = NODE_ENV !== "production";
+const shouldLogEntry = process.env.DEBUG_ENTRY_LOGS === "true" || isDevEnvironment;
 const entryLog = (...args) => {
   if (shouldLogEntry) {
-    entryLog(...args);
+    console.log(...args);
   }
 };
 const entryWarn = (...args) => {

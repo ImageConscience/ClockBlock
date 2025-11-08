@@ -3,19 +3,13 @@ import { useFetcher, useLoaderData, useNavigation, useRevalidator, useRouteError
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import PropTypes from "prop-types";
-import { parseLocalDateTimeToUTC, getDefaultDateBounds } from "../utils/datetime";
-
 export { loader, action } from "../services/clockblock.server";
 
-const isDevEnvironment = process.env.NODE_ENV !== "production";
+const isDevEnvironment =
+  (typeof import.meta !== "undefined" && import.meta.env?.MODE !== "production") || typeof import.meta === "undefined";
 const debugLog = (...args) => {
   if (isDevEnvironment) {
     console.log(...args);
-  }
-};
-const debugWarn = (...args) => {
-  if (isDevEnvironment) {
-    console.warn(...args);
   }
 };
 
