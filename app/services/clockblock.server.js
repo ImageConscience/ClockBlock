@@ -19,7 +19,7 @@ const debugWarn = (...args) => {
 export const loader = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
 
-  const confirmationUrl = await ensureActiveSubscription(admin);
+  const confirmationUrl = await ensureActiveSubscription(admin, request);
   if (confirmationUrl) {
     return json({ redirectUrl: confirmationUrl });
   }
@@ -138,7 +138,7 @@ export const action = async ({ request }) => {
 
     const { admin } = await authenticate.admin(request);
 
-    const confirmationUrl = await ensureActiveSubscription(admin);
+    const confirmationUrl = await ensureActiveSubscription(admin, request);
     if (confirmationUrl) {
       return json({ redirectUrl: confirmationUrl });
     }

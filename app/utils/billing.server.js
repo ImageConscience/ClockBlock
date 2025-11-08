@@ -7,7 +7,6 @@ const INTERVAL = (process.env.BILLING_INTERVAL || "EVERY_30_DAYS").toUpperCase()
 const TRIAL_DAYS = Number.parseInt(process.env.BILLING_TRIAL_DAYS ?? "7", 10);
 const TEST_MODE = process.env.BILLING_TEST === "true" || process.env.NODE_ENV !== "production";
 const APP_BASE_URL = process.env.BILLING_RETURN_URL || process.env.SHOPIFY_APP_URL;
-const RETURN_URL = APP_BASE_URL ? new URL("/app/clockblock", APP_BASE_URL).toString() : null;
 
 const CHECK_SUBSCRIPTION_QUERY = `#graphql
   query CheckClockBlockSubscription {
@@ -79,7 +78,7 @@ const isBillingConfigured =
   AMOUNT > 0 &&
   typeof PLAN_NAME === "string" &&
   PLAN_NAME.length > 0 &&
-  RETURN_URL;
+  APP_BASE_URL;
 
 const APP_BRIDGE_REDIRECT_HEADER = "X-Shopify-App-Bridge-Redirect";
 const APP_BRIDGE_REDIRECT_URL_HEADER = "X-Shopify-App-Bridge-Redirect-Url";
@@ -96,7 +95,7 @@ export function createAppBridgeRedirect(confirmationUrl) {
   });
 }
 
-export async function ensureActiveSubscription(admin) {
+export async function ensureActiveSubscription(admin, request) {
   console.log("[billing] ensureActiveSubscription called");
   if (!isBillingConfigured) {
     if (BILLING_ENABLED) {
@@ -105,6 +104,23 @@ export async function ensureActiveSubscription(admin) {
       );
     }
     return null;
+  }
+
+  const url = new URL(request.url);
+  const hostParam = url.searchParams.get("host");
+  const shopParam =
+    url.searchParams.get("shop") ||
+    url.searchParams.get("shopify") ||
+    admin?.session?.shop ||
+    request.headers.get("x-shopify-shop-domain") ||
+    undefined;
+
+  const returnUrl = new URL("/app/clockblock", APP_BASE_URL);
+  if (hostParam) {
+    returnUrl.searchParams.set("host", hostParam);
+  }
+  if (shopParam) {
+    returnUrl.searchParams.set("shop", shopParam);
   }
 
   try {
@@ -165,7 +181,7 @@ export async function ensureActiveSubscription(admin) {
         amount: AMOUNT.toFixed(2),
         currencyCode: CURRENCY_CODE,
         interval: INTERVAL,
-        returnUrl: RETURN_URL,
+        returnUrl: returnUrl.toString(),
         test: TEST_MODE,
       },
     });

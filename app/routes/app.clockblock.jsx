@@ -48,7 +48,10 @@ export default function ClockBlockPage() {
       if (shopify) {
         try {
           const redirect = Redirect.create(shopify);
-          redirect.dispatch(Redirect.Action.REMOTE, url);
+          redirect.dispatch(Redirect.Action.REMOTE, {
+            url,
+            newContext: true,
+          });
           return;
         } catch (error) {
           console.error("[CLIENT] Failed to dispatch App Bridge redirect:", error);
