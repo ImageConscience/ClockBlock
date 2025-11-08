@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, useId } from "react";
+import { useCallback, useEffect, useRef, useState, useId } from "react";
 import { useFetcher, useLoaderData, useNavigation, useRevalidator, useRouteError } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
+import { Redirect } from "@shopify/app-bridge/actions";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import PropTypes from "prop-types";
 export { loader, action } from "../services/clockblock.server";
@@ -35,6 +36,35 @@ export default function ClockBlockPage() {
   const [userTimeZone, setUserTimeZone] = useState("UTC");
   const [userTimezoneOffset, setUserTimezoneOffset] = useState(0);
   const statusInputId = useId();
+  const toast = shopify?.toast;
+
+  const performRedirect = useCallback(
+    (url, source) => {
+      if (!url) {
+        return;
+      }
+
+      debugLog(`[CLIENT] Billing redirect requested from ${source}:`, url);
+
+      if (shopify) {
+        try {
+          const redirect = Redirect.create(shopify);
+          redirect.dispatch(Redirect.Action.REMOTE, {
+            url,
+            newContext: true,
+          });
+          return;
+        } catch (error) {
+          console.error("[CLIENT] Failed to dispatch App Bridge redirect:", error);
+        }
+      }
+
+      if (typeof window !== "undefined") {
+        window.location.assign(url);
+      }
+    },
+    [shopify],
+  );
 
   useEffect(() => {
     // Skip if no fetcher data
@@ -57,27 +87,22 @@ export default function ClockBlockPage() {
 
     debugLog("[CLIENT] Handling new fetcher response:", fetcher.data);
     if (fetcher.data?.redirectUrl) {
-      debugLog("[CLIENT] Billing redirect requested from action:", fetcher.data.redirectUrl);
-      if (shopify?.redirect?.toURL) {
-        shopify.redirect.toURL(fetcher.data.redirectUrl);
-      } else if (typeof window !== "undefined") {
-        window.top ? (window.top.location.href = fetcher.data.redirectUrl) : (window.location.href = fetcher.data.redirectUrl);
-      }
+      performRedirect(fetcher.data.redirectUrl, "action");
       handledResponseRef.current = responseId;
       return;
     }
     
     if (fetcher.data?.error) {
       console.error("[CLIENT] Error in fetcher data:", fetcher.data.error);
-      shopify.toast.show(fetcher.data.error, { isError: true });
+      toast?.show(fetcher.data.error, { isError: true });
       handledResponseRef.current = responseId;
     } else if (fetcher.data?.success === false) {
       console.error("[CLIENT] Failed to create entry");
-      shopify.toast.show("Failed to create entry", { isError: true });
+      toast?.show("Failed to create entry", { isError: true });
       handledResponseRef.current = responseId;
     } else if (fetcher.data?.success === true) {
       debugLog("[CLIENT] Entry created successfully, reloading entries");
-      shopify.toast.show(fetcher.data.message || "Entry created successfully!", { isError: false });
+      toast?.show(fetcher.data.message || "Entry created successfully!", { isError: false });
       handledResponseRef.current = responseId;
       // Reload the entries list
       revalidator.revalidate();
@@ -90,7 +115,7 @@ export default function ClockBlockPage() {
       // Close the modal after successful submission
       setShowForm(false);
     }
-  }, [fetcher.data, fetcher.state, shopify, revalidator]);
+  }, [fetcher.data, fetcher.state, performRedirect, revalidator, toast]);
 
   // Clear handled response when starting a new submission
   useEffect(() => {
@@ -102,21 +127,16 @@ export default function ClockBlockPage() {
   useEffect(() => {
     if (loaderError) {
       console.error("[CLIENT] Loader error:", loaderError);
-      shopify.toast.show(loaderError, { isError: true });
+      toast?.show(loaderError, { isError: true });
     }
-  }, [loaderError, shopify]);
+  }, [loaderError, toast]);
 
   useEffect(() => {
     if (!redirectUrl) {
       return;
     }
-    debugLog("[CLIENT] Billing redirect requested from loader:", redirectUrl);
-    if (shopify?.redirect?.toURL) {
-      shopify.redirect.toURL(redirectUrl);
-    } else if (typeof window !== "undefined") {
-      window.top ? (window.top.location.href = redirectUrl) : (window.location.href = redirectUrl);
-    }
-  }, [redirectUrl, shopify]);
+    performRedirect(redirectUrl, "loader");
+  }, [redirectUrl, performRedirect]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
