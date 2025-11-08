@@ -36,7 +36,6 @@ export default function ClockBlockPage() {
   const [userTimeZone, setUserTimeZone] = useState("UTC");
   const [userTimezoneOffset, setUserTimezoneOffset] = useState(0);
   const statusInputId = useId();
-  const toast = shopify?.toast;
 
   const performRedirect = useCallback(
     (url, source) => {
@@ -94,15 +93,12 @@ export default function ClockBlockPage() {
     
     if (fetcher.data?.error) {
       console.error("[CLIENT] Error in fetcher data:", fetcher.data.error);
-      toast?.show(fetcher.data.error, { isError: true });
       handledResponseRef.current = responseId;
     } else if (fetcher.data?.success === false) {
       console.error("[CLIENT] Failed to create entry");
-      toast?.show("Failed to create entry", { isError: true });
       handledResponseRef.current = responseId;
     } else if (fetcher.data?.success === true) {
       debugLog("[CLIENT] Entry created successfully, reloading entries");
-      toast?.show(fetcher.data.message || "Entry created successfully!", { isError: false });
       handledResponseRef.current = responseId;
       // Reload the entries list
       revalidator.revalidate();
@@ -115,7 +111,7 @@ export default function ClockBlockPage() {
       // Close the modal after successful submission
       setShowForm(false);
     }
-  }, [fetcher.data, fetcher.state, performRedirect, revalidator, toast]);
+  }, [fetcher.data, fetcher.state, performRedirect, revalidator]);
 
   // Clear handled response when starting a new submission
   useEffect(() => {
@@ -127,9 +123,8 @@ export default function ClockBlockPage() {
   useEffect(() => {
     if (loaderError) {
       console.error("[CLIENT] Loader error:", loaderError);
-      toast?.show(loaderError, { isError: true });
     }
-  }, [loaderError, toast]);
+  }, [loaderError]);
 
   useEffect(() => {
     if (!redirectUrl) {
